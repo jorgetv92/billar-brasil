@@ -1,0 +1,174 @@
+<div class="view-header">
+    <div>
+        <h2>Gestión de Promociones</h2>
+        <p class="view-subtitle">Configura descuentos automáticos, tarifas especiales de juego o combos de barra.</p>
+    </div>
+    <div class="header-actions">
+        <div class="search-box">
+            <i class="material-icons">search</i>
+            <input type="text" id="buscarPromocion" placeholder="Buscar promoción...">
+        </div>
+        <button class="btn-primary" id="btnNuevaPromo">
+            <i class="material-icons">add</i> Nueva Promoción
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Tipo de Promoción</th>
+                <th>Vigencia (Fechas)</th>
+                <th>Horario / Días</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaPromocionesBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalPromocion" class="modal">
+    <div class="modal-content" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3 id="modalPromocionTitulo">Asistente de Promociones</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formPromocion">
+                <input type="hidden" id="promoId">
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="nombre_promo">Nombre de la Promoción</label>
+                        <input type="text" id="nombre_promo" required placeholder="Ej: Happy Hour Pool" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="tipo_promo">¿Qué tipo de promoción deseas crear?</label>
+                        <select id="tipo_promo" required>
+                            <option value="">-- Elige una opción --</option>
+                            <option value="tarifa_mesa">Descuento / Tarifa en Mesas</option>
+                            <option value="descuento_producto">Bebida o Snack a precio especial</option>
+                            <option value="combo_2x1">Combo 2x1 en Producto</option>
+                            <option value="incentivo_cruzado">Incentivo Cruzado (Mesa + Barra)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 20px 0;">
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="fecha_inicio">Fecha Inicio</label>
+                        <input type="date" id="fecha_inicio">
+                    </div>
+                    <div class="input-group">
+                        <label for="fecha_fin">Fecha Fin</label>
+                        <input type="date" id="fecha_fin">
+                    </div>
+                    <div class="input-group">
+                        <label for="hora_inicio">Hora Inicio</label>
+                        <input type="time" id="hora_inicio">
+                    </div>
+                    <div class="input-group">
+                        <label for="hora_fin">Hora Fin</label>
+                        <input type="time" id="hora_fin">
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="dias_semana">Días de la semana que aplica (Separados por coma)</label>
+                        <input type="text" id="dias_semana" placeholder="Ej: Lunes,Martes,Miércoles (O dejar vacío para todos)">
+                    </div>
+                </div>
+
+                <div id="block-tarifa_mesa" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid var(--primary);">
+                    <h4 style="margin-bottom:10px; color:var(--primary);">Configuración de Tarifa de Mesa</h4>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="id_item_condicion_mesa">Selecciona el Tipo de Mesa</label>
+                            <select id="id_item_condicion_mesa">
+                                </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="valor_descuento_mesa">Nuevo precio por hora (Bs.)</label>
+                            <input type="number" id="valor_descuento_mesa" step="0.50" min="0" placeholder="Ej: 10.00">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="block-descuento_producto" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #2196f3;">
+                    <h4 style="margin-bottom:10px; color:#1976d2;">Configuración de Descuento de Producto</h4>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="id_item_condicion_prod">Selecciona el Producto</label>
+                            <select id="id_item_condicion_prod">
+                                </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="valor_descuento_prod">Nuevo precio de venta (Bs.)</label>
+                            <input type="number" id="valor_descuento_prod" step="0.50" min="0" placeholder="Ej: 8.50">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="block-combo_2x1" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #e28743;">
+                    <h4 style="margin-bottom:10px; color:#cc6613;">Configuración de Combo 2x1</h4>
+                    <div class="form-grid">
+                        <div class="input-group full-width">
+                            <label for="id_item_condicion_2x1">Selecciona el Producto para aplicar 2x1</label>
+                            <select id="id_item_condicion_2x1">
+                                </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="block-incentivo_cruzado" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #9c27b0;">
+                    <h4 style="margin-bottom:10px; color:#7b1fa2;">Configuración de Incentivo Cruzado</h4>
+                    <div style="font-size:0.9rem; margin-bottom:12px; color:#475569;">
+                        Regla: "Si el cliente consume un mínimo de tiempo en juego, desbloquea un producto a precio preferencial".
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="id_item_condicion_cruz_mesa">Tipo de Mesa Requerido</label>
+                            <select id="id_item_condicion_cruz_mesa">
+                                </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="cantidad_condicion_cruz">Horas mínimas de juego</label>
+                            <input type="number" id="cantidad_condicion_cruz" min="1" placeholder="Ej: 2">
+                        </div>
+                        <div class="input-group">
+                            <label for="id_item_condicion_cruz_prod">Producto Beneficiado</label>
+                            <select id="id_item_condicion_cruz_prod">
+                                </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="valor_descuento_cruz">Precio especial del producto (Bs.)</label>
+                            <input type="number" id="valor_descuento_cruz" step="0.50" min="0" placeholder="Ej: 5.00">
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formPromocion" class="btn-primary">Guardar Promoción</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacionPromo" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 10px;">warning</i>
+            <h3>¿Eliminar Promoción?</h3>
+            <p>Dejará de aplicarse automáticamente en los cobros del POS de forma inmediata.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarEliminarPromo" class="btn-danger">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>

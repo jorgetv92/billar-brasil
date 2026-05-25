@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atención - Billar Brasil</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<body>
+
+    <header class="appbar">
+        <div class="appbar-left">
+            <button id="menuToggle" class="icon-btn"><i class="material-icons">menu</i></button>
+            <h2 class="app-title">Billar Brasil <span style="font-size: 0.8rem; font-weight: normal; color: #64748b;">| Atención</span></h2>
+        </div>
+    </header>
+
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-profile">
+            <div class="avatar"><i class="material-icons">support_agent</i></div>
+            <h3 id="sidebarUserName">Cargando...</h3>
+            <span class="role-badge" style="background: #2196f3;">Atención</span>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-page="dashboard_atencion.html">
+                <i class="material-icons">home</i> Inicio
+            </button>
+            <button class="nav-item" data-page="punto_venta.html">
+                <i class="material-icons">sports_esports</i> Mesas y Barra
+            </button>
+            <button class="nav-item" data-page="movimientos_caja.html">
+                <i class="material-icons">point_of_sale</i> Caja y Gastos
+            </button>
+            <div class="nav-divider"></div>
+            <button class="nav-item text-danger" id="btnLogout">
+                <i class="material-icons">logout</i> Cerrar Sesión
+            </button>
+        </nav>
+    </aside>
+
+    <main id="router-outlet" class="main-content">
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/atencion.js"></script>
+</body>
+
+</html>

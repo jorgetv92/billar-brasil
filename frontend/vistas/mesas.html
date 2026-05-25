@@ -1,0 +1,84 @@
+<div class="view-header">
+    <div>
+        <h2>Gestión de Mesas Físicas</h2>
+        <p class="view-subtitle">Administra las mesas del local, asígnales un tipo y controla su estado.</p>
+    </div>
+    <div class="header-actions">
+        <div class="search-box">
+            <i class="material-icons">search</i>
+            <input type="text" id="buscarMesa" placeholder="Buscar mesa o tipo...">
+        </div>
+        <button class="btn-primary" id="btnNuevaMesa">
+            <i class="material-icons">add</i> Nueva Mesa
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Identificador (Número)</th>
+                <th>Tipo de Mesa / Tarifa</th>
+                <th>Estado Actual</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaMesasBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalMesa" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalMesaTitulo">Registrar Mesa</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formMesa">
+                <input type="hidden" id="mesaId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="numero_mesa">Número o Identificador de Mesa</label>
+                        <input type="text" id="numero_mesa" required placeholder="Ej: Mesa 1, Mesa VIP, etc." autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="id_tipo_mesa">Tipo de Mesa</label>
+                        <select id="id_tipo_mesa" required>
+                            <option value="">Cargando tipos...</option>
+                            </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="estado_actual">Estado Operativo</label>
+                        <select id="estado_actual" required>
+                            <option value="libre">Libre (Disponible)</option>
+                            <option value="ocupada">Ocupada</option>
+                            <option value="mantenimiento">En Mantenimiento</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formMesa" class="btn-primary">Guardar Mesa</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacionMesa" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 10px;">warning</i>
+            <h3>¿Eliminar Mesa?</h3>
+            <p>Se borrará del sistema de atención. Perderás el acceso directo a esta mesa física.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarEliminarMesa" class="btn-danger">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>

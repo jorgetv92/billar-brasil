@@ -1,0 +1,78 @@
+<div class="view-header">
+    <div>
+        <h2>Gestión de Insumos</h2>
+        <p class="view-subtitle">Materiales de consumo interno y mantenimiento (tizas, paños, líquidos).</p>
+    </div>
+    <div class="header-actions">
+        <div class="search-box">
+            <i class="material-icons">search</i>
+            <input type="text" id="buscarInsumo" placeholder="Buscar insumo...">
+        </div>
+        <button class="btn-primary" id="btnNuevoInsumo">
+            <i class="material-icons">add</i> Nuevo Insumo
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre del Insumo</th>
+                <th>Unidad de Medida</th>
+                <th>Stock Actual</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaInsumosBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalInsumo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalInsumoTitulo">Registrar Insumo</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <div style="background: #e0f2fe; color: #0284c7; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.85rem; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="material-icons" style="font-size: 1.2rem;">info</i>
+                <p>El <b>Stock</b> no se edita directamente. Se incrementa en "Carga de Insumos" y se reduce mediante "Gastos de Insumos".</p>
+            </div>
+
+            <form id="formInsumo">
+                <input type="hidden" id="insumoId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="nombre_insumo">Nombre del Insumo</label>
+                        <input type="text" id="nombre_insumo" required placeholder="Ej: Tiza Master, Cera para Tacos..." autocomplete="off">
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="unidad_medida">Unidad de Medida</label>
+                        <input type="text" id="unidad_medida" required placeholder="Ej: Cajas, Unidades, Litros, Gramos..." autocomplete="off">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formInsumo" class="btn-primary">Guardar Insumo</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacionInsumo" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 10px;">warning</i>
+            <h3>¿Eliminar Insumo?</h3>
+            <p>Solo se puede eliminar si no tiene un historial de uso o carga asociado.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarEliminarInsumo" class="btn-danger">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>

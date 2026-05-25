@@ -1,0 +1,88 @@
+<div class="view-header">
+    <div>
+        <h2>Gestión de Usuarios</h2>
+        <p class="view-subtitle">Administra los accesos de administradores y personal de atención.</p>
+    </div>
+    <div class="header-actions">
+        <div class="search-box">
+            <i class="material-icons">search</i>
+            <input type="text" id="buscarUsuario" placeholder="Buscar por nombre o usuario...">
+        </div>
+        <button class="btn-primary" id="btnNuevoUsuario">
+            <i class="material-icons">add</i> Nuevo Usuario
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Nombres</th>
+                <th>Apellidos</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaUsuariosBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalUsuario" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalUsuarioTitulo">Crear Usuario</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formUsuario">
+                <input type="hidden" id="userId">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="nombres">Nombres</label>
+                        <input type="text" id="nombres" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="apellidos">Apellidos</label>
+                        <input type="text" id="apellidos" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="username">Nombre de Usuario</label>
+                        <input type="text" id="username" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="rol">Rol del Sistema</label>
+                        <select id="rol" required>
+                            <option value="administrador">Administrador</option>
+                            <option value="atencion">Atención</option>
+                        </select>
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="password">Contraseña <span id="passHint" style="display:none; color:#94a3b8; font-size:11px;">(Dejar en blanco para no modificar)</span></label>
+                        <input type="password" id="password" placeholder="••••••••">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formUsuario" class="btn-primary">Guardar Usuario</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacion" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 10px;">warning</i>
+            <h3>¿Estás completamente seguro?</h3>
+            <p>Esta acción eliminará permanentemente al usuario del sistema.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarEliminar" class="btn-danger">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>

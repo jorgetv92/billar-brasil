@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - Billar Brasil</title>
+    <link rel="stylesheet" href="css/app.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<body>
+
+    <header class="appbar">
+        <div class="appbar-left">
+            <button id="menuToggle" class="icon-btn"><i class="material-icons">menu</i></button>
+            <h2 class="app-title">Billar Brasil</h2>
+        </div>
+    </header>
+
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-profile">
+            <div class="avatar"><i class="material-icons">account_circle</i></div>
+            <h3 id="sidebarUserName">Cargando...</h3>
+            <span class="role-badge">Admin</span>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-page="dashboard.html">
+                <i class="material-icons">dashboard</i> Dashboard
+            </button>
+            <button class="nav-item" data-page="tipos_mesa.html">
+                <i class="material-icons">category</i> Tipos de Mesas
+            </button>
+            <button class="nav-item" data-page="mesas.html">
+                <i class="material-icons">table_restaurant</i> Mesas Físicas
+            </button>
+            <button class="nav-item" data-page="productos.html">
+                <i class="material-icons">inventory_2</i> Inventario
+            </button>
+            <button class="nav-item" data-page="insumos.html">
+                <i class="material-icons">cleaning_services</i> Insumos
+            </button>
+            <button class="nav-item" data-page="promociones.html">
+                <i class="material-icons">local_offer</i> Promociones
+            </button>
+            <button class="nav-item" data-page="usuarios.html">
+                <i class="material-icons">group</i> Usuarios
+            </button>
+            <div class="nav-divider"></div>
+            <button class="nav-item text-danger" id="btnLogout">
+                <i class="material-icons">logout</i> Cerrar Sesión
+            </button>
+        </nav>
+    </aside>
+
+    <main id="router-outlet" class="main-content">
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

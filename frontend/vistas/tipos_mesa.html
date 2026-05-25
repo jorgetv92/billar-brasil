@@ -1,0 +1,72 @@
+<div class="view-header">
+    <div>
+        <h2>Tipos de Mesas</h2>
+        <p class="view-subtitle">Configura las categorías de mesas y sus tarifas por hora.</p>
+    </div>
+    <div class="header-actions">
+        <div class="search-box">
+            <i class="material-icons">search</i>
+            <input type="text" id="buscarTipoMesa" placeholder="Buscar por nombre...">
+        </div>
+        <button class="btn-primary" id="btnNuevoTipoMesa">
+            <i class="material-icons">add</i> Nuevo Tipo
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tipo de Mesa</th>
+                <th>Tarifa por Hora (Bs.)</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaTiposMesaBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalTipoMesa" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTipoMesaTitulo">Crear Tipo de Mesa</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formTipoMesa">
+                <input type="hidden" id="tipoMesaId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="nombre_tipo">Nombre del Tipo (Ej. Pool, Snooker)</label>
+                        <input type="text" id="nombre_tipo" required autocomplete="off">
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="precio_hora">Precio por Hora (Bs.)</label>
+                        <input type="number" id="precio_hora" step="0.50" min="0" required placeholder="Ej: 15.00">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formTipoMesa" class="btn-primary">Guardar Configuración</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacionTipo" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 10px;">warning</i>
+            <h3>¿Eliminar categoría?</h3>
+            <p>Solo se puede eliminar si no hay mesas físicas asignadas a este tipo.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarEliminarTipo" class="btn-danger">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>

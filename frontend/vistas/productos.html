@@ -1,0 +1,78 @@
+<div class="view-header">
+    <div>
+        <h2>Gestión de Inventario (Productos)</h2>
+        <p class="view-subtitle">Catálogo de productos para venta en barra o mesas (bebidas, snacks).</p>
+    </div>
+    <div class="header-actions">
+        <div class="search-box">
+            <i class="material-icons">search</i>
+            <input type="text" id="buscarProducto" placeholder="Buscar producto...">
+        </div>
+        <button class="btn-primary" id="btnNuevoProducto">
+            <i class="material-icons">add</i> Nuevo Producto
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre del Producto</th>
+                <th>Precio Venta (Bs.)</th>
+                <th>Stock Actual</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaProductosBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalProducto" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalProductoTitulo">Registrar Producto</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <div style="background: #e0f2fe; color: #0284c7; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.85rem; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="material-icons" style="font-size: 1.2rem;">info</i>
+                <p>El <b>Stock</b> no se edita aquí. Inicia en 0 y se aumenta utilizando el módulo de <i>"Carga de mercadería"</i>.</p>
+            </div>
+
+            <form id="formProducto">
+                <input type="hidden" id="productoId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="nombre_producto">Nombre del Producto</label>
+                        <input type="text" id="nombre_producto" required placeholder="Ej: Cerveza Paceña 620ml" autocomplete="off">
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="precio_venta">Precio de Venta (Bs.)</label>
+                        <input type="number" id="precio_venta" step="0.50" min="0" required placeholder="Ej: 18.00">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formProducto" class="btn-primary">Guardar Producto</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacionProducto" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 10px;">warning</i>
+            <h3>¿Eliminar Producto?</h3>
+            <p>Solo se puede eliminar si no tiene historial de ventas asociado.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarEliminarProducto" class="btn-danger">Sí, Eliminar</button>
+        </div>
+    </div>
+</div>
