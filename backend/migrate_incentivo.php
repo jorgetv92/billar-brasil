@@ -1,5 +1,5 @@
 <?php
-include 'backend/config/database.php';
+include '../config/database.php';
 $db = (new Database())->getConnection();
 
 // 1. Check if column primera_hora_gratis exists in sesiones_juego
