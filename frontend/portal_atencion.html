@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atención - Billar Brasil</title>
-    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/atencion.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 
@@ -14,7 +14,8 @@
     <header class="appbar">
         <div class="appbar-left">
             <button id="menuToggle" class="icon-btn"><i class="material-icons">menu</i></button>
-            <h2 class="app-title">Billar Brasil <span style="font-size: 0.8rem; font-weight: normal; color: #64748b;">| Atención</span></h2>
+            <h2 class="app-title">Billar Brasil <span style="font-size: 0.8rem; font-weight: normal; color: #64748b;">|
+                    Atención</span></h2>
         </div>
     </header>
 
@@ -28,14 +29,23 @@
         </div>
         <nav class="sidebar-nav">
             <button class="nav-item active" data-page="dashboard_atencion.html">
-                <i class="material-icons">home</i> Inicio
+                <i class="material-icons">home</i> Dashboard
             </button>
-            <button class="nav-item" data-page="punto_venta.html">
-                <i class="material-icons">sports_esports</i> Mesas y Barra
+            <button class="nav-item" data-page="atencion.html">
+                <i class="material-icons">assignment</i> Atencion
             </button>
-            <button class="nav-item" data-page="movimientos_caja.html">
-                <i class="material-icons">point_of_sale</i> Caja y Gastos
+            <button class="nav-item" data-page="egresos_caja.html">
+                <i class="material-icons">outbox</i> Egresos
             </button>
+            <button class="nav-item" data-page="gastos_insumos.html">
+                <i class="material-icons">output</i> Gasto insumos
+            </button>
+            <button class="nav-item" data-page="configuracion_atencion.html">
+                <i class="material-icons">settings</i> Configuración
+            </button>
+            <!--<button class="nav-item" data-page="ultimos_cierres.html">
+                <i class="material-icons">history</i> Últimos cierres de jornada
+            </button>-->
             <div class="nav-divider"></div>
             <button class="nav-item text-danger" id="btnLogout">
                 <i class="material-icons">logout</i> Cerrar Sesión
@@ -48,7 +58,10 @@
 
     <div id="toastContainer" class="toast-container"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="js/impresion.js"></script>
     <script src="js/atencion.js"></script>
+    <script src="js/atencion_barra.js"></script>
 </body>
 
 </html>

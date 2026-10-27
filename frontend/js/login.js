@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const errorMessage = document.getElementById("errorMessage");
     const btnSubmit = document.getElementById("btnSubmit");
 
-    loginForm.addEventListener("submit", async(e) => {
+    loginForm.addEventListener("submit", async (e) => {
         // Evitamos que la página se recargue (Mejor UX)
         e.preventDefault();
 
@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.ok && result.status === "success") {
                 // Login exitoso: Redireccionamos según el rol
                 const rol = result.data.rol;
+                localStorage.setItem("id_usuario", result.data.id_usuario);
                 localStorage.setItem("usuario_nombre", result.data.nombres + " " + result.data.apellidos);
                 if (rol === "administrador") {
                     window.location.href = "portal_admin.html";

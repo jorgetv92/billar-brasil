@@ -1,0 +1,335 @@
+<link rel="stylesheet" href="css/atencion_barra.css">
+
+<div class="atencion-layout state-barra">
+
+    <div class="panel-izquierdo" id="panelIzquierdo">
+        <div id="tabIzquierdo" class="tab-movil hidden-desktop" onclick="gestorUI.clickTabIzquierdo()">
+            <span id="txtTabIzquierdo">seleccionar mesa...</span>
+            <button class="btn-circular-tab"><i class="material-icons"
+                    id="icoTabIzquierdo">keyboard_arrow_down</i></button>
+        </div>
+
+        <div id="contenidoIzquierdo">
+            <div id="vistaSinMesa">
+                <span class="titulo-seccion">Mesas Disponibles</span>
+                <div class="tipos-mesa-contenedor">
+                </div>
+            </div>
+
+            <div id="vistaConMesa" class="hidden">
+                <div class="header-info-mesa">
+                    <h2>Información de <span id="lblNombreMesaSeleccionada">Mesa</span></h2>
+                    <button id="btnDeseleccionarMesa" class="btn-icon" onclick="gestorUI.deseleccionarMesa()">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+
+                <div class="detalle-mesa-card">
+                    <div class="detalle-estado text-center">
+                        <span>Estado:</span> <strong class="text-danger">Seleccionar Mesa...</strong>
+                    </div>
+                    <div class="detalle-columnas">
+                        <div class="col-izq">
+                            <div class="detalle-row"><span>Hora Inicio:</span> <strong>Seleccionar Mesa...</strong>
+                            </div>
+                            <div class="detalle-row"><span>Tiempo:</span> <strong>Seleccionar Mesa...</strong></div>
+                        </div>
+                        <div class="col-der">
+                            <div class="detalle-row"><span>Importe:</span> <strong>Seleccionar Mesa...</strong></div>
+                            <div class="detalle-row"><span>Consumo:</span> <strong>Seleccionar Mesa...</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NUEVO: Historial de Tramos -->
+                <div class="historial-tramos-container" style="margin-top: 15px;">
+                    <h3 style="font-size: 1.05em; color: var(--text-color); margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Historial de Tiempo</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="tabla-carrito" id="tablaHistorialTramos" style="margin-top: 0; font-size: 0.9em;">
+                            <thead>
+                                <tr>
+                                    <th>Mesa</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th class="text-right">Bs</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-derecho" id="panelDerecho">
+        <div id="tabDerecho" class="tab-movil hidden-desktop" onclick="gestorUI.clickTabDerecho()">
+            <span id="txtTabDerecho">Consumo</span>
+            <button class="btn-circular-tab"><i class="material-icons" id="icoTabDerecho">keyboard_arrow_up</i></button>
+        </div>
+
+        <div id="contenidoDerecho">
+            <div class="header-panel-derecho">
+                <span id="lblTituloVenta">Venta: En Barra</span>
+            </div>
+
+            <div class="formulario-venta">
+                <div class="form-group">
+                    <label for="inputProducto">Producto:</label>
+                    <div class="input-group">
+                        <input type="text" id="inputProducto" class="input-text" list="listaProductos" placeholder="Buscar producto...">
+                        <datalist id="listaProductos">
+                        </datalist>
+                        <button class="btn-icon" title="Limpiar" onclick="gestorUI.limpiarFormYCarrito()">
+                            <i class="material-icons">delete_sweep</i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cantidad:</label>
+                    <div class="input-group">
+                        <div class="cantidad-control">
+                            <button class="btn-cantidad-ctrl" onclick="document.getElementById('inputCantidad').stepDown()">-</button>
+                            <input type="number" id="inputCantidad" value="1" min="1" class="input-cantidad">
+                            <button class="btn-cantidad-ctrl" onclick="document.getElementById('inputCantidad').stepUp()">+</button>
+                        </div>
+                        <button class="btn-icon" title="Añadir" onclick="gestorUI.agregarProductoAlCarrito()">
+                            <i class="material-icons">add_shopping_cart</i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="carrito-contenedor">
+                <table class="tabla-carrito" id="tablaCarritoVenta">
+                    <thead>
+                        <tr>
+                            <th>Prod.</th>
+                            <th class="text-center">Cant.</th>
+                            <th class="text-center">P.Unit.</th>
+                            <th class="text-right">Sub.Tot.</th>
+                            <th class="text-center">Elim.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="footerVentaBarra" class="footer-panel-derecho">
+                <div class="total-row">
+                    <span>Total a Pagar:</span>
+                    <strong id="lblTotalCarrito">0.00 Bs</strong>
+                </div>
+                <div class="btn-group-responsive">
+                    <button class="btn-primary" onclick="gestorUI.iniciarFlujoCobro('efectivo_qr')">Realizar Venta</button>
+                    <button class="btn-secondary" style="background-color: #6366f1; color: white;" onclick="gestorUI.iniciarFlujoCobro('mixto')">Pago Mixto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="footerAccionesMesa" class="footer-global-acciones hidden">
+        <div class="acciones-operativas">
+            <button class="btn-accion btn-warning" onclick="gestorUI.togglePausa()">
+                <i class="material-icons">pause</i> <span class="txt-btn">Pausar Tiempo</span>
+            </button>
+            <button class="btn-accion btn-info" onclick="gestorUI.abrirModalTransferir()">
+                <i class="material-icons">sync_alt</i> <span class="txt-btn">Transferir Mesa</span>
+            </button>
+            <button class="btn-accion btn-secondary" onclick="gestorUI.prepararPagoDividido()">
+                <i class="material-icons">call_split</i> <span class="txt-btn">Dividir Pago</span>
+            </button>
+        </div>
+        <div class="acciones-cobro">
+            <div class="total-unificado-box">
+                <small>Total a Pagar:</small>
+                <strong id="lblTotalUnificado">0.00 Bs</strong>
+            </div>
+            <button class="btn-primary btn-cobrar-mesa" onclick="gestorUI.prepararCobroMesa()">Cobrar Mesa</button>
+        </div>
+    </div>
+    <div id="modalOcuparMesa" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="lblTituloOcupar">Aperturar Mesa</h3>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de ocupar la <strong id="lblMesaOcupar"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalOcuparMesa')">Cancelar</button>
+                <button class="btn-primary" onclick="gestorUI.confirmarOcupacion()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarCobro" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Pago</h3>
+            </div>
+            <div class="modal-body">
+                <p class="text-center" style="font-weight: bold; margin-bottom: 15px; color: #2196f3;" id="lblTipoCobroModal"></p>
+
+                <div id="contenedorDetallesMesa">
+                    <p>Tiempo (Redondeado): <span id="lblDetalleTiempoModal">0.00 Bs</span></p>
+                    <p>Productos Carrito: <span id="lblDetalleConsumoModal">0.00 Bs</span></p>
+                    <p id="rowDescuentoModal" style="display:none; color: #166534; font-weight: bold;">Descuento Promocional: <span id="lblDetalleDescuentoModal">-0.00 Bs</span></p>
+                </div>
+
+                <h4 class="text-center mb-10">Total a Pagar: <span id="lblTotalCobrarModal">0.00 Bs</span></h4>
+
+                <label>Método de Pago:</label>
+                <div class="btn-group-radio mt-10">
+                    <input type="radio" name="metodoPago" id="pagoEfectivo" value="efectivo" checked>
+                    <label for="pagoEfectivo">Efectivo</label>
+                    <input type="radio" name="metodoPago" id="pagoQR" value="qr">
+                    <label for="pagoQR">QR</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalConfirmarCobro')">Cancelar</button>
+                <button class="btn-primary btn-success" onclick="gestorUI.ejecutarCobroConfirmado()">Confirmar
+                    Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalTransferirMesa" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Transferir Mesa</h3>
+            </div>
+            <div class="modal-body">
+                <label>Seleccione mesa destino:</label>
+                <select id="selectMesaDestino" class="input-text mt-10" style="width: 100%;">
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalTransferirMesa')">Cancelar</button>
+                <button class="btn-primary btn-info" onclick="gestorUI.confirmarTransferencia()">Transferir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalDividirPago" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Dividir Pago</h3>
+            </div>
+            <div class="modal-body">
+                <p>Total a pagar: <strong id="lblTotalDividir">00.00</strong> Bs</p>
+                <div class="form-group mt-10">
+                    <label>Efectivo (Bs):</label>
+                    <input type="number" id="inputDividirEfectivo" class="input-text" onkeyup="gestorUI.calcularDividirPago('efectivo')">
+                </div>
+                <div class="form-group mt-10">
+                    <label>QR (Bs):</label>
+                    <input type="number" id="inputDividirQR" class="input-text" onkeyup="gestorUI.calcularDividirPago('qr')">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalDividirPago')">Cancelar</button>
+                <button class="btn-primary btn-success" onclick="gestorUI.confirmarPagoDividido()">Procesar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarLimpieza" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Limpiar Consumo de Mesa</h3>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar TODOS los productos cargados a esta mesa?</p>
+                <p class="text-danger"><small>Los productos volverán al inventario, pero esta acción no se puede
+                        deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalConfirmarLimpieza')">Cancelar</button>
+                <button class="btn-primary btn-danger" onclick="gestorUI.ejecutarLimpiarConsumoMesa()">Sí, Limpiar
+                    Todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INCENTIVO EN PRODUCTO -->
+    <div id="modal_apply_incentivoproducto" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 12px 12px 0 0;">
+                <h3 style="color: white;">🏷️ Promoción Especial</h3>
+            </div>
+            <div class="modal-body" style="padding: 22px 24px;">
+                <p class="text-center" style="font-size: 1.08rem; font-weight: 500; margin-bottom: 20px; color: #1e293b; line-height: 1.6;">
+                    ¿Desea aumentar <strong id="lblMontoAumentoIncentivo" style="color: #8b5cf6; font-size: 1.3rem;">0.00</strong> Bs. para adquirir una hora de mesa gratis?
+                </p>
+
+                <!-- Toggle buttons estilo método de pago -->
+                <div class="btn-group-radio mt-10" style="display: flex; gap: 12px; justify-content: center; margin-bottom: 8px;">
+                    <input type="radio" name="optIncentivoTog" id="optIncentivoNo" value="no" style="display:none" onchange="gestorUI.onToggleIncentivo('no')">
+                    <label for="optIncentivoNo" id="lblBtnIncentivoNo" class="btn-toggle-incentivo btn-toggle-no">
+                        <i class="material-icons" style="font-size:20px; vertical-align:middle; margin-right:4px;">close</i> No
+                    </label>
+                    <input type="radio" name="optIncentivoTog" id="optIncentivoSi" value="si" style="display:none" onchange="gestorUI.onToggleIncentivo('si')">
+                    <label for="optIncentivoSi" id="lblBtnIncentivoSi" class="btn-toggle-incentivo btn-toggle-si">
+                        <i class="material-icons" style="font-size:20px; vertical-align:middle; margin-right:4px;">check_circle</i> Sí
+                    </label>
+                </div>
+
+                <!-- Selector de mesas libres para modo venta en barra -->
+                <div id="contenedorSelectMesaIncentivo" style="display: none; margin-top: 18px;">
+                    <label for="selectMesaIncentivo" style="font-size: 0.9rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Seleccione la mesa a habilitar:</label>
+                    <select id="selectMesaIncentivo" class="input-text" style="width: 100%;" onchange="gestorUI.onSeleccionarMesaIncentivo()">
+                        <option value="">-- Seleccionar mesa libre --</option>
+                    </select>
+                    <small id="lblAvisoMesasLibres" style="color: #ef4444; display: none; margin-top: 6px; font-weight: 500;">No hay mesas libres disponibles de este tipo.</small>
+                </div>
+
+                <!-- Indicador para modo venta en mesa -->
+                <div id="contenedorMesaActualIncentivo" style="display: none; margin-top: 18px; padding: 12px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981;">
+                    <span style="font-size: 0.9rem; color: #166534; font-weight: 500;">✅ Se aplicará a la mesa activa: <strong id="lblMesaActualIncentivo"></strong></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="gestorUI.cerrarModalIncentivo(false)">Cancelar</button>
+                <button id="btnAceptarIncentivoProd" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);" disabled onclick="gestorUI.confirmarIncentivoProducto()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    .btn-toggle-incentivo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 28px;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: 2.5px solid transparent;
+        transition: all 0.18s ease;
+        user-select: none;
+        min-width: 110px;
+    }
+    .btn-toggle-no {
+        background: #f1f5f9;
+        color: #64748b;
+        border-color: #cbd5e1;
+    }
+    .btn-toggle-si {
+        background: #f0fdf4;
+        color: #15803d;
+        border-color: #bbf7d0;
+    }
+    #optIncentivoNo:checked + #lblBtnIncentivoNo,
+    input[id="optIncentivoNo"]:checked ~ * #lblBtnIncentivoNo { background: #ef4444; color: white; border-color: #ef4444; }
+    #optIncentivoSi:checked + #lblBtnIncentivoSi,
+    input[id="optIncentivoSi"]:checked ~ * #lblBtnIncentivoSi { background: #10b981; color: white; border-color: #10b981; }
+    .btn-toggle-no.activo { background: #ef4444 !important; color: white !important; border-color: #ef4444 !important; }
+    .btn-toggle-si.activo { background: #10b981 !important; color: white !important; border-color: #10b981 !important; }
+    </style>
+</div>

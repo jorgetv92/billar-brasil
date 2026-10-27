@@ -82,3 +82,61 @@
         </div>
     </div>
 </div>
+
+<div id="modalMesaDetalles" class="modal">
+    <div class="modal-content" style="max-width: 600px; width: 90%;">
+        <div class="modal-header">
+            <h3 id="modalMesaDetallesTitulo">Detalles de Mesa</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <div id="vistaConMesaAdmin">
+                <div class="detalle-mesa-card" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; background: #f8fafc; margin-bottom: 20px;">
+                    <div class="detalle-estado text-center" style="font-size: 1.2rem; padding-bottom: 15px; margin-bottom: 15px; border-bottom: 1px dashed #cbd5e1;">
+                        <span>Estado:</span> <strong id="detMesaEstado" class="text-danger">Ocupada</strong>
+                    </div>
+                    <div class="detalle-columnas" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="col-izq" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div class="detalle-row" style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+                                <span style="color:#64748b;">Hora Inicio:</span> <strong id="detMesaHoraInicio">--:--</strong>
+                            </div>
+                            <div class="detalle-row" style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+                                <span style="color:#64748b;">Tiempo:</span> <strong id="detMesaTiempo">--:--:--</strong>
+                            </div>
+                        </div>
+                        <div class="col-der" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div class="detalle-row" style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+                                <span style="color:#64748b;">Importe:</span> <strong id="detMesaImporte">0.00 Bs</strong>
+                            </div>
+                            <div class="detalle-row" style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+                                <span style="color:#64748b;">Consumo:</span> <strong id="detMesaConsumo">0.00 Bs</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="historial-tramos-container" style="margin-top: 15px;">
+                    <h3 style="font-size: 1.05em; color: #1e293b; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; font-weight: bold;">Historial de Tiempo</h3>
+                    <div style="overflow-x: auto; max-height: 250px;">
+                        <table class="data-table" id="tablaHistorialTramosAdmin" style="margin-top: 0; font-size: 0.9em; width: 100%;">
+                            <thead>
+                                <tr style="background: #f1f5f9;">
+                                    <th style="text-align: left; padding: 8px;">Mesa</th>
+                                    <th style="text-align: left; padding: 8px;">Inicio</th>
+                                    <th style="text-align: left; padding: 8px;">Fin</th>
+                                    <th style="text-align: right; padding: 8px;">Bs</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cerrar</button>
+        </div>
+    </div>
+</div>

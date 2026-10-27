@@ -1,7 +1,7 @@
 <?php
 class Database {
     private $host = "localhost";
-    private $db_name = "billar_brasil";
+    private $db_name = "billa";
     private $username = "root"; // Cambia esto por tu usuario de MariaDB
     private $password = "";     // Cambia esto por tu contraseña de MariaDB
     public $conn;

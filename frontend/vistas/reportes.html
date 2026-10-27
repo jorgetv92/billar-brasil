@@ -1,0 +1,72 @@
+<div class="view-header">
+    <div>
+        <h2>Centro de Reportes</h2>
+        <p class="view-subtitle">Análisis estadístico, ingresos y resúmenes operativos del billar.</p>
+    </div>
+</div>
+
+<div class="reportes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+
+    <div class="card btn-reporte-card" data-reporte="jornada" style="cursor: pointer; transition: transform 0.2s; border-left: 4px solid var(--primary-color);">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+            <i class="material-icons" style="font-size: 2.2rem; color: var(--primary-color);">receipt_long</i>
+            <h3 style="margin: 0; font-size: 1.2rem;">Reporte de Jornada</h3>
+        </div>
+        <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Resumen exacto de una jornada de trabajo (apertura, ventas, mesas, egresos y cierre de caja).</p>
+    </div>
+
+    <div class="card btn-reporte-card" data-reporte="ingresos_semana" style="cursor: pointer; transition: transform 0.2s; border-left: 4px solid #10b981;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+            <i class="material-icons" style="font-size: 2.2rem; color: #10b981;">date_range</i>
+            <h3 style="margin: 0; font-size: 1.2rem;">Ingresos por Semana</h3>
+        </div>
+        <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Flujo de caja agrupado por semana. Ideal para identificar qué días de la semana generan mayor rendimiento.</p>
+    </div>
+
+    <div class="card btn-reporte-card" data-reporte="ingresos_mes" style="cursor: pointer; transition: transform 0.2s; border-left: 4px solid #f59e0b;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+            <i class="material-icons" style="font-size: 2.2rem; color: #f59e0b;">calendar_month</i>
+            <h3 style="margin: 0; font-size: 1.2rem;">Ingresos Mensuales</h3>
+        </div>
+        <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Consolidado mensual de ingresos por tarifas de mesas y consumo de barra, listos para contabilidad.</p>
+    </div>
+
+    <div class="card btn-reporte-card" data-reporte="ultimos_cierres" style="cursor: pointer; transition: transform 0.2s; border-left: 4px solid #3b82f6;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+            <i class="material-icons" style="font-size: 2.2rem; color: #3b82f6;">history</i>
+            <h3 style="margin: 0; font-size: 1.2rem;">Últimos Cierres</h3>
+        </div>
+        <p style="color: #64748b; font-size: 0.9rem; margin: 0;">Historial de los últimos 10 reportes definitivos de cierre de caja en formato PDF.</p>
+    </div>
+
+</div>
+
+<div id="modalFormReporte" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 id="tituloFormReporte">Configurar Reporte</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body" id="bodyFormReporte">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnProcesarReporte" class="btn-primary">Generar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalVisorReporte" class="modal">
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <div class="modal-header">
+            <h3 id="tituloVisorReporte">Visor de Reporte</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body" id="bodyContenidoReporte" style="min-height: 400px; max-height: 70vh; overflow-y: auto; background-color: #f8fafc; padding: 20px;">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cerrar</button>
+            <button id="btnImprimirReporte" class="btn-primary"><i class="material-icons" style="font-size: 18px; vertical-align: middle;">print</i> Imprimir PDF</button>
+        </div>
+    </div>
+</div>

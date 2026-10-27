@@ -1,0 +1,117 @@
+<div class="view-header">
+    <div>
+        <h2>Carga de Insumos</h2>
+        <p class="view-subtitle">Registro y control de ingreso de insumos para consumo interno del billar.</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn-primary" id="btnNuevaCargaInsumo">
+            <i class="material-icons">add</i> Nueva Carga
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table" id="tablaCargasInsumos">
+        <thead>
+            <tr>
+                <th>Fecha/Hora</th>
+                <th>Total Ítems</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tbodyCargasInsumos">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalNuevaCargaInsumo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Registrar Nueva Carga de Insumo</h3>
+            <button class="icon-btn btn-cerrar-modal" id="btnCerrarModalInsumoIcon">
+                <i class="material-icons">close</i>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <input type="hidden" id="idCargaInsumoOculto" value="">
+
+            <div class="form-grid" style="align-items: end;">
+                <div class="input-group">
+                    <label for="insumoInput">Seleccionar Insumo</label>
+                    <input type="text" class="form-control border-primary" list="listaInsumos" id="insumoInput" placeholder="Escriba para buscar el insumo..." autocomplete="off" required>
+                    <datalist id="listaInsumos"></datalist>
+                </div>
+                <div class="input-group">
+                    <label for="cantidadInsumoInput">Cantidad</label>
+                    <input type="number" id="cantidadInsumoInput" min="1" value="1">
+                </div>
+                <div class="input-group" style="display: flex; gap: 10px; flex-direction: row;">
+                    <button id="btnAgregarItemInsumo" class="btn-secondary" style="flex: 1;">
+                        <i class="material-icons" style="font-size: 18px; vertical-align: middle;">add_shopping_cart</i> Agregar
+                    </button>
+                    <button id="btnLimpiarTodoInsumo" class="icon-btn" style="color: #ef4444;" title="Limpiar formulario y tabla">
+                        <i class="material-icons">delete_sweep</i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card table-responsive" style="margin-top: 1.5rem; box-shadow: none; border: 1px solid #e2e8f0;">
+                <table class="data-table" id="tablaItemsCargaInsumo">
+                    <thead>
+                        <tr>
+                            <th style="width: 200px !important;">Insumo</th>
+                            <th style="width: 80px; text-align: center;">Cantidad</th>
+                            <th style="width: 80px; text-align: center;">Eliminar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyItemsCargaInsumo">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnGuardarCargaInsumo" class="btn-primary">Guardar Carga</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalHistorialInsumo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Historial de la Carga #<span id="historialIdCargaInsumo"></span></h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <div class="card table-responsive" style="box-shadow: none; border: 1px solid #e2e8f0;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Usuario</th>
+                            <th>Acción</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyHistorialInsumo"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfirmacionAnularInsumo" class="modal modal-sm">
+    <div class="modal-content">
+        <div class="modal-body text-center">
+            <i class="material-icons text-danger" style="font-size: 4rem; margin-bottom: 10px;">cancel</i>
+            <h3>¿Anular esta carga?</h3>
+            <p>Se revertirá el stock de los insumos. Esta acción se registrará en la bitácora.</p>
+        </div>
+        <div class="modal-footer center-buttons">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button id="btnConfirmarAnularInsumo" class="btn-danger">Sí, Anular</button>
+        </div>
+    </div>
+</div>

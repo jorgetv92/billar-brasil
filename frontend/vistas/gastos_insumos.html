@@ -1,0 +1,311 @@
+<!-- vistas/gastos_insumos.html -->
+<style>
+    .gi-page { padding: 20px; max-width: 900px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
+    .gi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+    .gi-header h2 { font-size: 1.3rem; color: #1e293b; display: flex; align-items: center; gap: 8px; margin: 0; }
+    .gi-header h2 i { color: #8b5cf6; font-size: 1.5rem; }
+    .gi-btn-nuevo { display: inline-flex; align-items: center; gap: 6px; background: #8b5cf6; color: white; border: none; border-radius: 7px; padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.18s; }
+    .gi-btn-nuevo:hover { background: #7c3aed; }
+    .gi-tabla-wrapper { background: white; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid #e2e8f0; }
+    .gi-tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .gi-tabla thead tr { background: linear-gradient(to right, #f8fafc, #f1f5f9); }
+    .gi-tabla th { padding: 12px 16px; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+    .gi-tabla td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+    .gi-tabla tbody tr:hover { background: #f8fafc; }
+    .gi-tabla .td-cant { font-weight: 700; color: #7c3aed; }
+    .gi-tabla .td-acciones { text-align: center; white-space: nowrap; }
+    .gi-empty { text-align: center; padding: 50px 20px; color: #94a3b8; }
+    .gi-empty i { font-size: 3rem; display: block; margin-bottom: 10px; }
+    .gi-btn-icon { background: none; border: none; cursor: pointer; padding: 5px; border-radius: 5px; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; }
+    .gi-btn-icon.edit { color: #3b82f6; } .gi-btn-icon.edit:hover { background: #eff6ff; }
+    .gi-btn-icon.del { color: #ef4444; } .gi-btn-icon.del:hover { background: #fef2f2; }
+    .gi-badge-unidad { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; }
+    /* Modal */
+    .gi-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; justify-content: center; align-items: center; }
+    .gi-modal-overlay.active { display: flex; }
+    .gi-modal { background: white; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 440px; max-width: 95vw; overflow: hidden; }
+    .gi-modal-header { padding: 16px 20px; display: flex; align-items: center; gap: 10px; }
+    .gi-modal-header.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
+    .gi-modal-header.red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .gi-modal-header i { font-size: 1.4rem; }
+    .gi-modal-header span { font-size: 1rem; font-weight: 700; }
+    .gi-modal-body { padding: 20px; }
+    .gi-form-group { margin-bottom: 16px; }
+    .gi-form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #475569; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .gi-form-group select,
+    .gi-form-group input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; color: #1e293b; transition: border-color 0.15s; outline: none; background: white; }
+    .gi-form-group select:focus,
+    .gi-form-group input:focus { border-color: #8b5cf6; }
+    .gi-stock-info { font-size: 0.78rem; color: #64748b; margin-top: 5px; padding: 4px 8px; background: #f8fafc; border-radius: 4px; }
+    .gi-modal-footer { padding: 14px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
+    .gi-btn-cancel { background: #e2e8f0; border: none; border-radius: 6px; padding: 9px 18px; font-weight: 600; color: #475569; cursor: pointer; }
+    .gi-btn-save { background: #8b5cf6; border: none; border-radius: 6px; padding: 9px 20px; font-weight: 700; color: white; cursor: pointer; transition: background 0.15s; }
+    .gi-btn-save:hover { background: #7c3aed; }
+    .gi-btn-delete { background: #ef4444; border: none; border-radius: 6px; padding: 9px 20px; font-weight: 700; color: white; cursor: pointer; }
+    .gi-confirm-text { color: #64748b; font-size: 0.9rem; margin: 0; }
+    .gi-confirm-name { background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; color: #991b1b; font-weight: 600; margin-top: 10px; font-size: 0.9rem; }
+    .gi-warn { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; font-size: 0.82rem; margin-top: 8px; display: none; }
+</style>
+
+<div class="gi-page">
+    <!-- Header -->
+    <div class="gi-header">
+        <h2><i class="material-icons">output</i> Gastos de Insumos</h2>
+        <button class="gi-btn-nuevo" id="giBtnNuevo">
+            <i class="material-icons" style="font-size:1.1rem;">add</i> Nuevo Gasto
+        </button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="gi-tabla-wrapper">
+        <table class="gi-tabla">
+            <thead>
+                <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Insumo</th>
+                    <th>Cantidad</th>
+                    <th>Unidad</th>
+                    <th style="text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="giTbody">
+                <tr><td colspan="5" class="gi-empty"><i class="material-icons">hourglass_empty</i>Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Crear / Editar -->
+<div class="gi-modal-overlay" id="giModalForm">
+    <div class="gi-modal">
+        <div class="gi-modal-header purple">
+            <i class="material-icons">inventory_2</i>
+            <span id="giModalTitle">Registrar Gasto de Insumo</span>
+        </div>
+        <div class="gi-modal-body">
+            <input type="hidden" id="giIdGasto" value="">
+            <div class="gi-form-group">
+                <label for="giSelectInsumo">Insumo</label>
+                <select id="giSelectInsumo">
+                    <option value="">-- Selecciona un insumo --</option>
+                </select>
+                <div class="gi-stock-info" id="giStockInfo">Selecciona un insumo para ver el stock disponible.</div>
+            </div>
+            <div class="gi-form-group">
+                <label for="giCantidad">Cantidad usada</label>
+                <input type="number" id="giCantidad" placeholder="0" min="0.01" step="0.01">
+                <div class="gi-warn" id="giWarnStock">⚠ La cantidad supera el stock disponible.</div>
+            </div>
+        </div>
+        <div class="gi-modal-footer">
+            <button class="gi-btn-cancel" id="giBtnCancelarForm">Cancelar</button>
+            <button class="gi-btn-save" id="giBtnGuardar">
+                <i class="material-icons" style="font-size:1rem;vertical-align:middle;">save</i> Registrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar eliminación -->
+<div class="gi-modal-overlay" id="giModalEliminar">
+    <div class="gi-modal">
+        <div class="gi-modal-header red">
+            <i class="material-icons">warning</i>
+            <span>Confirmar Eliminación</span>
+        </div>
+        <div class="gi-modal-body">
+            <p class="gi-confirm-text">¿Eliminar este gasto? El stock del insumo será devuelto automáticamente.</p>
+            <div class="gi-confirm-name" id="giConfirmTexto"></div>
+        </div>
+        <div class="gi-modal-footer">
+            <input type="hidden" id="giIdEliminar" value="">
+            <button class="gi-btn-cancel" id="giBtnCancelarEliminar">Cancelar</button>
+            <button class="gi-btn-delete" id="giBtnConfirmarEliminar">
+                <i class="material-icons" style="font-size:1rem;vertical-align:middle;">delete_forever</i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const API     = '../backend/api/gastos_insumos.php';
+    let insumosCache = []; // Catálogo local de insumos
+
+    // ── Helpers ───────────────────────────────────────────────────
+    const abrirModal  = id => document.getElementById(id).classList.add('active');
+    const cerrarModal = id => document.getElementById(id).classList.remove('active');
+
+    function fmtFecha(str) {
+        if (!str) return '—';
+        const d = new Date(str.replace(/-/g, '/'));
+        const hh = d.getHours().toString().padStart(2, '0');
+        const mm = d.getMinutes().toString().padStart(2, '0');
+        return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${hh}:${mm}`;
+    }
+
+    // ── Cargar catálogo de insumos ─────────────────────────────────
+    async function cargarCatalogoInsumos() {
+        try {
+            const res = await fetch(`${API}?accion=get_insumos`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                insumosCache = json.data;
+                const sel = document.getElementById('giSelectInsumo');
+                sel.innerHTML = '<option value="">-- Selecciona un insumo --</option>' +
+                    json.data.map(i => `<option value="${i.id_insumo}" data-stock="${i.stock_actual}" data-unidad="${i.unidad_medida}">${i.nombre_insumo} (Stock: ${parseFloat(i.stock_actual).toFixed(2)} ${i.unidad_medida})</option>`).join('');
+            }
+        } catch (e) {
+            console.error('Error al cargar catálogo de insumos:', e);
+        }
+    }
+
+    // ── Cargar y renderizar tabla de gastos ───────────────────────
+    async function cargarGastos() {
+        const tbody = document.getElementById('giTbody');
+        try {
+            const res = await fetch(API);
+            const json = await res.json();
+
+            if (json.status === 'sin_jornada') {
+                tbody.innerHTML = `<tr><td colspan="5" class="gi-empty"><i class="material-icons">info</i>No hay jornada activa. Abre una desde el Dashboard.</td></tr>`;
+                return;
+            }
+
+            if (json.status !== 'success' || !json.data.length) {
+                tbody.innerHTML = `<tr><td colspan="5" class="gi-empty"><i class="material-icons">inventory_2</i>No hay gastos de insumos registrados.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = json.data.map(g => `<tr>
+                <td style="color:#64748b;font-size:0.82rem;">${fmtFecha(g.fecha_hora)}</td>
+                <td style="font-weight:500;">${g.nombre_insumo}</td>
+                <td class="td-cant">${parseFloat(g.cantidad).toFixed(2)}</td>
+                <td><span class="gi-badge-unidad">${g.unidad_medida}</span></td>
+                <td class="td-acciones">
+                    <button class="gi-btn-icon edit" title="Editar"
+                        onclick="giEditar(${g.id_gasto_insumo},${g.id_insumo},${g.cantidad})">
+                        <i class="material-icons" style="font-size:1.2rem;">edit</i>
+                    </button>
+                    <button class="gi-btn-icon del" title="Eliminar"
+                        onclick="giConfirmarEliminar(${g.id_gasto_insumo},'${g.nombre_insumo.replace(/'/g,"\\'")}',${g.cantidad},'${g.unidad_medida}')">
+                        <i class="material-icons" style="font-size:1.2rem;">delete</i>
+                    </button>
+                </td>
+            </tr>`).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" class="gi-empty"><i class="material-icons">error_outline</i>Error de conexión.</td></tr>`;
+        }
+    }
+
+    // ── Actualizar info de stock al cambiar selección de insumo ───
+    document.getElementById('giSelectInsumo').addEventListener('change', function () {
+        const opt = this.options[this.selectedIndex];
+        const stock = parseFloat(opt.dataset.stock) || 0;
+        const unidad = opt.dataset.unidad || '';
+        const info = document.getElementById('giStockInfo');
+        info.textContent = this.value
+            ? `Stock disponible: ${stock.toFixed(2)} ${unidad}`
+            : 'Selecciona un insumo para ver el stock disponible.';
+        validarCantidadVsStock();
+    });
+
+    document.getElementById('giCantidad').addEventListener('input', validarCantidadVsStock);
+
+    function validarCantidadVsStock() {
+        const sel = document.getElementById('giSelectInsumo');
+        const opt = sel.options[sel.selectedIndex];
+        const stock = parseFloat(opt && opt.dataset.stock) || 0;
+        const cant = parseFloat(document.getElementById('giCantidad').value) || 0;
+        const warn = document.getElementById('giWarnStock');
+        // Al editar, el stock ya incluye la cantidad devuelta (lo hace el backend); aquí solo orientamos
+        warn.style.display = (cant > 0 && cant > stock && !document.getElementById('giIdGasto').value) ? 'block' : 'none';
+    }
+
+    // ── Botón Nuevo ────────────────────────────────────────────────
+    document.getElementById('giBtnNuevo').addEventListener('click', async () => {
+        await cargarCatalogoInsumos();
+        document.getElementById('giIdGasto').value = '';
+        document.getElementById('giSelectInsumo').value = '';
+        document.getElementById('giCantidad').value = '';
+        document.getElementById('giStockInfo').textContent = 'Selecciona un insumo para ver el stock disponible.';
+        document.getElementById('giWarnStock').style.display = 'none';
+        document.getElementById('giModalTitle').textContent = 'Registrar Gasto de Insumo';
+        document.getElementById('giBtnGuardar').innerHTML = '<i class="material-icons" style="font-size:1rem;vertical-align:middle;">save</i> Registrar';
+        abrirModal('giModalForm');
+    });
+
+    // ── Editar (expuesto globalmente) ──────────────────────────────
+    window.giEditar = async function (id, idInsumo, cantidad) {
+        await cargarCatalogoInsumos();
+        document.getElementById('giIdGasto').value = id;
+        document.getElementById('giSelectInsumo').value = idInsumo;
+        document.getElementById('giSelectInsumo').dispatchEvent(new Event('change'));
+        document.getElementById('giCantidad').value = parseFloat(cantidad).toFixed(2);
+        document.getElementById('giModalTitle').textContent = 'Editar Gasto de Insumo';
+        document.getElementById('giBtnGuardar').innerHTML = '<i class="material-icons" style="font-size:1rem;vertical-align:middle;">save</i> Actualizar';
+        abrirModal('giModalForm');
+    };
+
+    // ── Guardar (crear o editar) ───────────────────────────────────
+    document.getElementById('giBtnGuardar').addEventListener('click', async () => {
+        const id         = document.getElementById('giIdGasto').value;
+        const id_insumo  = parseInt(document.getElementById('giSelectInsumo').value);
+        const cantidad   = parseFloat(document.getElementById('giCantidad').value);
+
+        if (!id_insumo) { window.mostrarToast && window.mostrarToast('Selecciona un insumo.', 'warning'); return; }
+        if (isNaN(cantidad) || cantidad <= 0) { window.mostrarToast && window.mostrarToast('Ingresa una cantidad válida mayor a 0.', 'warning'); return; }
+
+        const body = { accion: id ? 'editar' : 'crear', id_insumo, cantidad };
+        if (id) body.id_gasto = parseInt(id);
+
+        try {
+            const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const json = await res.json();
+            if (json.status === 'success') {
+                cerrarModal('giModalForm');
+                window.mostrarToast && window.mostrarToast(json.message, 'success');
+                cargarGastos();
+            } else {
+                window.mostrarToast && window.mostrarToast(json.message || 'Error al guardar.', 'error');
+            }
+        } catch { window.mostrarToast && window.mostrarToast('Error de conexión.', 'error'); }
+    });
+
+    // ── Confirmar eliminación (expuesto globalmente) ───────────────
+    window.giConfirmarEliminar = function (id, nombre, cantidad, unidad) {
+        document.getElementById('giIdEliminar').value = id;
+        document.getElementById('giConfirmTexto').textContent = `${nombre} — ${parseFloat(cantidad).toFixed(2)} ${unidad}`;
+        abrirModal('giModalEliminar');
+    };
+
+    // ── Ejecutar eliminación ───────────────────────────────────────
+    document.getElementById('giBtnConfirmarEliminar').addEventListener('click', async () => {
+        const id = parseInt(document.getElementById('giIdEliminar').value);
+        if (!id) return;
+        try {
+            const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'eliminar', id_gasto: id }) });
+            const json = await res.json();
+            if (json.status === 'success') {
+                cerrarModal('giModalEliminar');
+                window.mostrarToast && window.mostrarToast(json.message, 'success');
+                cargarGastos();
+            } else {
+                window.mostrarToast && window.mostrarToast(json.message || 'Error al eliminar.', 'error');
+            }
+        } catch { window.mostrarToast && window.mostrarToast('Error de conexión.', 'error'); }
+    });
+
+    // ── Cerrar modales ─────────────────────────────────────────────
+    document.getElementById('giBtnCancelarForm').addEventListener('click', () => cerrarModal('giModalForm'));
+    document.getElementById('giBtnCancelarEliminar').addEventListener('click', () => cerrarModal('giModalEliminar'));
+    document.getElementById('giModalForm').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal('giModalForm'); });
+    document.getElementById('giModalEliminar').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal('giModalEliminar'); });
+
+    // ── Enter en inputs ────────────────────────────────────────────
+    document.getElementById('giCantidad').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('giBtnGuardar').click(); });
+
+    // ── Inicializar ────────────────────────────────────────────────
+    cargarGastos();
+})();
+</script>

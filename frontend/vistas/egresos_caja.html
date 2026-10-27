@@ -1,0 +1,267 @@
+<!-- vistas/egresos_caja.html -->
+<style>
+    .ec-page { padding: 20px; max-width: 900px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
+    .ec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+    .ec-header h2 { font-size: 1.3rem; color: #1e293b; display: flex; align-items: center; gap: 8px; margin: 0; }
+    .ec-header h2 i { color: #ef4444; font-size: 1.5rem; }
+    .ec-total-badge { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; }
+    .ec-btn-nuevo { display: inline-flex; align-items: center; gap: 6px; background: #3b82f6; color: white; border: none; border-radius: 7px; padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.18s; }
+    .ec-btn-nuevo:hover { background: #2563eb; }
+    .ec-tabla-wrapper { background: white; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid #e2e8f0; }
+    .ec-tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .ec-tabla thead tr { background: linear-gradient(to right, #f8fafc, #f1f5f9); }
+    .ec-tabla th { padding: 12px 16px; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+    .ec-tabla td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+    .ec-tabla tbody tr:hover { background: #f8fafc; }
+    .ec-tabla .td-monto { font-weight: 700; color: #dc2626; text-align: right; }
+    .ec-tabla .td-acciones { text-align: center; white-space: nowrap; }
+    .ec-empty { text-align: center; padding: 50px 20px; color: #94a3b8; }
+    .ec-empty i { font-size: 3rem; display: block; margin-bottom: 10px; }
+    .ec-btn-icon { background: none; border: none; cursor: pointer; padding: 5px; border-radius: 5px; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; }
+    .ec-btn-icon.edit { color: #3b82f6; } .ec-btn-icon.edit:hover { background: #eff6ff; }
+    .ec-btn-icon.del { color: #ef4444; } .ec-btn-icon.del:hover { background: #fef2f2; }
+    /* Modal */
+    .ec-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; justify-content: center; align-items: center; }
+    .ec-modal-overlay.active { display: flex; }
+    .ec-modal { background: white; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 420px; max-width: 95vw; overflow: hidden; }
+    .ec-modal-header { padding: 16px 20px; display: flex; align-items: center; gap: 10px; }
+    .ec-modal-header.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+    .ec-modal-header.red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .ec-modal-header i { font-size: 1.4rem; }
+    .ec-modal-header span { font-size: 1rem; font-weight: 700; }
+    .ec-modal-body { padding: 20px; }
+    .ec-form-group { margin-bottom: 16px; }
+    .ec-form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #475569; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .ec-form-group input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; color: #1e293b; transition: border-color 0.15s; outline: none; }
+    .ec-form-group input:focus { border-color: #3b82f6; }
+    .ec-modal-footer { padding: 14px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
+    .ec-btn-cancel { background: #e2e8f0; border: none; border-radius: 6px; padding: 9px 18px; font-weight: 600; color: #475569; cursor: pointer; }
+    .ec-btn-save { background: #3b82f6; border: none; border-radius: 6px; padding: 9px 20px; font-weight: 700; color: white; cursor: pointer; transition: background 0.15s; }
+    .ec-btn-save:hover { background: #2563eb; }
+    .ec-btn-delete { background: #ef4444; border: none; border-radius: 6px; padding: 9px 20px; font-weight: 700; color: white; cursor: pointer; }
+    .ec-confirm-text { color: #64748b; font-size: 0.9rem; margin: 0; }
+    .ec-confirm-name { background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; color: #991b1b; font-weight: 600; margin-top: 10px; font-size: 0.9rem; }
+</style>
+
+<div class="ec-page">
+    <!-- Header -->
+    <div class="ec-header">
+        <h2><i class="material-icons">outbox</i> Egresos de Caja</h2>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span class="ec-total-badge">Total: <span id="ecTotalBadge">0.00</span> Bs</span>
+            <button class="ec-btn-nuevo" id="ecBtnNuevo">
+                <i class="material-icons" style="font-size:1.1rem;">add</i> Nuevo Egreso
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="ec-tabla-wrapper">
+        <table class="ec-tabla">
+            <thead>
+                <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Concepto</th>
+                    <th style="text-align:right;">Monto (Bs)</th>
+                    <th style="text-align:center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="ecTbody">
+                <tr><td colspan="4" class="ec-empty"><i class="material-icons">hourglass_empty</i>Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Crear / Editar -->
+<div class="ec-modal-overlay" id="ecModalForm">
+    <div class="ec-modal">
+        <div class="ec-modal-header blue">
+            <i class="material-icons">edit_note</i>
+            <span id="ecModalTitle">Nuevo Egreso</span>
+        </div>
+        <div class="ec-modal-body">
+            <input type="hidden" id="ecIdEgreso" value="">
+            <div class="ec-form-group">
+                <label for="ecConcepto">Concepto</label>
+                <input type="text" id="ecConcepto" placeholder="Ej: Compra de papel, limpieza..." maxlength="200" autocomplete="off">
+            </div>
+            <div class="ec-form-group">
+                <label for="ecMonto">Monto (Bs)</label>
+                <input type="number" id="ecMonto" placeholder="0.00" min="0.01" step="0.01">
+            </div>
+        </div>
+        <div class="ec-modal-footer">
+            <button class="ec-btn-cancel" id="ecBtnCancelarForm">Cancelar</button>
+            <button class="ec-btn-save" id="ecBtnGuardar">
+                <i class="material-icons" style="font-size:1rem;vertical-align:middle;">save</i> Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar eliminación -->
+<div class="ec-modal-overlay" id="ecModalEliminar">
+    <div class="ec-modal">
+        <div class="ec-modal-header red">
+            <i class="material-icons">warning</i>
+            <span>Confirmar Eliminación</span>
+        </div>
+        <div class="ec-modal-body">
+            <p class="ec-confirm-text">¿Estás seguro de eliminar este egreso?</p>
+            <div class="ec-confirm-name" id="ecConfirmTexto"></div>
+        </div>
+        <div class="ec-modal-footer">
+            <input type="hidden" id="ecIdEliminar" value="">
+            <button class="ec-btn-cancel" id="ecBtnCancelarEliminar">Cancelar</button>
+            <button class="ec-btn-delete" id="ecBtnConfirmarEliminar">
+                <i class="material-icons" style="font-size:1rem;vertical-align:middle;">delete_forever</i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const API = '../backend/api/egresos_caja.php';
+
+    // ── Helpers de modal ──────────────────────────────────────────
+    const abrirModal = id => document.getElementById(id).classList.add('active');
+    const cerrarModal = id => document.getElementById(id).classList.remove('active');
+
+    // ── Formatear fecha ───────────────────────────────────────────
+    function fmtFecha(str) {
+        if (!str) return '—';
+        const d = new Date(str.replace(/-/g, '/'));
+        const hh = d.getHours().toString().padStart(2, '0');
+        const mm = d.getMinutes().toString().padStart(2, '0');
+        return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${hh}:${mm}`;
+    }
+
+    // ── Cargar y renderizar tabla ─────────────────────────────────
+    async function cargarEgresos() {
+        const tbody = document.getElementById('ecTbody');
+        try {
+            const res = await fetch(API);
+            const json = await res.json();
+
+            if (json.status === 'sin_jornada') {
+                tbody.innerHTML = `<tr><td colspan="4" class="ec-empty"><i class="material-icons">info</i>No hay jornada activa. Abre una jornada desde el Dashboard.</td></tr>`;
+                document.getElementById('ecTotalBadge').textContent = '0.00';
+                return;
+            }
+
+            if (json.status !== 'success' || !json.data.length) {
+                tbody.innerHTML = `<tr><td colspan="4" class="ec-empty"><i class="material-icons">receipt_long</i>No hay egresos registrados en esta jornada.</td></tr>`;
+                document.getElementById('ecTotalBadge').textContent = '0.00';
+                return;
+            }
+
+            let total = 0;
+            tbody.innerHTML = json.data.map(e => {
+                total += parseFloat(e.monto);
+                return `<tr>
+                    <td style="color:#64748b;font-size:0.82rem;">${fmtFecha(e.fecha_hora)}</td>
+                    <td style="font-weight:500;">${e.descripcion}</td>
+                    <td class="td-monto">${parseFloat(e.monto).toFixed(2)} Bs</td>
+                    <td class="td-acciones">
+                        <button class="ec-btn-icon edit" title="Editar" onclick="ecEditar(${e.id_egreso},'${e.descripcion.replace(/'/g,"\\'")}','${e.monto}')">
+                            <i class="material-icons" style="font-size:1.2rem;">edit</i>
+                        </button>
+                        <button class="ec-btn-icon del" title="Eliminar" onclick="ecConfirmarEliminar(${e.id_egreso},'${e.descripcion.replace(/'/g,"\\'")}','${e.monto}')">
+                            <i class="material-icons" style="font-size:1.2rem;">delete</i>
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('ecTotalBadge').textContent = total.toFixed(2);
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="4" class="ec-empty"><i class="material-icons">error_outline</i>Error de conexión.</td></tr>`;
+        }
+    }
+
+    // ── Abrir modal de crear ───────────────────────────────────────
+    document.getElementById('ecBtnNuevo').addEventListener('click', () => {
+        document.getElementById('ecIdEgreso').value = '';
+        document.getElementById('ecConcepto').value = '';
+        document.getElementById('ecMonto').value = '';
+        document.getElementById('ecModalTitle').textContent = 'Nuevo Egreso';
+        abrirModal('ecModalForm');
+        document.getElementById('ecConcepto').focus();
+    });
+
+    // ── Abrir modal de editar (expuesto globalmente) ───────────────
+    window.ecEditar = function (id, concepto, monto) {
+        document.getElementById('ecIdEgreso').value = id;
+        document.getElementById('ecConcepto').value = concepto;
+        document.getElementById('ecMonto').value = parseFloat(monto).toFixed(2);
+        document.getElementById('ecModalTitle').textContent = 'Editar Egreso';
+        abrirModal('ecModalForm');
+        document.getElementById('ecConcepto').focus();
+    };
+
+    // ── Guardar (crear o editar) ───────────────────────────────────
+    document.getElementById('ecBtnGuardar').addEventListener('click', async () => {
+        const id = document.getElementById('ecIdEgreso').value;
+        const concepto = document.getElementById('ecConcepto').value.trim();
+        const monto = parseFloat(document.getElementById('ecMonto').value);
+
+        if (!concepto) { window.mostrarToast && window.mostrarToast('El concepto es obligatorio.', 'warning'); return; }
+        if (isNaN(monto) || monto <= 0) { window.mostrarToast && window.mostrarToast('Ingresa un monto válido mayor a 0.', 'warning'); return; }
+
+        const body = { accion: id ? 'editar' : 'crear', concepto, monto };
+        if (id) body.id_egreso = parseInt(id);
+
+        try {
+            const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const json = await res.json();
+            if (json.status === 'success') {
+                cerrarModal('ecModalForm');
+                window.mostrarToast && window.mostrarToast(json.message, 'success');
+                cargarEgresos();
+            } else {
+                window.mostrarToast && window.mostrarToast(json.message || 'Error al guardar.', 'error');
+            }
+        } catch { window.mostrarToast && window.mostrarToast('Error de conexión.', 'error'); }
+    });
+
+    // ── Confirmar eliminación (expuesto globalmente) ───────────────
+    window.ecConfirmarEliminar = function (id, concepto, monto) {
+        document.getElementById('ecIdEliminar').value = id;
+        document.getElementById('ecConfirmTexto').textContent = `${concepto} — ${parseFloat(monto).toFixed(2)} Bs`;
+        abrirModal('ecModalEliminar');
+    };
+
+    // ── Ejecutar eliminación ───────────────────────────────────────
+    document.getElementById('ecBtnConfirmarEliminar').addEventListener('click', async () => {
+        const id = parseInt(document.getElementById('ecIdEliminar').value);
+        if (!id) return;
+        try {
+            const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'eliminar', id_egreso: id }) });
+            const json = await res.json();
+            if (json.status === 'success') {
+                cerrarModal('ecModalEliminar');
+                window.mostrarToast && window.mostrarToast(json.message, 'success');
+                cargarEgresos();
+            } else {
+                window.mostrarToast && window.mostrarToast(json.message || 'Error al eliminar.', 'error');
+            }
+        } catch { window.mostrarToast && window.mostrarToast('Error de conexión.', 'error'); }
+    });
+
+    // ── Cerrar modales ─────────────────────────────────────────────
+    document.getElementById('ecBtnCancelarForm').addEventListener('click', () => cerrarModal('ecModalForm'));
+    document.getElementById('ecBtnCancelarEliminar').addEventListener('click', () => cerrarModal('ecModalEliminar'));
+    document.getElementById('ecModalForm').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal('ecModalForm'); });
+    document.getElementById('ecModalEliminar').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal('ecModalEliminar'); });
+
+    // ── Enter en inputs del form ───────────────────────────────────
+    ['ecConcepto','ecMonto'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('ecBtnGuardar').click(); });
+    });
+
+    // ── Inicializar ────────────────────────────────────────────────
+    cargarEgresos();
+})();
+</script>

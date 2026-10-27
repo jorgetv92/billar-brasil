@@ -53,6 +53,8 @@
                             <option value="descuento_producto">Bebida o Snack a precio especial</option>
                             <option value="combo_2x1">Combo 2x1 en Producto</option>
                             <option value="incentivo_cruzado">Incentivo Cruzado (Mesa + Barra)</option>
+                            <option value="incentivo_mesa">Incentivo en Mesa (Descuento por horas jugadas)</option>
+                            <option value="incentivo_producto">Incentivo en Producto (Compra + Mesa)</option>
                         </select>
                     </div>
                 </div>
@@ -146,6 +148,52 @@
                         <div class="input-group">
                             <label for="valor_descuento_cruz">Precio especial del producto (Bs.)</label>
                             <input type="number" id="valor_descuento_cruz" step="0.50" min="0" placeholder="Ej: 5.00">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="block-incentivo_mesa" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #4caf50;">
+                    <h4 style="margin-bottom:10px; color:#388e3c;">Configuración de Incentivo en Mesa</h4>
+                    <div style="font-size:0.9rem; margin-bottom:12px; color:#475569;">
+                        Regla: "Si la mesa juega un mínimo de tiempo, el precio por hora de la mesa baja a un precio especial".
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="id_item_condicion_inc_mesa">Tipo de Mesa Requerido</label>
+                            <select id="id_item_condicion_inc_mesa"></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="cantidad_condicion_inc_mesa">Horas mínimas de juego</label>
+                            <input type="number" id="cantidad_condicion_inc_mesa" min="1" placeholder="Ej: 3">
+                        </div>
+                        <div class="input-group">
+                            <label for="valor_descuento_inc_mesa">Precio especial por hora (Bs.)</label>
+                            <input type="number" id="valor_descuento_inc_mesa" step="0.50" min="0" placeholder="Ej: 8.00">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="block-incentivo_producto" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #ff9800;">
+                    <h4 style="margin-bottom:10px; color:#f57c00;">Configuración de Incentivo en Producto</h4>
+                    <div style="font-size:0.9rem; margin-bottom:12px; color:#475569;">
+                        Regla: "Si el cliente compra X cantidad del producto seleccionado, la primera hora de juego en el tipo de mesa elegido se cobra al precio especial configurado (en lugar del precio normal)."
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="id_item_condicion_inc_prod">Producto Requerido</label>
+                            <select id="id_item_condicion_inc_prod"></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="cantidad_condicion_inc_prod">Cantidad del producto</label>
+                            <input type="number" id="cantidad_condicion_inc_prod" min="1" placeholder="Ej: 5">
+                        </div>
+                        <div class="input-group">
+                            <label for="id_item_secundario_inc_prod">Tipo de Mesa a aplicar</label>
+                            <select id="id_item_secundario_inc_prod"></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="valor_descuento_inc_prod">Precio especial por 1ª hora (Bs.)</label>
+                            <input type="number" id="valor_descuento_inc_prod" step="0.50" min="0" placeholder="Ej: 10.00">
                         </div>
                     </div>
                 </div>

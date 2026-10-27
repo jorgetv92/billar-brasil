@@ -1,0 +1,26 @@
+<div class="view-header">
+    <h2>Últimos Cierres de Jornada</h2>
+    <p>Historial de los últimos 10 reportes definitivos de cierre de caja.</p>
+</div>
+
+<div class="card p-4">
+    <div id="listadoPdfs" style="display: flex; flex-direction: column; gap: 10px;">
+        <p>Cargando reportes...</p>
+    </div>
+</div>
+
+<!-- Modal para ver el PDF -->
+<div id="modalVistaPdf" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="width: 85%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 id="tituloModalPdf" style="margin: 0; color: #1e293b;">Visor de Reporte</h3>
+            <button class="icon-btn text-danger" onclick="cerrarModalPdf()" style="font-size: 1.5rem; border: none; background: transparent; cursor: pointer;">
+                <i class="material-icons">close</i>
+            </button>
+        </div>
+        <div style="flex: 1; min-height: 60vh;">
+            <iframe id="iframePdf" src="" width="100%" height="100%" style="border: none; border-radius: 4px;"></iframe>
+        </div>
+    </div>
+</div>
+

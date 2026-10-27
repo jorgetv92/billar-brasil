@@ -48,6 +48,15 @@
             <button class="nav-item" data-page="usuarios.html">
                 <i class="material-icons">group</i> Usuarios
             </button>
+            <button class="nav-item" data-page="cargas_mercaderia.html">
+                <i class="material-icons">local_shipping</i> Carga de Mercadería
+            </button>
+            <button class="nav-item" data-page="cargas_insumos.html">
+                <i class="material-icons">add_box</i> Carga de Insumos
+            </button>
+            <button class="nav-item" data-page="reportes.html">
+                <i class="material-icons">analytics</i> Reportes
+            </button>
             <div class="nav-divider"></div>
             <button class="nav-item text-danger" id="btnLogout">
                 <i class="material-icons">logout</i> Cerrar Sesión
@@ -59,6 +68,58 @@
     </main>
 
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: LISTADO ÚLTIMOS CIERRES DE JORNADA                   -->
+    <!-- ============================================================ -->
+    <div id="modalListadoCierres" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:1200; justify-content:center; align-items:center;">
+        <div style="background:#fff; width:90%; max-width:680px; border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); overflow:hidden; display:flex; flex-direction:column;">
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 25px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <i class="material-icons" style="color:#3b82f6; font-size:1.6rem;">history</i>
+                    <div>
+                        <h3 style="margin:0; font-size:1.1rem; color:#0f172a; font-weight:700;">Últimos Cierres de Jornada</h3>
+                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Historial de los últimos 10 reportes definitivos en PDF</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modalListadoCierres').style.display='none'" style="background:none; border:none; cursor:pointer; color:#64748b; padding:4px; border-radius:6px; display:flex; align-items:center;">
+                    <i class="material-icons">close</i>
+                </button>
+            </div>
+            <!-- Body -->
+            <div id="listadoPdfsAdmin" style="padding:20px 25px; max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                <p style="color:#64748b; text-align:center; padding:20px 0;">Cargando reportes...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL FULLSCREEN: VISOR DE PDF                              -->
+    <!-- ============================================================ -->
+    <div id="modalPdfFullscreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#1e293b; z-index:1300; flex-direction:column;">
+        <!-- Header del visor -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 20px; background:#0f172a; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:10px; flex:1;">
+                <i class="material-icons" style="color:#ef4444;">picture_as_pdf</i>
+                <span id="tituloModalPdfAdmin" style="color:#f1f5f9; font-size:0.95rem; font-weight:600;">Reporte PDF</span>
+            </div>
+            
+            <div style="flex:1; display:flex; justify-content:center;">
+                <a id="btnAbrirExternoPdfAdmin" href="#" target="_blank" style="background:#3b82f6; border:none; cursor:pointer; color:#ffffff; padding:6px 14px; border-radius:6px; display:flex; align-items:center; gap:6px; font-size:0.85rem; text-decoration:none; font-weight:500; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                    <i class="material-icons" style="font-size:1.1rem;">open_in_new</i> Abrir / Descargar
+                </a>
+            </div>
+
+            <div style="flex:1; display:flex; justify-content:flex-end;">
+                <button id="btnCerrarVisorPdf" style="background:rgba(255,255,255,0.1); border:none; cursor:pointer; color:#f1f5f9; padding:6px 14px; border-radius:6px; display:flex; align-items:center; gap:6px; font-size:0.85rem;" onclick="window.cerrarVisorPdfAdmin()">
+                    <i class="material-icons" style="font-size:1.1rem;">arrow_back</i> Volver al listado
+                </button>
+            </div>
+        </div>
+        <!-- Iframe PDF -->
+        <iframe id="iframePdfAdmin" src="" style="flex:1; border:none; width:100%; height:100%;"></iframe>
+    </div>
 
     <script src="js/admin.js"></script>
 </body>

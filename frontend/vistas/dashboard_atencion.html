@@ -5,22 +5,243 @@
     </div>
 </div>
 
-<div class="form-grid">
-    <div class="card text-center" style="grid-column: span 2; padding: 40px 20px;">
-        <i class="material-icons text-warning" style="font-size: 4rem; margin-bottom: 15px;">lock_clock</i>
-        <h3>Jornada Cerrada</h3>
-        <p style="color: #64748b; margin-bottom: 20px;">Debes abrir caja para comenzar a atender mesas y vender productos.</p>
-        <button class="btn-primary" id="btnAbrirJornadaTemp" style="font-size: 1.1rem; padding: 12px 25px;">
-            <i class="material-icons">play_circle</i> Abrir Jornada
-        </button>
+<div class="dash-row-1">
+    <div id="jornadaContainer">
+        <div class="card text-center" style="padding: 20px; height: 100%;">
+            <p>Cargando estado del turno...</p>
+        </div>
     </div>
 
-    <div class="card">
-        <h4 style="color: #475569; margin-bottom: 10px;">Mesas Activas</h4>
-        <h2 style="font-size: 2rem; color: var(--primary);">0</h2>
-    </div>
-    <div class="card">
-        <h4 style="color: #475569; margin-bottom: 10px;">Ventas en Barra</h4>
-        <h2 style="font-size: 2rem; color: #2196f3;">0.00 Bs</h2>
+    <div class="card" style="display: flex; flex-direction: column;">
+        <h4 class="kpi-title">Mesas Disponibles</h4>
+        <div id="kpiMesasList" style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; gap: 10px;">
+            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
+                <span style="color:#64748b;">Pool:</span> <strong style="color:var(--primary); font-size:1.2rem;">0</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
+                <span style="color:#64748b;">Snooker:</span> <strong style="color:var(--primary); font-size:1.2rem;">0</strong>
+            </div>
+        </div>
     </div>
 </div>
+
+<div class="dash-row-2">
+    <div class="card text-center">
+        <h4 class="kpi-title">Horas Jugadas</h4>
+        <h2 class="kpi-value" style="color: #0ea5e9;">0.00 <span style="font-size:1rem;color:#94a3b8;">hrs</span></h2>
+    </div>
+
+    <div class="card text-center">
+        <h4 class="kpi-title">Productos Vendidos</h4>
+        <h2 class="kpi-value" style="color: #10b981;">0 <span style="font-size:1rem;color:#94a3b8;">uds</span></h2>
+    </div>
+
+    <div class="card text-center">
+        <h4 class="kpi-title">Total Egresos</h4>
+        <h2 class="kpi-value" style="color: #ef4444;">0.00 <span style="font-size:1rem;color:#94a3b8;">Bs</span></h2>
+    </div>
+</div>
+
+<div id="modalApertura" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="card" style="background: #fff; width: 400px; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+        <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+            <i class="material-icons text-primary">point_of_sale</i> Apertura de Caja
+        </h3>
+        <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">Ingresa el dinero en efectivo con el que inicia la caja.</p>
+        <form id="formAperturaCaja">
+            <div class="input-group" style="margin-bottom: 20px;">
+                <label for="montoInicial" style="display: block; margin-bottom: 5px; font-weight: bold;">Monto Inicial ($)</label>
+                <input type="number" id="montoInicial" name="montoInicial" min="0" step="0.01" placeholder="0.00" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px;" autocomplete="off">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" id="btnCancelarApertura" class="btn-secondary" style="padding: 10px 15px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding: 10px 20px; border-radius: 4px;">Confirmar Apertura</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: REPORTE DE APERTURA DE JORNADA -->
+<div id="modalReporteApertura" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.55); z-index: 1050; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
+    <div class="card" style="background: #fff; width: 90%; max-width: 600px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); overflow: hidden; transition: all 0.25s ease-in-out;">
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 18px 22px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px; color: white;">
+                <i class="material-icons" style="font-size: 1.8rem;">play_circle_filled</i>
+                <div>
+                    <div style="font-size: 1.1rem; font-weight: 700;">Jornada Abierta Correctamente</div>
+                    <div id="raIdJornada" style="font-size: 0.8rem; opacity: 0.85;">Jornada #—</div>
+                </div>
+            </div>
+            <span style="background: rgba(255,255,255,0.2); color:white; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold;">ACTIVA</span>
+        </div>
+        <div style="padding: 16px 22px 0 22px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
+                    <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Encargado</div>
+                    <div id="raEncargado" style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">—</div>
+                </div>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
+                    <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Fecha</div>
+                    <div id="raFecha" style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">—</div>
+                </div>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
+                    <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Hora de Apertura</div>
+                    <div id="raHora" style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">—</div>
+                </div>
+                <div style="background: #edfdf6; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px 12px;">
+                    <div style="font-size: 0.7rem; color: #047857; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Monto de Apertura</div>
+                    <div id="raMontoApertura" style="font-weight: 700; color: #059669; font-size: 1.05rem;">0.00 Bs</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <h4 style="font-size: 0.8rem; color: #475569; margin: 0; border-left: 3px solid #10b981; padding-left: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Inventario Inicial</h4>
+                    <button type="button" id="btnToggleExpandirInventario" style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Maximizar tabla">
+                        <span style="font-size: 0.7rem; font-weight: 600; color: #475569;" id="txtToggleExpandir">Expandir</span>
+                        <i class="material-icons" id="iconoExpandirInventario" style="font-size: 1.1rem; color: #475569;">fullscreen</i>
+                    </button>
+                </div>
+
+                <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; transition: max-height 0.25s ease-in-out;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                        <thead>
+                            <tr style="background: #f1f5f9; position: sticky; top: 0;">
+                                <th style="padding: 5px 8px; border-bottom: 1px solid #cbd5e1; text-align: left; color: #475569; font-weight: 600;">Producto</th>
+                                <th style="padding: 5px 8px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #475569; font-weight: 600;">Stock</th>
+                                <th style="padding: 5px 8px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #475569; font-weight: 600;">Precio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="raInventarioBody">
+                            <tr>
+                                <td colspan="3" style="text-align:center; color:#94a3b8; padding: 12px;">Cargando inventario...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 12px 22px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+            <button type="button" id="btnCerrarReporteApertura" style="padding: 9px 24px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="material-icons" style="font-size: 1rem;">check</i> Entendido
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalPreCierre" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
+    <div class="card" style="background: #fff; width: 90%; max-width: 850px; padding: 25px; border-radius: 8px; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; color: var(--danger);">
+            <i class="material-icons">analytics</i> Reporte de Pre-Cierre de Jornada
+        </h3>
+        <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">Valide los totales de caja y el flujo de inventario antes de guardar.</p>
+
+        <div id="infoPreCierre">
+            <p class="text-center" style="color: #94a3b8; padding: 20px;">Cargando información del reporte de cierre...</p>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+            <button type="button" id="btnCancelarCierre" class="btn-secondary" style="padding: 10px 15px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Modificar Cierre</button>
+            <button type="button" id="btnConfirmarCierre" class="btn-primary" style="padding: 10px 20px; background: var(--danger); border-radius: 4px; border:none; color:white; font-weight:bold; cursor:pointer;">Confirmar Cierre</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalReporteFinal" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 1100; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
+    <div class="card" style="background: #fff; width: 90%; max-width: 850px; padding: 25px; border-radius: 8px; max-height: 95vh; overflow-y: auto;">
+        <h3 id="reporteHeaderTitulo" style="display: none;">
+        </h3>
+
+        <div id="contenidoReporteFinal" style="background: #fafafa; border: 1px solid #cbd5e1; border-radius: 6px; color: #1e293b;">
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+            <button type="button" id="btnCerrarReporteFinal" class="btn-secondary" style="padding: 10px 15px; background: #cbd5e1; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cerrar</button>
+            <button type="button" id="btnGuardarPDF" class="btn-primary" style="padding: 10px 20px; background: var(--success); border-radius: 4px; border:none; color:white; font-weight:bold; cursor:pointer; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="material-icons" style="font-size:1.1rem;">picture_as_pdf</i> Guardar PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- MODAL: VENTAS DE LA JORNADA                                         -->
+<!-- ================================================================== -->
+<div id="modalMisVentas" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.55); z-index: 1200; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 24px 0;">
+    <div style="background: #fff; width: 95%; max-width: 1050px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.22); overflow: hidden; margin: auto;">
+        <!-- Cabecera del modal -->
+        <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px; color: white;">
+                <i class="material-icons" style="font-size: 2rem;">point_of_sale</i>
+                <div>
+                    <div style="font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em;">Ventas de la Jornada</div>
+                    <div style="font-size: 0.78rem; opacity: 0.85;">Productos vendidos — barra y mesa</div>
+                </div>
+            </div>
+            <button type="button" id="btnCerrarMisVentas" style="background: rgba(255,255,255,0.18); border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: background 0.2s;" title="Cerrar">
+                <i class="material-icons" style="font-size: 1.2rem;">close</i>
+            </button>
+        </div>
+
+        <!-- Cuerpo del modal -->
+        <div style="padding: 20px 24px; min-height: 200px;">
+            <div id="misVentasLoading" style="text-align: center; padding: 40px; color: #94a3b8;">
+                <i class="material-icons" style="font-size: 2.5rem; display: block; margin-bottom: 10px;">hourglass_empty</i>
+                Cargando ventas...
+            </div>
+
+            <!-- Tabla maestra de ventas -->
+            <div id="misVentasContenido" style="display: none;">
+                <div style="overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                        <thead>
+                            <tr style="background: linear-gradient(to right, #f8fafc, #f1f5f9);">
+                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: center; color: #475569; font-weight: 700; width: 38px;"></th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569; font-weight: 700;">ID</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569; font-weight: 700;">Fecha / Hora</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: center; color: #475569; font-weight: 700;">Modo Venta</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: center; color: #475569; font-weight: 700;">Método Pago</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: right; color: #475569; font-weight: 700;">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody id="misVentasTbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="misVentasEmpty" style="display: none; text-align: center; padding: 40px; color: #94a3b8;">
+                    <i class="material-icons" style="font-size: 2.5rem; display: block; margin-bottom: 8px;">inventory_2</i>
+                    No hay ventas de productos registradas en esta jornada.
+                </div>
+            </div>
+        </div>
+
+        <!-- Pie del modal -->
+        <div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+            <button type="button" id="btnCerrarMisVentas2" style="padding: 9px 24px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="material-icons" style="font-size: 1rem;">close</i> Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE PRODUCTO DE VENTA            -->
+<!-- ================================================================== -->
+<div id="modalConfirmarEliminarDetalle" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 1300; justify-content: center; align-items: center;">
+    <div style="background: #fff; width: 420px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 16px 20px; display: flex; align-items: center; gap: 10px; color: white;">
+            <i class="material-icons" style="font-size: 1.6rem;">warning</i>
+            <span style="font-size: 1rem; font-weight: 700;">Confirmar Eliminación</span>
+        </div>
+        <div style="padding: 20px 24px;">
+            <p style="color: #334155; margin-bottom: 6px;">¿Estás seguro de que deseas eliminar este producto de la venta?</p>
+            <p id="textoConfirmarEliminar" style="font-weight: 600; color: #ef4444; font-size: 0.9rem; background: #fef2f2; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #ef4444;"></p>
+            <p style="color: #64748b; font-size: 0.82rem; margin-top: 8px;">El stock del producto será restaurado automáticamente al inventario.</p>
+        </div>
+        <div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="btnCancelarEliminarDetalle" style="padding: 9px 18px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; color: #475569;">Cancelar</button>
+            <button type="button" id="btnConfirmarEliminarDetalle" style="padding: 9px 20px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="material-icons" style="font-size: 1rem;">delete_forever</i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>

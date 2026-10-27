@@ -21,7 +21,7 @@ switch ($method) {
     case 'GET':
         try {
             $query = "SELECT id_promocion, nombre_promo, tipo_promo, fecha_inicio, fecha_fin, 
-                             hora_inicio, hora_fin, dias_semana, valor_descuento, id_item_condicion, cantidad_condicion 
+                             hora_inicio, hora_fin, dias_semana, valor_descuento, id_item_condicion, id_item_secundario, cantidad_condicion 
                       FROM promociones ORDER BY id_promocion DESC";
             $stmt = $db->prepare($query);
             $stmt->execute();
@@ -55,6 +55,7 @@ switch ($method) {
 
         $valor_desc = null;
         $id_item = null;
+        $id_item_secundario = null;
         $cant_cond = null;
 
         if ($data->tipo_promo === 'tarifa_mesa' || $data->tipo_promo === 'descuento_producto') {
@@ -62,22 +63,24 @@ switch ($method) {
             $id_item = $data->id_item_condicion;
         } elseif ($data->tipo_promo === 'combo_2x1') {
             $id_item = $data->id_item_condicion;
-        } elseif ($data->tipo_promo === 'incentivo_cruzado') {
-            $id_item = $data->id_item_condicion; // ID del producto beneficiado
-            $valor_desc = $data->valor_descuento; // Precio especial del producto
+        } elseif ($data->tipo_promo === 'incentivo_cruzado' || $data->tipo_promo === 'incentivo_mesa') {
+            $id_item = $data->id_item_condicion; // ID del producto beneficiado / mesa
+            $valor_desc = $data->valor_descuento; // Precio especial del producto / mesa
             $cant_cond = $data->cantidad_condicion; // Horas de juego requeridas
-            // Tip extra: Guardaremos un JSON o compuesto si requerimos enlazar el tipo de mesa, 
-            // pero para ajustarnos estrictamente al script original, usamos id_item para el producto 
-            // y guardamos la cantidad de horas. El tipo de mesa se asume general o se maneja por negocio.
+        } elseif ($data->tipo_promo === 'incentivo_producto') {
+            $id_item = $data->id_item_condicion; // ID del producto requerido
+            $id_item_secundario = $data->id_item_secundario; // Tipo de mesa al que aplica
+            $cant_cond = $data->cantidad_condicion; // Cantidad del producto requerido
+            $valor_desc = $data->valor_descuento; // Monto a aumentar / Tarifa especial para 1 hora
         }
 
         try {
             if ($method === 'POST') {
-                $query = "INSERT INTO promociones (nombre_promo, tipo_promo, fecha_inicio, fecha_fin, hora_inicio, hora_fin, dias_semana, valor_descuento, id_item_condicion, cantidad_condicion) 
-                          VALUES (:nombre, :tipo, :f_ini, :f_fin, :h_ini, :h_fin, :dias, :val, :item, :cant)";
+                $query = "INSERT INTO promociones (nombre_promo, tipo_promo, fecha_inicio, fecha_fin, hora_inicio, hora_fin, dias_semana, valor_descuento, id_item_condicion, id_item_secundario, cantidad_condicion) 
+                          VALUES (:nombre, :tipo, :f_ini, :f_fin, :h_ini, :h_fin, :dias, :val, :item, :item_sec, :cant)";
                 $stmt = $db->prepare($query);
             } else {
-                $query = "UPDATE promociones SET nombre_promo = :nombre, tipo_promo = :tipo, fecha_inicio = :f_ini, fecha_fin = :f_fin, hora_inicio = :h_ini, hora_fin = :h_fin, dias_semana = :dias, valor_descuento = :val, id_item_condicion = :item, cantidad_condicion = :cant 
+                $query = "UPDATE promociones SET nombre_promo = :nombre, tipo_promo = :tipo, fecha_inicio = :f_ini, fecha_fin = :f_fin, hora_inicio = :h_ini, hora_fin = :h_fin, dias_semana = :dias, valor_descuento = :val, id_item_condicion = :item, id_item_secundario = :item_sec, cantidad_condicion = :cant 
                           WHERE id_promocion = :id";
                 $stmt = $db->prepare($query);
                 $stmt->bindParam(':id', $data->id_promocion);
@@ -92,6 +95,7 @@ switch ($method) {
             $stmt->bindParam(':dias', $dias);
             $stmt->bindParam(':val', $valor_desc);
             $stmt->bindParam(':item', $id_item);
+            $stmt->bindParam(':item_sec', $id_item_secundario);
             $stmt->bindParam(':cant', $cant_cond);
 
             if ($stmt->execute()) {

@@ -1,0 +1,942 @@
+/* 1. Asegurar que el body no desborde y organice sus hijos verticalmente */
+
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    /* Para navegadores móviles modernos */
+    overflow: hidden;
+    /* Bloquea el scroll global */
+    margin: 0;
+}
+
+
+/* 2. El contenedor #router-outlet debe ocupar SOLO el espacio restante */
+
+#router-outlet {
+    flex: 1;
+    /* Ocupa todo el espacio libre debajo del header/appbar */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Importante: el scroll debe ocurrir DENTRO, no aquí */
+    min-height: 0;
+    /* Crucial: permite que el contenedor se encoja para caber */
+}
+
+
+/* --- LAYOUT PRINCIPAL DESKTOP --- */
+
+.atencion-layout {
+    display: grid;
+    grid-template-columns: 65fr 35fr;
+    grid-template-rows: 1fr auto;
+    gap: 20px;
+    height: 100%;
+    overflow: hidden;
+    /* Evita que el grid genere scroll */
+    min-height: 0;
+}
+
+.panel-izquierdo {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+
+.panel-derecho {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.header-panel-derecho {
+    padding: 15px;
+}
+
+.grid-mesas {
+    display: grid;
+    gap: 15px;
+}
+
+
+/* --- FOOTER GLOBAL DE ACCIONES --- */
+
+.footer-global-acciones {
+    grid-column: 1 / 3;
+    grid-row: 2 / 3;
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+    /* NUEVO: Protege el footer para que el flexbox nunca lo aplaste */
+}
+
+
+/* --- UTILIDADES Y ESTADOS VISUALES --- */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* Estilos de Botones y Tarjetas (Base) */
+
+.mesa-card {
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.mesa-card:hover {
+    filter: brightness(0.95);
+}
+
+.mesa-card.disponible {
+    border-color: #10b981;
+    background: #ecfdf5;
+}
+
+.mesa-card.ocupada {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.mesa-card.pausada {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.header-info-mesa {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+
+/* Formato Panel Derecho */
+
+.header-venta {
+    padding: 15px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.titulo-seccion,
+#lblTituloVenta {
+    font-weight: bold !important;
+    font-size: 1.3rem;
+    padding: 10px 10px;
+    margin: 10px 10px;
+    text-align: center;
+    display: block;
+}
+
+.buscador-productos {
+    padding: 15px;
+}
+
+.carrito-wrapper {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 0 15px;
+}
+
+.tabla-carrito {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-carrito th,
+.tabla-carrito td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 10px 5px;
+}
+
+.carrito-contenedor {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 15px;
+    min-height: 0;
+}
+
+.footer-panel-derecho {
+    padding: 20px;
+    border-top: 2px solid #e2e8f0;
+    background: #fff;
+    margin-top: auto;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+
+/* Formato de Acciones del Footer Global */
+
+.acciones-operativas,
+.acciones-cobro {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.total-unificado-box {
+    text-align: right;
+    margin-right: 15px;
+}
+
+.total-unificado-box small {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+.total-unificado-box strong {
+    font-size: 1.4rem;
+    color: #10b981;
+}
+
+
+/* Botones genéricos rápidos */
+
+.btn-primary {
+    background: #2196f3;
+    color: #fff;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.btn-accion {
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Centra el contenido */
+    gap: 5px;
+    font-weight: bold;
+    flex: 1;
+    /* Obliga a que todos midan lo mismo */
+    text-align: center;
+}
+
+.btn-warning {
+    background: #f59e0b;
+}
+
+.btn-success {
+    background: #10b981;
+}
+
+.btn-info {
+    background: #0ea5e9;
+}
+
+.btn-secondary {
+    background: #64748b;
+}
+
+.btn-danger {
+    background: #ef4444;
+}
+
+
+/* --- NUEVOS ESTILOS PANEL DERECHO --- */
+
+.formulario-venta {
+    padding: 15px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.input-text {
+    flex: 1;
+    display: flex;
+    min-width: 121px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    outline: none;
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.cantidad-control {
+    flex: 1;
+    display: flex;
+    min-width: 121px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.input-cantidad {
+    flex: 1;
+    display: flex;
+    width: 50px;
+    text-align: center;
+    border: none;
+    border-left: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    outline: none;
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.btn-cantidad-ctrl {
+    background: #f1f5f9;
+    border: none;
+    padding: 0 12px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    font-weight: bold;
+    color: #334155;
+}
+
+.btn-cantidad-ctrl:hover {
+    background: #e2e8f0;
+}
+
+.input-cantidad::-webkit-outer-spin-button,
+.input-cantidad::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.btn-icon-small {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.btn-icon-small i {
+    font-size: 1.2rem;
+}
+
+
+/* --- NUEVOS ESTILOS PANEL IZQUIERDO --- */
+
+.mesa-info-resumen {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.total-badge {
+    font-weight: bold;
+    color: #10b981;
+    font-size: 0.9rem;
+}
+
+.detalle-estado {
+    font-size: 1.2rem;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+.detalle-columnas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.col-izq,
+.col-der {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+
+/* --- ESTILOS PARA MODALES Y RADIO BUTTONS TIPO BOOTSTRAP --- */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.modal-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+
+/* Grupo de botones Radio moderno */
+
+.btn-group-radio {
+    display: flex;
+    border: 1px solid #2196f3;
+    border-radius: 6px;
+    overflow: hidden;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.btn-group-radio input[type="radio"] {
+    display: none;
+}
+
+.btn-group-radio label {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    cursor: pointer;
+    color: #2196f3;
+    background: #fff;
+    transition: 0.2s;
+    font-weight: bold;
+}
+
+.btn-group-radio input[type="radio"]:checked+label {
+    background: #2196f3;
+    color: #fff;
+}
+
+
+/* --- CONFIGURACIONES GENERALES DE TRANSICIONES --- */
+
+.panel-izquierdo,
+.panel-derecho {
+    transition: width 0.3s ease-in-out, flex 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+#contenidoIzquierdo,
+#contenidoDerecho {
+    transition: opacity 0.2s ease-in-out;
+    opacity: 1;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
+}
+
+.fade-out {
+    opacity: 0 !important;
+}
+
+
+/* Ocultar elementos en Escritorio */
+
+.hidden-desktop {
+    display: none !important;
+}
+
+
+/* --- DISEÑO DE LOS TABS MÓVILES --- */
+
+.tab-movil {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #2196f3;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    height: 38px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.tab-movil:hover {
+    background: #1e88e5;
+}
+
+.btn-circular-tab {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+
+/* --- LAYOUT RESPONSIVO PARA BOTONES DE COBRO --- */
+
+.btn-group-responsive {
+    display: flex;
+    gap: 10px;
+    /* Espacio entre ambos botones */
+    width: 100%;
+}
+
+.btn-group-responsive button {
+    flex: 1;
+    /* Ambos botones toman el 50% del ancho disponible */
+    padding: 12px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+
+/* MEDIA QUERIES ESCRITORIO (Grilla de Mesas) */
+
+@media (min-width: 1450px) {
+    .grid-mesas {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 1280px) and (max-width: 1449px) {
+    .grid-mesas {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1279px) {
+    .grid-mesas {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+
+/* --- NUEVA ARQUITECTURA MÓVIL DE ESTADOS MAESTROS --- */
+
+@media (max-width: 768px) {
+    .hidden-desktop {
+        display: flex !important;
+    }
+    .grid-mesas {
+        grid-template-columns: 1fr;
+    }
+    .atencion-layout {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
+        /* NUEVO: 100dvh ignora las barras de navegación de los navegadores móviles reales */
+        width: 100%;
+        overflow: hidden;
+        gap: 0;
+    }
+    .panel-izquierdo,
+    .panel-derecho {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        overflow: hidden;
+        transition: all 0.3s ease-in-out;
+        min-height: 0;
+        /* NUEVO: Permite que los paneles respeten el alto de la pantalla */
+    }
+    /* === CORRECCIÓN CRÍTICA DE DISEÑO (CARRITO Y MESAS) === */
+    #contenidoIzquierdo,
+    #contenidoDerecho {
+        flex: 1;
+        flex-direction: column !important;
+        overflow-y: auto;
+        overflow-x: hidden !important;
+        padding: 12px;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 0;
+        /* NUEVO: Obliga a que sus hijos hagan scroll en vez de estirar la pantalla */
+    }
+    .footer-global-acciones {
+        position: static !important;
+        width: 100%;
+        box-sizing: border-box;
+        flex-wrap: wrap;
+        justify-content: center;
+        border-radius: 0;
+    }
+    .acciones-operativas,
+    .acciones-cobro {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    /* --- MISIONES X1 Y X2: REDUCCIÓN DE FOOTER --- */
+    .footer-global-acciones {
+        padding: 8px 10px !important;
+        /* Reduce padding del footer */
+        flex-direction: column;
+        gap: 6px;
+    }
+    .acciones-operativas {
+        flex-wrap: nowrap !important;
+        /* Prohíbe que un botón baje a otra línea */
+        width: 100%;
+        gap: 5px;
+        /* Menos espacio entre botones */
+    }
+    .acciones-cobro {
+        width: 100%;
+        justify-content: space-between;
+    }
+    /* Misión X1: Icono arriba, texto abajo */
+    .btn-accion {
+        flex-direction: column;
+        padding: 4px 2px;
+        font-size: 0.7rem;
+        /* Texto más pequeño */
+        gap: 2px;
+        height: 52px;
+        /* Tamaño estandarizado */
+    }
+    .btn-accion i {
+        font-size: 1.4rem;
+    }
+    .total-unificado-box {
+        margin-right: 0;
+        text-align: left;
+    }
+    /* === ESTADO 1: VENTA EN BARRA === */
+    .atencion-layout.state-barra .panel-izquierdo {
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+    }
+    .atencion-layout.state-barra #tabIzquierdo {
+        display: flex !important;
+    }
+    .atencion-layout.state-barra #contenidoIzquierdo {
+        display: none !important;
+    }
+    .atencion-layout.state-barra .panel-derecho {
+        flex: 1 !important;
+        min-height: 0 !important;
+        /* NUEVO */
+    }
+    .atencion-layout.state-barra #tabDerecho {
+        display: none !important;
+    }
+    .atencion-layout.state-barra #contenidoDerecho {
+        display: flex !important;
+    }
+    .atencion-layout.state-barra #footerAccionesMesa {
+        display: none !important;
+    }
+    .atencion-layout.state-barra #footerVentaBarra {
+        display: block !important;
+    }
+    /* === ESTADO 2: SELECCIONANDO MESA === */
+    .atencion-layout.state-seleccionando .panel-izquierdo {
+        flex: 1 !important;
+        min-height: 0 !important;
+        /* NUEVO */
+    }
+    .atencion-layout.state-seleccionando #tabIzquierdo {
+        display: none !important;
+    }
+    .atencion-layout.state-seleccionando #contenidoIzquierdo {
+        display: flex !important;
+    }
+    .atencion-layout.state-seleccionando .panel-derecho {
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+    }
+    .atencion-layout.state-seleccionando #tabDerecho {
+        display: flex !important;
+    }
+    .atencion-layout.state-seleccionando #contenidoDerecho {
+        display: none !important;
+    }
+    .atencion-layout.state-seleccionando #footerAccionesMesa {
+        display: none !important;
+    }
+    /* === ESTADO 3: MESA SELECCIONADA - VIENDO INFO MESA === */
+    .atencion-layout.state-mesa-info .panel-izquierdo {
+        flex: 1 !important;
+        min-height: 0 !important;
+        /* NUEVO */
+    }
+    .atencion-layout.state-mesa-info #tabIzquierdo {
+        display: none !important;
+    }
+    .atencion-layout.state-mesa-info #contenidoIzquierdo {
+        display: flex !important;
+    }
+    .atencion-layout.state-mesa-info .panel-derecho {
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+    }
+    .atencion-layout.state-mesa-info #tabDerecho {
+        display: flex !important;
+    }
+    .atencion-layout.state-mesa-info #contenidoDerecho {
+        display: none !important;
+    }
+    .atencion-layout.state-mesa-info #footerAccionesMesa {
+        display: flex !important;
+        margin-top: 5px;
+    }
+    .atencion-layout.state-mesa-info #footerVentaBarra {
+        display: none !important;
+    }
+    /* === ESTADO 4: MESA SELECCIONADA - VIENDO CONSUMO (CARRITO) === */
+    .atencion-layout.state-mesa-consumo .panel-izquierdo {
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+    }
+    .atencion-layout.state-mesa-consumo #tabIzquierdo {
+        display: flex !important;
+    }
+    .atencion-layout.state-mesa-consumo #contenidoIzquierdo {
+        display: none !important;
+    }
+    .atencion-layout.state-mesa-consumo .panel-derecho {
+        flex: 1 !important;
+        min-height: 0 !important;
+        /* NUEVO */
+    }
+    .atencion-layout.state-mesa-consumo #tabDerecho {
+        display: none !important;
+    }
+    .atencion-layout.state-mesa-consumo #contenidoDerecho {
+        display: flex !important;
+    }
+    .atencion-layout.state-mesa-consumo #footerAccionesMesa {
+        display: flex !important;
+    }
+    .atencion-layout.state-mesa-consumo #footerVentaBarra {
+        display: none !important;
+    }
+    .btn-group-responsive {
+        flex-direction: column;
+    }
+}
+
+
+/* --- MISIÓN X2: CELULARES MUY PEQUEÑOS Y CORRECCIONES EXTREMAS --- */
+
+@media (max-width: 400px) {
+    /* --- AJUSTE SOLICITADO: DETALLE DE MESA EN FILA ÚNICA --- */
+    .detalle-columnas {
+        display: flex !important;
+        flex-direction: column !important;
+        /* El bloque derecho baja de inmediato */
+        gap: 12px !important;
+        /* Espacio óptimo entre el bloque superior e inferior */
+        align-items: center !important;
+        /* Centra ambos bloques horizontalmente en la tarjeta */
+        text-align: center !important;
+        /* Centra los textos internos */
+    }
+    .col-izq,
+    .col-der {
+        width: 100% !important;
+        /* Ocupan todo el ancho disponible para equilibrar el centrado */
+        align-items: center !important;
+        /* Centra las filas internas (Hora, Tiempo, Importe) */
+    }
+    .detalle-row {
+        justify-content: center !important;
+        /* Fuerza a que "Etiqueta: Valor" se peguen al centro juntos */
+        gap: 6px;
+        /* Pequeña separación interna legible */
+    }
+    /* --- ESTILOS DE FOOTER COMPACTO (MANTENIDO) --- */
+    .footer-global-acciones {
+        padding: 5px !important;
+    }
+    .btn-accion {
+        height: 38px;
+        padding: 5px;
+    }
+    .btn-accion .txt-btn {
+        display: none !important;
+    }
+    .total-unificado-box strong {
+        font-size: 1.2rem;
+    }
+}
+
+
+/*@media (max-height: 650px) {
+    #router-outlet {
+        margin-top: 61px;
+        margin-left: 0;
+        margin-right: 0;
+        margin-bottom: 5px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    .atencion-layout {
+        margin-left: 265px;
+    }
+    .titulo-seccion,
+    #lblTituloVenta {
+        font-weight: bold;
+        font-size: 1.1rem;
+        padding: 2px 0px;
+        margin: 2px 0px;
+    }
+    .panel-derecho {
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+    .panel-derecho .contenido-scroll {
+        gap: 8px;
+    }
+    .header-panel-derecho {
+        padding: 2px 0px;
+        margin: 2px 0px;
+    }
+    #contenidoDerecho {
+        padding: 2px 8px;
+        margin: 2px 0px;
+    }
+    .formulario-venta {
+        padding: 2px 0px;
+        margin: 2px 0px;
+    }
+    #footerVentaBarra {
+        padding: 2px 0px;
+        margin: 2px 0px;
+    }
+}
+
+@media (max-height: 550px) {
+    #router-outlet {
+        margin-top: 61px;
+        margin-left: 0;
+        margin-right: 0;
+        margin-bottom: 2px;
+        padding-top: 0;
+        padding-bottom: 0;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    .atencion-layout {
+        margin-left: 265px;
+    }
+    .titulo-seccion,
+    #lblTituloVenta {
+        font-weight: bold;
+        font-size: 1rem;
+        padding: 0px 0px;
+        margin: 0px 0px;
+    }
+    .panel-derecho {
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+    .panel-derecho .contenido-scroll {
+        gap: 8px;
+    }
+    .header-panel-derecho {
+        padding: 0px 0px;
+        margin: 0px 0px;
+    }
+    #contenidoDerecho {
+        padding: 0px 8px;
+        margin: 0px 0px;
+    }
+    .formulario-venta {
+        padding: 0px 0px;
+        margin: 0px 0px;
+    }
+    #footerVentaBarra {
+        padding: 0px 0px;
+        margin: 0px 0px;
+    }
+}*/
