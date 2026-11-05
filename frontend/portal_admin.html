@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración - Billar Brasil</title>
-    <link rel="stylesheet" href="css/app.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="icon" type="image/png" href="assets/logo_icono.png">
 </head>
 
 <body>
@@ -14,7 +18,13 @@
     <header class="appbar">
         <div class="appbar-left">
             <button id="menuToggle" class="icon-btn"><i class="material-icons">menu</i></button>
-            <h2 class="app-title">Billar Brasil</h2>
+            <div class="brand">
+                <img src="assets/logo_icono.png" alt="Billar Brasil" class="brand-logo">
+                <div class="brand-text">
+                    <span class="brand-name">Billar Brasil</span>
+                    <span class="brand-sub">Resto Bar</span>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -22,7 +32,7 @@
 
     <aside id="sidebar" class="sidebar">
         <div class="sidebar-profile">
-            <div class="avatar"><i class="material-icons">account_circle</i></div>
+            <div class="avatar"><i class="material-icons">person</i></div>
             <h3 id="sidebarUserName">Cargando...</h3>
             <span class="role-badge">Admin</span>
         </div>
@@ -62,6 +72,9 @@
                 <i class="material-icons">logout</i> Cerrar Sesión
             </button>
         </nav>
+        <div class="sidebar-deco" aria-hidden="true">
+            <img src="assets/mesa_billar.png" alt="">
+        </div>
     </aside>
 
     <main id="router-outlet" class="main-content">

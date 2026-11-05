@@ -1,2 +1,120 @@
-<h2>Dashboard</h2>
-<p>Contenido vacío temporal.</p>
+<div id="dashboard" class="dashboard">
+
+    <!-- ===================== ENCABEZADO + TURNO ===================== -->
+    <div class="view-header">
+        <div>
+            <h2>Dashboard</h2>
+            <p class="view-subtitle">Resumen en vivo del turno actual y estado de las mesas.</p>
+        </div>
+    </div>
+
+    <section id="dashTurno" class="dash-turno">
+        <span class="dash-turno-pill is-cargando">Cargando turno...</span>
+    </section>
+
+    <!-- ===================== CONTENIDO: MESAS ===================== -->
+    <section class="dash-contenido">
+        <div class="dash-seccion-head">
+            <h3>Mesas del billar</h3>
+            <div id="dashResumenMesas" class="dash-resumen-mesas"></div>
+        </div>
+
+        <div class="dash-main">
+            <div id="dashMesasGrid" class="dash-mesas-grid">
+                <p class="dash-cargando">Cargando mesas...</p>
+            </div>
+
+            <div class="dash-detalle-backdrop" data-dash-cerrar></div>
+
+            <aside id="dashDetalle" class="dash-detalle" aria-hidden="true">
+                <div id="dashDetalleInner" class="dash-detalle-inner">
+                    <header class="dash-det-head">
+                        <span id="dashDetBola"></span>
+                        <div class="dash-det-titulo">
+                            <h3 id="dashDetNombre">Mesa</h3>
+                            <span id="dashDetTipo"></span>
+                        </div>
+                        <button class="icon-btn" data-dash-cerrar title="Cerrar detalle"><i class="material-icons">close</i></button>
+                    </header>
+
+                    <div class="dash-det-estado">
+                        <span>Estado:</span> <span id="dashDetEstado" class="estado-badge libre">Libre</span>
+                    </div>
+
+                    <div id="dashDetSesion">
+                        <div class="dash-det-grid">
+                            <div class="dash-det-dato">
+                                <span class="etq"><i class="material-icons">login</i> Hora inicio</span>
+                                <strong id="dashDetHoraInicio">--:--</strong>
+                            </div>
+                            <div class="dash-det-dato">
+                                <span class="etq"><i class="material-icons">schedule</i> Tiempo</span>
+                                <strong id="dashDetTiempo">--:--:--</strong>
+                            </div>
+                            <div class="dash-det-dato">
+                                <span class="etq"><i class="material-icons">payments</i> Importe</span>
+                                <strong id="dashDetImporte">0.00 Bs</strong>
+                            </div>
+                            <div class="dash-det-dato">
+                                <span class="etq"><i class="material-icons">receipt_long</i> Consumo</span>
+                                <strong id="dashDetConsumo">0.00 Bs</strong>
+                            </div>
+                        </div>
+
+                        <h4 class="dash-det-subtitulo">Historial de Tiempo</h4>
+                        <div class="dash-det-tramos">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mesa</th>
+                                        <th>Inicio</th>
+                                        <th>Fin</th>
+                                        <th class="text-right">Bs</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashDetTramos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="dashDetVacio" class="dash-det-vacio">
+                        <i class="material-icons" id="dashDetVacioIcono">event_available</i>
+                        <p id="dashDetVacioTexto">Mesa disponible, sin sesión activa.</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <!-- ===================== FOOTER: KPIs DEL TURNO ===================== -->
+    <footer class="dash-footer">
+        <div class="dash-kpi">
+            <span class="dash-kpi-icono"><i class="material-icons">timer</i></span>
+            <div>
+                <span class="dash-kpi-etq">Horas jugadas</span>
+                <strong id="dashKpiHoras" class="dash-kpi-valor">—</strong>
+            </div>
+        </div>
+        <div class="dash-kpi">
+            <span class="dash-kpi-icono"><i class="material-icons">local_bar</i></span>
+            <div>
+                <span class="dash-kpi-etq">Productos vendidos</span>
+                <strong id="dashKpiProductos" class="dash-kpi-valor">—</strong>
+            </div>
+        </div>
+        <div class="dash-kpi">
+            <span class="dash-kpi-icono"><i class="material-icons">table_restaurant</i></span>
+            <div>
+                <span class="dash-kpi-etq">Ingresos por horas</span>
+                <strong id="dashKpiBsMesas" class="dash-kpi-valor">—</strong>
+            </div>
+        </div>
+        <div class="dash-kpi">
+            <span class="dash-kpi-icono"><i class="material-icons">shopping_bag</i></span>
+            <div>
+                <span class="dash-kpi-etq">Ingresos por productos</span>
+                <strong id="dashKpiBsProductos" class="dash-kpi-valor">—</strong>
+            </div>
+        </div>
+    </footer>
+</div>

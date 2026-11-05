@@ -617,7 +617,9 @@ body {
         flex-direction: column;
         box-sizing: border-box;
         overflow: hidden;
-        transition: all 0.3s ease-in-out;
+        /* Las transiciones móviles las controla gestorUI.transicionLayout() (JS, efecto cortina).
+           Una transición CSS aquí falsearía las mediciones del estado destino. */
+        transition: none;
         min-height: 0;
         /* NUEVO: Permite que los paneles respeten el alto de la pantalla */
     }
@@ -798,8 +800,87 @@ body {
     .atencion-layout.state-mesa-consumo #footerVentaBarra {
         display: none !important;
     }
+    /* === CARRITO DE VENTA COMPACTO (MÓVIL) === */
+    #contenidoDerecho {
+        padding: 4px 8px 0;
+    }
+    .header-panel-derecho {
+        padding: 0;
+    }
+    .titulo-seccion,
+    #lblTituloVenta {
+        font-size: 1.05rem;
+        padding: 2px 0;
+        margin: 2px 0;
+    }
+    .formulario-venta {
+        padding: 4px 4px 6px;
+    }
+    .form-group {
+        margin-bottom: 4px;
+    }
+    .form-group label {
+        font-size: 0.75rem;
+        margin-bottom: 2px;
+    }
+    .input-text,
+    .input-cantidad {
+        font-size: 0.85rem;
+        padding: 4px 6px;
+    }
+    .btn-cantidad-ctrl {
+        padding: 0 10px;
+        font-size: 1.05rem;
+    }
+    .btn-icon {
+        font-size: 1.3rem;
+        padding: 2px;
+    }
+    /* "Cantidad:" a la izquierda; control + y - a su derecha */
+    .form-group.fila-cantidad {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .form-group.fila-cantidad label {
+        margin: 0;
+        white-space: nowrap;
+    }
+    .form-group.fila-cantidad .input-group {
+        flex: 1;
+        min-width: 0;
+    }
+    .carrito-contenedor {
+        padding: 0 4px;
+    }
+    .tabla-carrito {
+        font-size: 0.8rem;
+    }
+    .tabla-carrito th,
+    .tabla-carrito td {
+        padding: 4px 3px;
+    }
+    .tabla-carrito .btn-icon {
+        padding: 0;
+    }
+    /* Footer compacto: total en una línea y botones lado a lado */
+    .footer-panel-derecho {
+        padding: 4px 8px 2px;
+        border-top-width: 1px;
+    }
+    .total-row {
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
     .btn-group-responsive {
-        flex-direction: column;
+        flex-direction: row;
+        gap: 6px;
+    }
+    .btn-group-responsive button {
+        padding: 7px 4px;
+        font-size: 0.85rem;
+        border: none;
+        border-radius: 4px;
     }
 }
 

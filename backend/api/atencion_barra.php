@@ -16,6 +16,7 @@ try {
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
+$ahora = date('Y-m-d H:i:s');
 // =========================================================================================
 // OBTENER ID PRODUCTO PARA ITEM HORA PROMO INCENTIVO
 // =========================================================================================
@@ -584,8 +585,8 @@ if ($method === 'POST') {
             $stmtSesion->execute([$id_jornada, $primera_hora_gratis]);
             $id_sesion = $pdo->lastInsertId();
 
-            $stmtTramo = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, NOW(), ?, 0.00)");
-            $stmtTramo->execute([$id_sesion, $id_mesa, $tarifa]);
+            $stmtTramo = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, ?, ?, 0.00)");
+            $stmtTramo->execute([$id_sesion, $id_mesa, $ahora, $tarifa]);
             
             // 4. Actualizar estado de la mesa
             $stmt = $pdo->prepare("UPDATE mesas SET estado_actual = 'ocupada' WHERE id_mesa = ?");
@@ -641,8 +642,8 @@ if ($method === 'POST') {
                 $stmtSesionP->execute([$id_jornada]);
                 $id_sesion_p = $pdo->lastInsertId();
 
-                $stmtTramoP = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, NOW(), ?, 0.00)");
-                $stmtTramoP->execute([$id_sesion_p, $id_mesa_promo, $tarifaMesa]);
+                $stmtTramoP = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, ?, ?, 0.00)");
+                $stmtTramoP->execute([$id_sesion_p, $id_mesa_promo, $ahora, $tarifaMesa]);
 
                 $stmtMesaP = $pdo->prepare("UPDATE mesas SET estado_actual = 'ocupada' WHERE id_mesa = ?");
                 $stmtMesaP->execute([$id_mesa_promo]);
@@ -906,11 +907,12 @@ if ($method === 'POST') {
             $queryPausar = "
                 UPDATE tramos_mesas t
                 JOIN sesiones_juego s ON t.id_sesion = s.id_sesion
-                SET t.fecha_hora_pausa = NOW()
+                SET t.fecha_hora_pausa = ?
                 WHERE t.id_mesa = ? AND s.estado = 'activa' AND t.fecha_hora_fin IS NULL
             ";
+            // Se usa la hora de PHP ($ahora), la misma con la que se guarda fecha_hora_inicio
             $stmt = $pdo->prepare($queryPausar);
-            $stmt->execute([$id_mesa]);
+            $stmt->execute([$ahora, $id_mesa]);
 
             echo json_encode(['status' => 'success', 'message' => 'Tiempo pausado correctamente']);
         }
@@ -965,8 +967,8 @@ if ($method === 'POST') {
                     $stmtCerrarTramo->execute([$fechaPausa, $importeUltimoTramo, $id_tramo_actual]);
 
                     // Crear el nuevo tramo iniciando AHORA
-                    $stmtNuevoTramo = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, NOW(), ?, 0.00)");
-                    $stmtNuevoTramo->execute([$id_sesion, $id_mesa, $tarifaHora]);
+                    $stmtNuevoTramo = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, ?, ?, 0.00)");
+                    $stmtNuevoTramo->execute([$id_sesion, $id_mesa, $ahora, $tarifaHora]);
                 }
             }
 
@@ -1307,8 +1309,8 @@ if ($method === 'POST') {
                 $stmtSesionP->execute([$id_jornada]);
                 $id_sesion_p = $pdo->lastInsertId();
 
-                $stmtTramoP = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, NOW(), ?, 0.00)");
-                $stmtTramoP->execute([$id_sesion_p, $id_mesa_promo, $tarifaMesa]);
+                $stmtTramoP = $pdo->prepare("INSERT INTO tramos_mesas (id_sesion, id_mesa, fecha_hora_inicio, tarifa_hora_aplicada, importe_tramo) VALUES (?, ?, ?, ?, 0.00)");
+                $stmtTramoP->execute([$id_sesion_p, $id_mesa_promo, $ahora, $tarifaMesa]);
 
                 $stmtMesaP = $pdo->prepare("UPDATE mesas SET estado_actual = 'ocupada' WHERE id_mesa = ?");
                 $stmtMesaP->execute([$id_mesa_promo]);

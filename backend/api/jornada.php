@@ -24,6 +24,60 @@ if ($method === 'GET') {
         }
         $id_jornada = $jornada['id_jornada'];
 
+        // ACCIÓN: DASHBOARD DEL PORTAL ADMIN (datos del turno + KPIs acumulados)
+        if ($action === 'dashboard_admin') {
+            // Segundos jugados en todas las mesas con tarifa (mismo criterio que el pre-cierre).
+            // Un tramo en pausa deja de sumar desde su hora de pausa; uno en curso suma hasta ahora.
+            $stmtHoras = $pdo->prepare("
+                SELECT COALESCE(SUM(GREATEST(0, TIMESTAMPDIFF(SECOND, tr.fecha_hora_inicio,
+                           COALESCE(tr.fecha_hora_fin, tr.fecha_hora_pausa, NOW())))), 0)
+                FROM tramos_mesas tr
+                INNER JOIN sesiones_juego s ON tr.id_sesion = s.id_sesion
+                INNER JOIN mesas m ON tr.id_mesa = m.id_mesa
+                INNER JOIN tipos_mesa tm ON m.id_tipo_mesa = tm.id_tipo_mesa
+                WHERE s.id_jornada = ? AND tm.precio_hora > 0
+            ");
+            $stmtHoras->execute([$id_jornada]);
+            $segundos_jugados = (int)$stmtHoras->fetchColumn();
+
+            // Unidades vendidas (solo productos ya cobrados en una venta del turno)
+            $stmtProductos = $pdo->prepare("
+                SELECT COALESCE(SUM(dv.cantidad), 0)
+                FROM detalle_venta_productos dv
+                INNER JOIN ventas v ON dv.id_venta = v.id_venta
+                WHERE v.id_jornada = ?
+            ");
+            $stmtProductos->execute([$id_jornada]);
+            $productos_vendidos = (int)$stmtProductos->fetchColumn();
+
+            // Bs ingresados por tiempo de mesa y por productos (mismos campos que usan los reportes)
+            $stmtIngresos = $pdo->prepare("
+                SELECT COALESCE(SUM(subtotal_mesas), 0) AS mesas,
+                       COALESCE(SUM(subtotal_productos), 0) AS productos
+                FROM ventas
+                WHERE id_jornada = ?
+            ");
+            $stmtIngresos->execute([$id_jornada]);
+            $ingresos = $stmtIngresos->fetch(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                "status" => "success",
+                "jornada" => [
+                    "id_jornada" => (int)$id_jornada,
+                    "fecha_hora_apertura" => $jornada['fecha_hora_apertura'],
+                    "encargado" => trim($jornada['nombres'] . ' ' . $jornada['apellidos']),
+                    "monto_inicial_caja" => (float)$jornada['monto_inicial_caja']
+                ],
+                "kpis" => [
+                    "segundos_jugados" => $segundos_jugados,
+                    "productos_vendidos" => $productos_vendidos,
+                    "ingresos_mesas" => (float)$ingresos['mesas'],
+                    "ingresos_productos" => (float)$ingresos['productos']
+                ]
+            ]);
+            exit;
+        }
+
         // ACCIÓN: INVENTARIO DE APERTURA (Fotografía del stock al abrir jornada)
         if ($action === 'inventario_apertura') {
             $stmtInv = $pdo->prepare("

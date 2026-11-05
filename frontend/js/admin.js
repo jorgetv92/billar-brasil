@@ -23,6 +23,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
+            // --- UI: Bola de billar numerada (CSS puro, ver .bola-billar en app.css) ---
+            function bolaBillar(valor) {
+                const txt = String(valor ?? "").trim();
+                const tam = txt.length >= 4 ? " bola-xl" : (txt.length === 3 ? " bola-lg" : "");
+                return `<span class="bola-billar${tam}" title="${txt}"><span>${txt}</span></span>`;
+            }
+
             // Lista global en memoria para almacenar los usuarios traídos por AJAX (Ayuda a la edición rápida sin re-consultar)
             let listaUsuariosGlobal = [];
             let listaTiposGlobal = [];
@@ -40,6 +47,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     const html = await response.text();
                     outlet.innerHTML = html;
+                    if (nombreArchivo === "dashboard.html") {
+                        inicializarDashboard();
+                    }
                     if (nombreArchivo === "tipos_mesa.html") {
                         inicializarModuloTiposMesa();
                     }
@@ -195,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             const precioFormat = parseFloat(t.precio_hora).toFixed(2);
                             tbody.innerHTML += `
                     <tr>
-                        <td><b>#${t.id_tipo_mesa}</b></td>
+                        <td>${bolaBillar(t.id_tipo_mesa)}</td>
                         <td>${t.nombre_tipo}</td>
                         <td style="color: var(--primary); font-weight: bold;">${precioFormat} Bs.</td>
                         <td>
@@ -356,47 +366,141 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!tbody) return;
 
                 try {
-                    const response = await fetch("../backend/api/mesas.php");
+                    // Catálogo de mesas + datos de sesión activa (tiempo / consumo) en paralelo
+                    const [response, sesiones] = await Promise.all([
+                        fetch("../backend/api/mesas.php"),
+                        obtenerSesionesActivasMesas()
+                    ]);
                     const result = await response.json();
 
                     if (response.ok && result.status === "success") {
                         listaMesasGlobal = result.data;
+                        sesionesMesasAdmin = sesiones;
                         tbody.innerHTML = "";
 
                         if (listaMesasGlobal.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="4" class="text-center">No hay mesas físicas registradas</td></tr>`;
+                            tbody.innerHTML = `<tr><td colspan="6" class="text-center">No hay mesas físicas registradas</td></tr>`;
                             return;
                         }
 
-                        listaMesasGlobal.forEach(m => {
-                            // Diseño de Badges para el Estado
-                            let badgeEstado = '';
-                            if (m.estado_actual === 'libre') badgeEstado = `<span class="role-badge" style="background: var(--success);"><i class="material-icons" style="font-size:12px; vertical-align:middle;">check_circle</i> Libre</span>`;
-                            if (m.estado_actual === 'ocupada') badgeEstado = `<span class="role-badge" style="background: var(--danger);"><i class="material-icons" style="font-size:12px; vertical-align:middle;">play_circle</i> Ocupada</span>`;
-                            if (m.estado_actual === 'mantenimiento') badgeEstado = `<span class="role-badge" style="background: var(--warning); color:#000;"><i class="material-icons" style="font-size:12px; vertical-align:middle;">build</i> Mantenimiento</span>`;
+                        const etiquetasEstado = { libre: "Libre", ocupada: "Ocupada", mantenimiento: "Mantenimiento" };
 
-                            let botonDetalle = '';
-                            if (m.estado_actual === 'ocupada') {
-                                botonDetalle = `<button class="icon-btn text-info btn-ver-detalle-mesa" data-id="${m.id_mesa}" data-nombre="${m.numero_mesa}"><i class="material-icons">visibility</i></button>`;
-                            }
+                        listaMesasGlobal.forEach((m, idx) => {
+                            const estado = etiquetasEstado[m.estado_actual] ? m.estado_actual : "libre";
+                            const badgeEstado = `<span class="estado-badge ${estado}">${etiquetasEstado[estado]}</span>`;
+
+                            // Número de la bola: dígitos del identificador (ej. "Billar #3" -> 3) o posición en la lista
+                            const numMatch = String(m.numero_mesa).match(/\d+/);
+                            const numeroBola = numMatch ? parseInt(numMatch[0], 10) : idx + 1;
+
+                            const botonDetalle = m.estado_actual === 'ocupada'
+                                ? `<button class="icon-btn text-info btn-ver-detalle-mesa" data-id="${m.id_mesa}" data-nombre="${m.numero_mesa}" title="Ver detalle"><i class="material-icons">visibility</i></button>`
+                                : `<button class="icon-btn is-placeholder" tabindex="-1" aria-hidden="true"><i class="material-icons">visibility</i></button>`;
 
                             tbody.innerHTML += `
                     <tr>
-                        <td style="font-size: 1.1rem; font-weight: bold; color: var(--primary);">${m.numero_mesa}</td>
-                        <td>${m.nombre_tipo} <span style="color:#64748b; font-size:0.85rem;">(${parseFloat(m.precio_hora).toFixed(2)} Bs)</span></td>
-                        <td>${badgeEstado}</td>
                         <td>
+                            <div class="celda-identificador">
+                                ${bolaBillar(numeroBola)}
+                                <span class="nombre">${m.numero_mesa}</span>
+                            </div>
+                        </td>
+                        <td class="celda-tipo">
+                            <span class="tipo">${m.nombre_tipo}</span>
+                            <span class="tarifa">(${parseFloat(m.precio_hora).toFixed(2)} Bs)</span>
+                        </td>
+                        <td><span class="celda-dato" data-tiempo-mesa="${m.id_mesa}"><i class="material-icons">schedule</i><span class="valor">--:--:--</span></span></td>
+                        <td><span class="celda-dato" data-consumo-mesa="${m.id_mesa}"><i class="material-icons">receipt_long</i><span class="valor">0.00 Bs</span></span></td>
+                        <td>${badgeEstado}</td>
+                        <td class="celda-acciones">
                             ${botonDetalle}
-                            <button class="icon-btn text-primary btn-editar-mesa" data-id="${m.id_mesa}"><i class="material-icons">edit</i></button>
-                            <button class="icon-btn text-danger btn-eliminar-mesa" data-id="${m.id_mesa}"><i class="material-icons">delete</i></button>
+                            <button class="icon-btn text-primary btn-editar-mesa" data-id="${m.id_mesa}" title="Editar"><i class="material-icons">edit</i></button>
+                            <button class="icon-btn text-danger btn-eliminar-mesa" data-id="${m.id_mesa}" title="Eliminar"><i class="material-icons">delete</i></button>
                         </td>
                     </tr>
                 `;
                         });
+
+                        // Reloj en vivo de "Tiempo Transcurrido"
+                        actualizarTiemposMesasAdmin();
+                        if (window.intervaloTiemposMesasAdmin) clearInterval(window.intervaloTiemposMesasAdmin);
+                        window.intervaloTiemposMesasAdmin = setInterval(actualizarTiemposMesasAdmin, 1000);
                     }
                 } catch (error) {
                     mostrarToast("No se pudieron cargar las mesas", "error");
                 }
+            }
+
+            // ---- Tiempo / consumo en vivo de la tabla de mesas ----
+            let sesionesMesasAdmin = {};
+
+            async function obtenerSesionesActivasMesas() {
+                const mapa = {};
+                try {
+                    const resp = await fetch("../backend/api/atencion_barra.php?accion=get_datos_iniciales");
+                    const data = await resp.json();
+                    if (Array.isArray(data)) {
+                        // precio_hora: tarifa efectiva del tipo (ya incluye promociones de tarifa activas)
+                        data.forEach(tipo => (tipo.mesas || []).forEach(ms => {
+                            mapa[ms.id_mesa] = { ...ms, precio_hora: parseFloat(tipo.precio_hora) || 0 };
+                        }));
+                    }
+                } catch (e) {
+                    console.warn("No se pudo obtener el tiempo/consumo de las mesas:", e);
+                }
+                return mapa;
+            }
+
+            function formatearSegundos(total) {
+                const h = Math.floor(total / 3600).toString().padStart(2, '0');
+                const mi = Math.floor((total % 3600) / 60).toString().padStart(2, '0');
+                const s = (total % 60).toString().padStart(2, '0');
+                return `${h}:${mi}:${s}`;
+            }
+
+            function actualizarTiemposMesasAdmin() {
+                const celdas = document.querySelectorAll("[data-tiempo-mesa]");
+                if (celdas.length === 0) {
+                    // La vista de mesas ya no está en pantalla: detener el reloj
+                    clearInterval(window.intervaloTiemposMesasAdmin);
+                    window.intervaloTiemposMesasAdmin = null;
+                    return;
+                }
+                const ahora = new Date();
+
+                celdas.forEach(celda => {
+                    const id = celda.dataset.tiempoMesa;
+                    const info = sesionesMesasAdmin[id];
+                    const valor = celda.querySelector(".valor");
+                    const icono = celda.querySelector(".material-icons");
+                    const celdaConsumo = document.querySelector(`[data-consumo-mesa="${id}"]`);
+
+                    const activa = info && info.fecha_hora_inicio && info.fecha_hora_inicio !== "null";
+                    celda.classList.toggle("is-muted", !activa);
+                    if (celdaConsumo) celdaConsumo.classList.toggle("is-muted", !activa);
+
+                    if (!activa) {
+                        valor.textContent = "00:00:00";
+                        icono.textContent = "schedule";
+                        celda.classList.remove("is-pausa");
+                        if (celdaConsumo) celdaConsumo.querySelector(".valor").textContent = "0.00 Bs";
+                        return;
+                    }
+
+                    const inicio = new Date(info.fecha_hora_inicio.replace(/-/g, '/'));
+                    const pausada = info.hora_pausa && info.hora_pausa !== "null";
+                    const fin = pausada ? new Date(info.hora_pausa.replace(/-/g, '/')) : ahora;
+                    const segundos = Math.max(0, Math.floor((fin - inicio) / 1000)) + (parseInt(info.segundos_acumulados) || 0);
+
+                    valor.textContent = formatearSegundos(segundos);
+                    icono.textContent = pausada ? "pause_circle" : "schedule";
+                    celda.classList.toggle("is-pausa", !!pausada);
+                    celda.title = pausada ? "Tiempo en pausa" : "";
+
+                    if (celdaConsumo) {
+                        celdaConsumo.querySelector(".valor").textContent = `${(parseFloat(info.total_consumo) || 0).toFixed(2)} Bs`;
+                    }
+                });
             }
 
             async function cargarSelectTiposMesa() {
@@ -466,6 +570,75 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
             }
 
+            // ---- Helpers compartidos: detalle de sesión de una mesa (modal de Mesas y Dashboard) ----
+            const tieneValorSQL = (v) => v !== null && v !== undefined && v !== "" && v !== "null";
+            const fechaSQL = (s) => new Date(String(s).replace(/-/g, '/'));
+            const horaMinuto = (d) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            const escaparHTML = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+            // Calcula hora de inicio, tiempo visual e importe en vivo de la sesión activa de una mesa.
+            // Misma regla de cobro que atención: bloques de 5 minutos sobre la tarifa efectiva.
+            function calcularSesionMesa(info, precioHora, ahora = new Date()) {
+                const r = {
+                    tarifaFija: precioHora === 0,
+                    horaInicio: null,
+                    segundos: 0,
+                    importe: 0,
+                    consumo: parseFloat(info.total_consumo) || 0,
+                    pausada: tieneValorSQL(info.hora_pausa)
+                };
+                const acumulado = parseFloat(info.importe_acumulado_tiempo) || 0;
+
+                if (r.tarifaFija) {
+                    r.importe = acumulado;
+                    r.pausada = false;
+                    return r;
+                }
+                if (!tieneValorSQL(info.fecha_hora_inicio)) return r;
+
+                const inicio = fechaSQL(info.fecha_hora_inicio);
+                r.horaInicio = inicio;
+                const fin = r.pausada ? fechaSQL(info.hora_pausa) : ahora;
+                const difSegundos = Math.floor((fin - inicio) / 1000);
+                if (difSegundos >= 0) {
+                    const minutosCobrables = Math.ceil(Math.floor(difSegundos / 60) / 5) * 5;
+                    r.importe = acumulado + (minutosCobrables * (precioHora / 60));
+                    r.segundos = difSegundos + (parseInt(info.segundos_acumulados) || 0);
+                }
+                return r;
+            }
+
+            function filasHistorialTramos(tramos) {
+                if (!Array.isArray(tramos) || tramos.length === 0) {
+                    return '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Sin historial de tiempo</td></tr>';
+                }
+                return tramos.map(tramo => {
+                    const strInicio = tramo.fecha_hora_inicio ? horaMinuto(fechaSQL(tramo.fecha_hora_inicio)) : '--:--';
+                    let strFin;
+                    if (tramo.fecha_hora_fin) {
+                        strFin = horaMinuto(fechaSQL(tramo.fecha_hora_fin));
+                    } else if (tramo.fecha_hora_pausa) {
+                        strFin = `<span class="text-warning">Pausa ${horaMinuto(fechaSQL(tramo.fecha_hora_pausa))}</span>`;
+                    } else {
+                        strFin = '<span class="text-success">En curso</span>';
+                    }
+                    const importeTramo = parseFloat(tramo.importe_tramo) || 0;
+                    return `
+                        <tr>
+                            <td style="padding: 8px;">${escaparHTML(tramo.numero_mesa)}</td>
+                            <td style="padding: 8px;">${strInicio}</td>
+                            <td style="padding: 8px;">${strFin}</td>
+                            <td style="text-align: right; padding: 8px;">${importeTramo.toFixed(2)}</td>
+                        </tr>`;
+                }).join("");
+            }
+
+            async function obtenerHistorialTramos(idMesa) {
+                const resp = await fetch(`../backend/api/atencion_barra.php?accion=get_historial_tramos&id_mesa=${encodeURIComponent(idMesa)}`);
+                const res = await resp.json();
+                return res.status === 'success' ? res.data : [];
+            }
+
             async function abrirModalDetallesMesa(idMesa, nombreMesa) {
                 const modal = document.getElementById("modalMesaDetalles");
                 if (!modal) return;
@@ -477,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("detMesaTiempo").innerText = "--:--:--";
                 document.getElementById("detMesaImporte").innerText = "0.00 Bs";
                 document.getElementById("detMesaConsumo").innerText = "0.00 Bs";
-                
+
                 const tbodyTramos = document.querySelector('#tablaHistorialTramosAdmin tbody');
                 if (tbodyTramos) {
                     tbodyTramos.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>';
@@ -486,21 +659,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 modal.classList.add("show");
 
                 try {
-                    // 1. Obtener la grilla inicial de mesas desde atención barra API
-                    const response = await fetch("../backend/api/atencion_barra.php?accion=get_datos_iniciales");
-                    const data = await response.json();
-
-                    let mesaData = null;
-                    let precioHora = 0;
-
-                    for (const tipo of data) {
-                        const found = tipo.mesas.find(m => m.id_mesa == idMesa);
-                        if (found) {
-                            mesaData = found;
-                            precioHora = parseFloat(tipo.precio_hora) || 0;
-                            break;
-                        }
-                    }
+                    // 1. Sesión activa de la mesa (tiempo, consumo y tarifa efectiva)
+                    const sesiones = await obtenerSesionesActivasMesas();
+                    const mesaData = sesiones[idMesa];
 
                     if (!mesaData) {
                         mostrarToast("No se encontró información de la sesión activa de la mesa.", "error");
@@ -512,116 +673,356 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (window.intervaloDetalleMesaAdmin) clearInterval(window.intervaloDetalleMesaAdmin);
 
                     function actualizarRelojLocal() {
-                        const ahora = new Date();
-                        const inicioStr = mesaData.fecha_hora_inicio;
-                        const pausaStr = mesaData.hora_pausa;
-                        const total_consumo = parseFloat(mesaData.total_consumo) || 0;
-
-                        document.getElementById("detMesaConsumo").innerText = `${total_consumo.toFixed(2)} Bs`;
-
-                        if (precioHora === 0) {
-                            const importeActual = parseFloat(mesaData.importe_acumulado_tiempo) || 0;
-                            document.getElementById("detMesaTiempo").innerText = "00:00:00";
-                            document.getElementById("detMesaImporte").innerText = `${importeActual.toFixed(2)} Bs`;
-                            document.getElementById("detMesaEstado").className = "text-danger";
-                            document.getElementById("detMesaEstado").innerText = "Ocupada";
-                            document.getElementById("detMesaHoraInicio").innerText = "--:--";
-                            return;
-                        }
-
-                        if (inicioStr && inicioStr !== "null" && inicioStr !== "") {
-                            const horaInicio = new Date(inicioStr.replace(/-/g, '/'));
-                            let f = new Date(inicioStr.replace(/-/g, '/'));
-                            let hh = f.getHours().toString().padStart(2, '0');
-                            let mm = f.getMinutes().toString().padStart(2, '0');
-                            document.getElementById("detMesaHoraInicio").innerText = `${hh}:${mm}`;
-
-                            let horaFinCalculo = ahora;
-                            if (pausaStr && pausaStr !== "null" && pausaStr !== "") {
-                                horaFinCalculo = new Date(pausaStr.replace(/-/g, '/'));
-                            }
-
-                            const difTotalSegundos = Math.floor((horaFinCalculo - horaInicio) / 1000);
-                            if (difTotalSegundos >= 0) {
-                                const difMinutos = Math.floor(difTotalSegundos / 60);
-                                const bloques = Math.ceil(difMinutos / 5);
-                                const minutesCobrables = bloques * 5;
-
-                                const acumulado = parseFloat(mesaData.importe_acumulado_tiempo) || 0;
-                                const importe = (acumulado + (minutesCobrables * (precioHora / 60))).toFixed(2);
-
-                                const segundosAcumuladosAnteriores = parseInt(mesaData.segundos_acumulados) || 0;
-                                const segundosVisuales = difTotalSegundos + segundosAcumuladosAnteriores;
-
-                                const horasV = Math.floor(segundosVisuales / 3600).toString().padStart(2, '0');
-                                const minV = Math.floor((segundosVisuales % 3600) / 60).toString().padStart(2, '0');
-                                const segV = (segundosVisuales % 60).toString().padStart(2, '0');
-
-                                document.getElementById("detMesaTiempo").innerText = `${horasV}:${minV}:${segV}`;
-                                document.getElementById("detMesaImporte").innerText = `${importe} Bs`;
-                            }
-                        } else {
-                            document.getElementById("detMesaHoraInicio").innerText = "--:--";
-                            document.getElementById("detMesaTiempo").innerText = "00:00:00";
-                            document.getElementById("detMesaImporte").innerText = "0.00 Bs";
-                        }
-
-                        const esPausada = pausaStr && pausaStr !== "null" && pausaStr !== "";
+                        const s = calcularSesionMesa(mesaData, mesaData.precio_hora);
                         const badgeEstado = document.getElementById("detMesaEstado");
-                        if (esPausada) {
-                            badgeEstado.innerText = "Pausada";
-                            badgeEstado.className = "text-warning";
-                        } else {
-                            badgeEstado.innerText = "Ocupada";
-                            badgeEstado.className = "text-danger";
-                        }
+
+                        document.getElementById("detMesaConsumo").innerText = `${s.consumo.toFixed(2)} Bs`;
+                        document.getElementById("detMesaHoraInicio").innerText = s.horaInicio ? horaMinuto(s.horaInicio) : "--:--";
+                        document.getElementById("detMesaTiempo").innerText = formatearSegundos(s.segundos);
+                        document.getElementById("detMesaImporte").innerText = `${s.importe.toFixed(2)} Bs`;
+                        badgeEstado.innerText = s.pausada ? "Pausada" : "Ocupada";
+                        badgeEstado.className = s.pausada ? "text-warning" : "text-danger";
                     }
 
                     actualizarRelojLocal();
                     window.intervaloDetalleMesaAdmin = setInterval(actualizarRelojLocal, 1000);
 
                     // 3. Consultar historial de tramos de tiempo
-                    const responseTramos = await fetch(`../backend/api/atencion_barra.php?accion=get_historial_tramos&id_mesa=${idMesa}`);
-                    const resTramos = await responseTramos.json();
-
-                    if (tbodyTramos) {
-                        if (resTramos.status === 'success' && resTramos.data.length > 0) {
-                            let htmlTramos = '';
-                            resTramos.data.forEach(tramo => {
-                                const horaInicio = tramo.fecha_hora_inicio ? new Date(tramo.fecha_hora_inicio.replace(/-/g, '/')) : null;
-                                const horaFin = tramo.fecha_hora_fin ? new Date(tramo.fecha_hora_fin.replace(/-/g, '/')) : null;
-                                const horaPausa = tramo.fecha_hora_pausa ? new Date(tramo.fecha_hora_pausa.replace(/-/g, '/')) : null;
-                                
-                                const strInicio = horaInicio ? `${horaInicio.getHours().toString().padStart(2, '0')}:${horaInicio.getMinutes().toString().padStart(2, '0')}` : '--:--';
-                                let strFin = '--:--';
-                                if (horaFin) {
-                                    strFin = `${horaFin.getHours().toString().padStart(2, '0')}:${horaFin.getMinutes().toString().padStart(2, '0')}`;
-                                } else if (horaPausa) {
-                                    strFin = `<span class="text-warning">Pausa ${horaPausa.getHours().toString().padStart(2, '0')}:${horaPausa.getMinutes().toString().padStart(2, '0')}</span>`;
-                                } else {
-                                    strFin = '<span class="text-success">En curso</span>';
-                                }
-                                const importeTramo = parseFloat(tramo.importe_tramo) || 0;
-                                htmlTramos += `
-                                    <tr>
-                                        <td style="padding: 8px;">Mesa ${tramo.numero_mesa}</td>
-                                        <td style="padding: 8px;">${strInicio}</td>
-                                        <td style="padding: 8px;">${strFin}</td>
-                                        <td style="text-align: right; padding: 8px;">${importeTramo.toFixed(2)}</td>
-                                    </tr>
-                                `;
-                            });
-                            tbodyTramos.innerHTML = htmlTramos;
-                        } else {
-                            tbodyTramos.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Sin historial de tiempo</td></tr>';
-                        }
-                    }
+                    const tramos = await obtenerHistorialTramos(idMesa);
+                    if (tbodyTramos) tbodyTramos.innerHTML = filasHistorialTramos(tramos);
 
                 } catch (error) {
                     console.error("Error al obtener los detalles de la mesa:", error);
                     mostrarToast("Error de comunicación", "error");
                     modal.classList.remove("show");
                 }
+            }
+
+            // -------------------------------------------------------------------
+            // MÓDULO 0: DASHBOARD (turno actual + mesas + KPIs)
+            // -------------------------------------------------------------------
+            const DASH_REFRESCO_MS = 20000;
+            let dash = null;
+
+            function inicializarDashboard() {
+                const root = document.getElementById("dashboard");
+                if (!root) return;
+
+                dash = {
+                    mesas: [],
+                    sesiones: {},
+                    firmaGrid: "",
+                    seleccion: null,
+                    tokenTramos: 0,
+                    aperturaTurno: null,
+                    primeraCarga: true
+                };
+
+                root.addEventListener("click", (e) => {
+                    if (e.target.closest("[data-dash-cerrar]")) {
+                        cerrarDetalleDashboard();
+                        return;
+                    }
+                    const card = e.target.closest(".dash-mesa");
+                    if (card) seleccionarMesaDashboard(card.dataset.id);
+                });
+
+                if (!window.dashEscapeRegistrado) {
+                    document.addEventListener("keydown", (e) => {
+                        if (e.key === "Escape" && document.getElementById("dashboard")) cerrarDetalleDashboard();
+                    });
+                    window.dashEscapeRegistrado = true;
+                }
+
+                detenerDashboard();
+                refrescarDashboard();
+                window.intervaloDashboardReloj = setInterval(tickDashboard, 1000);
+                window.intervaloDashboardDatos = setInterval(refrescarDashboard, DASH_REFRESCO_MS);
+            }
+
+            function detenerDashboard() {
+                clearInterval(window.intervaloDashboardReloj);
+                clearInterval(window.intervaloDashboardDatos);
+                window.intervaloDashboardReloj = null;
+                window.intervaloDashboardDatos = null;
+            }
+
+            async function refrescarDashboard() {
+                if (!document.getElementById("dashboard")) return detenerDashboard();
+
+                const [turno, mesasRes, sesiones] = await Promise.all([
+                    fetch("../backend/api/jornada.php?action=dashboard_admin").then(r => r.json()).catch(() => null),
+                    fetch("../backend/api/mesas.php").then(r => r.json()).catch(() => null),
+                    obtenerSesionesActivasMesas()
+                ]);
+
+                // El usuario pudo navegar a otra vista mientras esperábamos
+                if (!document.getElementById("dashboard")) return detenerDashboard();
+
+                pintarTurnoDashboard(turno);
+
+                if (mesasRes && mesasRes.status === "success") {
+                    dash.mesas = mesasRes.data.slice().sort((a, b) =>
+                        String(a.numero_mesa).localeCompare(String(b.numero_mesa), 'es', { numeric: true }));
+                    dash.sesiones = sesiones;
+                    pintarMesasDashboard();
+                } else if (dash.primeraCarga) {
+                    document.getElementById("dashMesasGrid").innerHTML =
+                        `<div class="empty-state"><i class="material-icons">error</i><p>No se pudieron cargar las mesas.</p></div>`;
+                }
+
+                if (dash.seleccion) {
+                    const sigue = dash.mesas.some(m => String(m.id_mesa) === dash.seleccion);
+                    if (sigue) pintarDetalleDashboard(false);
+                    else cerrarDetalleDashboard();
+                }
+
+                dash.primeraCarga = false;
+                tickDashboard();
+            }
+
+            // ---- Franja del turno + footer ----
+            function pintarTurnoDashboard(turno) {
+                const cont = document.getElementById("dashTurno");
+                const kpi = {
+                    horas: document.getElementById("dashKpiHoras"),
+                    productos: document.getElementById("dashKpiProductos"),
+                    bsMesas: document.getElementById("dashKpiBsMesas"),
+                    bsProductos: document.getElementById("dashKpiBsProductos")
+                };
+
+                if (!turno || turno.status !== "success") {
+                    dash.aperturaTurno = null;
+                    const sinConexion = !turno || turno.status === "error";
+                    cont.innerHTML = `
+                        <span class="dash-turno-pill ${sinConexion ? 'is-error' : 'is-cerrado'}">
+                            <i class="material-icons">${sinConexion ? 'cloud_off' : 'lock_clock'}</i>
+                            ${sinConexion ? 'Sin conexión con el turno' : 'Sin turno abierto'}
+                        </span>
+                        <p class="dash-turno-nota">${sinConexion
+                            ? 'No se pudo consultar el estado del turno. Se reintentará automáticamente.'
+                            : 'No hay una jornada abierta. Los indicadores aparecerán cuando se abra el turno desde el portal de atención.'}</p>`;
+                    Object.values(kpi).forEach(el => { el.textContent = "—"; });
+                    return;
+                }
+
+                const j = turno.jornada;
+                const k = turno.kpis;
+                dash.aperturaTurno = fechaSQL(j.fecha_hora_apertura);
+                const apertura = dash.aperturaTurno;
+                const fechaApertura = apertura.toLocaleDateString('es-BO', { weekday: 'short', day: '2-digit', month: 'short' });
+
+                cont.innerHTML = `
+                    <span class="dash-turno-pill is-abierto"><i class="material-icons">radio_button_checked</i> Turno abierto</span>
+                    <div class="dash-turno-dato"><span>Jornada</span><strong>#${j.id_jornada}</strong></div>
+                    <div class="dash-turno-dato"><span>Encargado</span><strong>${escaparHTML(j.encargado)}</strong></div>
+                    <div class="dash-turno-dato"><span>Apertura</span><strong>${fechaApertura} · ${horaMinuto(apertura)}</strong></div>
+                    <div class="dash-turno-dato"><span>Duración</span><strong id="dashTurnoDuracion">--:--:--</strong></div>
+                    <div class="dash-turno-dato"><span>Caja inicial</span><strong>${j.monto_inicial_caja.toFixed(2)} Bs</strong></div>`;
+
+                const seg = parseInt(k.segundos_jugados) || 0;
+                const h = Math.floor(seg / 3600);
+                const m = Math.floor((seg % 3600) / 60);
+                kpi.horas.innerHTML = `${h}<small>h</small> ${m.toString().padStart(2, '0')}<small>min</small>`;
+                kpi.productos.innerHTML = `${parseInt(k.productos_vendidos) || 0}<small>uds</small>`;
+                kpi.bsMesas.innerHTML = `${(parseFloat(k.ingresos_mesas) || 0).toFixed(2)}<small>Bs</small>`;
+                kpi.bsProductos.innerHTML = `${(parseFloat(k.ingresos_productos) || 0).toFixed(2)}<small>Bs</small>`;
+            }
+
+            // ---- Grilla de tarjetas ----
+            function estadoVisualMesa(mesa) {
+                if (mesa.estado_actual === "mantenimiento") return "mantenimiento";
+                if (mesa.estado_actual !== "ocupada") return "libre";
+                const info = dash.sesiones[mesa.id_mesa];
+                return info && tieneValorSQL(info.hora_pausa) && info.precio_hora !== 0 ? "pausada" : "ocupada";
+            }
+
+            const ETIQUETAS_ESTADO_DASH = { libre: "Libre", ocupada: "Ocupada", pausada: "Pausada", mantenimiento: "Mantenimiento" };
+
+            const textoTarifa = (precio) => (parseFloat(precio) || 0) > 0 ? `${parseFloat(precio).toFixed(2)} Bs/h` : "Sin cobro por hora";
+
+            function numeroBolaMesa(mesa, idx) {
+                const num = String(mesa.numero_mesa).match(/\d+/);
+                return num ? parseInt(num[0], 10) : idx + 1;
+            }
+
+            function pintarMesasDashboard() {
+                const grid = document.getElementById("dashMesasGrid");
+                const conteo = { libre: 0, ocupada: 0, pausada: 0, mantenimiento: 0 };
+                const estados = dash.mesas.map(m => estadoVisualMesa(m));
+                estados.forEach(e => conteo[e]++);
+
+                document.getElementById("dashResumenMesas").innerHTML = `
+                    <span class="dash-chip ocupada">${conteo.ocupada + conteo.pausada} ocupadas</span>
+                    <span class="dash-chip libre">${conteo.libre} libres</span>
+                    ${conteo.mantenimiento ? `<span class="dash-chip mantenimiento">${conteo.mantenimiento} en mantenimiento</span>` : ""}`;
+
+                // Solo se reconstruye el HTML si cambió la estructura (mesas / nombres / estados),
+                // así no se pierden el foco ni las transiciones en cada refresco.
+                const firma = dash.mesas.map((m, i) => `${m.id_mesa}|${m.numero_mesa}|${m.nombre_tipo}|${m.precio_hora}|${estados[i]}`).join(";");
+                if (firma === dash.firmaGrid) return;
+                dash.firmaGrid = firma;
+
+                if (dash.mesas.length === 0) {
+                    grid.innerHTML = `<div class="empty-state"><i class="material-icons">table_restaurant</i><p>No hay mesas físicas registradas.</p></div>`;
+                    return;
+                }
+
+                grid.innerHTML = dash.mesas.map((m, idx) => {
+                    const estado = estados[idx];
+                    const enUso = estado === "ocupada" || estado === "pausada";
+                    const seleccionada = dash.seleccion === String(m.id_mesa);
+                    const pie = enUso
+                        ? `<span class="celda-dato" data-dash-tiempo="${m.id_mesa}"><i class="material-icons">${estado === "pausada" ? "pause_circle" : "schedule"}</i><span class="valor">--:--:--</span></span>
+                           <span class="celda-dato" data-dash-consumo="${m.id_mesa}"><i class="material-icons">receipt_long</i><span class="valor">0.00 Bs</span></span>`
+                        : `<span class="celda-dato is-muted"><i class="material-icons">${estado === "mantenimiento" ? "build" : "check_circle"}</i>${estado === "mantenimiento" ? "Fuera de servicio" : "Disponible"}</span>`;
+
+                    return `
+                        <button type="button" class="dash-mesa is-${estado}${seleccionada ? " is-selected" : ""}" data-id="${m.id_mesa}" aria-pressed="${seleccionada}">
+                            <span class="dash-mesa-pano">
+                                ${bolaBillar(numeroBolaMesa(m, idx))}
+                                <span class="estado-badge ${estado}">${ETIQUETAS_ESTADO_DASH[estado]}</span>
+                            </span>
+                            <span class="dash-mesa-cuerpo">
+                                <span class="dash-mesa-nombre">${escaparHTML(m.numero_mesa)}</span>
+                                <span class="dash-mesa-tipo">${escaparHTML(m.nombre_tipo)} · ${textoTarifa(m.precio_hora)}</span>
+                                <span class="dash-mesa-pie">${pie}</span>
+                            </span>
+                        </button>`;
+                }).join("");
+            }
+
+            // ---- Reloj de 1s: duración del turno, tarjetas y panel ----
+            function tickDashboard() {
+                if (!document.getElementById("dashboard")) return detenerDashboard();
+                const ahora = new Date();
+
+                const dur = document.getElementById("dashTurnoDuracion");
+                if (dur && dash.aperturaTurno) {
+                    dur.textContent = formatearSegundos(Math.max(0, Math.floor((ahora - dash.aperturaTurno) / 1000)));
+                }
+
+                document.querySelectorAll("[data-dash-tiempo]").forEach(celda => {
+                    const id = celda.dataset.dashTiempo;
+                    const info = dash.sesiones[id];
+                    const consumo = document.querySelector(`[data-dash-consumo="${id}"] .valor`);
+                    if (!info) {
+                        celda.querySelector(".valor").textContent = "--:--:--";
+                        return;
+                    }
+                    const s = calcularSesionMesa(info, info.precio_hora, ahora);
+                    celda.querySelector(".valor").textContent = s.tarifaFija ? "Solo consumo" : formatearSegundos(s.segundos);
+                    if (consumo) consumo.textContent = `${s.consumo.toFixed(2)} Bs`;
+                });
+
+                if (dash.seleccion) pintarRelojDetalle(ahora);
+            }
+
+            // ---- Panel de detalle ----
+            function seleccionarMesaDashboard(idMesa) {
+                const id = String(idMesa);
+                const root = document.getElementById("dashboard");
+                if (dash.seleccion === id) {
+                    cerrarDetalleDashboard();
+                    return;
+                }
+                const yaAbierto = root.classList.contains("con-detalle");
+                dash.seleccion = id;
+
+                document.querySelectorAll(".dash-mesa").forEach(c => {
+                    const activa = c.dataset.id === id;
+                    c.classList.toggle("is-selected", activa);
+                    c.setAttribute("aria-pressed", activa);
+                });
+
+                pintarDetalleDashboard(true);
+                root.classList.add("con-detalle");
+                document.getElementById("dashDetalle").setAttribute("aria-hidden", "false");
+
+                // Al cambiar de una mesa a otra con el panel ya abierto, animar el cambio de contenido
+                if (yaAbierto) {
+                    const inner = document.getElementById("dashDetalleInner");
+                    inner.classList.remove("is-cambio");
+                    void inner.offsetWidth;
+                    inner.classList.add("is-cambio");
+                }
+            }
+
+            function cerrarDetalleDashboard() {
+                const root = document.getElementById("dashboard");
+                if (!root || !dash) return;
+                dash.seleccion = null;
+                dash.tokenTramos++;
+                root.classList.remove("con-detalle");
+                document.getElementById("dashDetalle").setAttribute("aria-hidden", "true");
+                document.querySelectorAll(".dash-mesa.is-selected").forEach(c => {
+                    c.classList.remove("is-selected");
+                    c.setAttribute("aria-pressed", "false");
+                });
+            }
+
+            async function pintarDetalleDashboard(esNuevaSeleccion) {
+                const idx = dash.mesas.findIndex(m => String(m.id_mesa) === dash.seleccion);
+                if (idx < 0) return;
+                const mesa = dash.mesas[idx];
+                const estado = estadoVisualMesa(mesa);
+                const info = dash.sesiones[mesa.id_mesa];
+                const enUso = estado === "ocupada" || estado === "pausada";
+
+                document.getElementById("dashDetBola").innerHTML = bolaBillar(numeroBolaMesa(mesa, idx));
+                document.getElementById("dashDetNombre").textContent = mesa.numero_mesa;
+                const tarifa = info ? info.precio_hora : parseFloat(mesa.precio_hora) || 0;
+                document.getElementById("dashDetTipo").textContent = `${mesa.nombre_tipo} · ${textoTarifa(tarifa)}`;
+
+                const badge = document.getElementById("dashDetEstado");
+                badge.className = `estado-badge ${estado}`;
+                badge.textContent = ETIQUETAS_ESTADO_DASH[estado];
+
+                document.getElementById("dashDetSesion").hidden = !enUso;
+                document.getElementById("dashDetVacio").hidden = enUso;
+
+                if (!enUso) {
+                    const enMantenimiento = estado === "mantenimiento";
+                    document.getElementById("dashDetVacioIcono").textContent = enMantenimiento ? "build" : "event_available";
+                    document.getElementById("dashDetVacioTexto").textContent = enMantenimiento
+                        ? "Mesa en mantenimiento, fuera de servicio."
+                        : "Mesa disponible, sin sesión activa.";
+                    return;
+                }
+
+                pintarRelojDetalle(new Date());
+
+                const tbody = document.getElementById("dashDetTramos");
+                if (esNuevaSeleccion) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>';
+                }
+                const token = ++dash.tokenTramos;
+                try {
+                    const tramos = await obtenerHistorialTramos(mesa.id_mesa);
+                    if (token !== dash.tokenTramos || !document.getElementById("dashboard")) return;
+                    tbody.innerHTML = filasHistorialTramos(tramos);
+                } catch (e) {
+                    if (token !== dash.tokenTramos) return;
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger" style="padding: 10px;">No se pudo cargar el historial</td></tr>';
+                }
+            }
+
+            function pintarRelojDetalle(ahora) {
+                const info = dash.sesiones[dash.seleccion];
+                const sesionVisible = !document.getElementById("dashDetSesion").hidden;
+                if (!sesionVisible) return;
+                if (!info) {
+                    document.getElementById("dashDetHoraInicio").textContent = "--:--";
+                    document.getElementById("dashDetTiempo").textContent = "--:--:--";
+                    document.getElementById("dashDetImporte").textContent = "0.00 Bs";
+                    document.getElementById("dashDetConsumo").textContent = "0.00 Bs";
+                    return;
+                }
+                const s = calcularSesionMesa(info, info.precio_hora, ahora);
+                document.getElementById("dashDetHoraInicio").textContent = s.horaInicio ? horaMinuto(s.horaInicio) : "--:--";
+                document.getElementById("dashDetTiempo").textContent = formatearSegundos(s.segundos);
+                document.getElementById("dashDetImporte").textContent = `${s.importe.toFixed(2)} Bs`;
+                document.getElementById("dashDetConsumo").textContent = `${s.consumo.toFixed(2)} Bs`;
             }
 
             // -------------------------------------------------------------------
@@ -722,7 +1123,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             tbody.innerHTML += `
                     <tr>
-                        <td style="color: #64748b;">#${p.id_producto}</td>
+                        <td>${bolaBillar(p.id_producto)}</td>
                         <td style="font-weight: 500;">${p.nombre_producto}</td>
                         <td style="color: var(--primary); font-weight: bold;">${parseFloat(p.precio_venta).toFixed(2)} Bs.</td>
                         <td>${stockUI}</td>
@@ -880,7 +1281,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             tbody.innerHTML += `
                     <tr>
-                        <td style="color: #64748b;">#${i.id_insumo}</td>
+                        <td>${bolaBillar(i.id_insumo)}</td>
                         <td style="font-weight: 500;">${i.nombre_insumo}</td>
                         <td><span style="background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${i.unidad_medida}</span></td>
                         <td>${stockUI}</td>

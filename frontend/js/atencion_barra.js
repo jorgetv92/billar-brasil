@@ -595,6 +595,196 @@ window.gestorUI = {
             layout.classList.add(nuevaClaseEstado);
         }
     },
+    // =========================================================================
+    // MOTOR DE TRANSICIONES MÓVIL ("EFECTO CORTINA")
+    // La barra (tab) es el borde que se desplaza. El contenido NO se mueve: queda
+    // fijo en su posición y se va revelando u ocultando detrás de la barra. El footer
+    // de acciones de mesa entra/sale por el borde inferior de la pantalla.
+    // Uso: this.transicionLayout(() => { ...cambios de DOM / cambiarEstadoLayout... });
+    // =========================================================================
+    DURACION_TRANSICION_MS: 300,
+    _animLayout: null,
+    esVistaMovil: function () {
+        return window.matchMedia("(max-width: 768px)").matches;
+    },
+    _medirLayout: function (layout, el) {
+        const base = layout.getBoundingClientRect();
+        const medir = (e) => {
+            const r = e.getBoundingClientRect();
+            return r.height > 0 ? { top: r.top - base.top, h: r.height } : null;
+        };
+        const tabIzq = medir(el.tabIzq);
+        const tabDer = medir(el.tabDer);
+        let barra = null;
+        if (tabIzq) barra = Object.assign({ el: el.tabIzq }, tabIzq);
+        else if (tabDer) barra = Object.assign({ el: el.tabDer }, tabDer);
+        return { H: base.height, barra, izq: medir(el.contIzq), der: medir(el.contDer), footer: medir(el.footer) };
+    },
+    // Foto del contenido izquierdo saliente (para poder "taparlo" aunque el DOM real ya cambió)
+    _clonarContenido: function (origen) {
+        const cs = getComputedStyle(origen);
+        const fondoPanel = getComputedStyle(origen.parentElement).backgroundColor;
+        const nodo = origen.cloneNode(true);
+        nodo.removeAttribute("id");
+        nodo.querySelectorAll("[id]").forEach(n => n.removeAttribute("id"));
+        nodo.setAttribute("aria-hidden", "true");
+        Object.assign(nodo.style, {
+            position: "absolute", left: "0", right: "0", margin: "0", zIndex: "1",
+            display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "hidden",
+            paddingTop: cs.paddingTop, paddingRight: cs.paddingRight,
+            paddingBottom: cs.paddingBottom, paddingLeft: cs.paddingLeft,
+            pointerEvents: "none",
+            background: (fondoPanel && fondoPanel !== "rgba(0, 0, 0, 0)") ? fondoPanel : "#fff"
+        });
+        return { nodo, scroll: origen.scrollTop };
+    },
+    transicionLayout: function (aplicarCambios) {
+        if (this._animLayout) this._animLayout.terminar();
+
+        const layout = document.querySelector(".atencion-layout");
+        const reducirMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const el = {
+            panelIzq: document.getElementById("panelIzquierdo"),
+            panelDer: document.getElementById("panelDerecho"),
+            tabIzq: document.getElementById("tabIzquierdo"),
+            tabDer: document.getElementById("tabDerecho"),
+            contIzq: document.getElementById("contenidoIzquierdo"),
+            contDer: document.getElementById("contenidoDerecho"),
+            footer: document.getElementById("footerAccionesMesa"),
+            vistaConMesa: document.getElementById("vistaConMesa"),
+            txtTabDer: document.getElementById("txtTabDerecho"),
+            icoTabDer: document.getElementById("icoTabDerecho"),
+            txtTabIzq: document.getElementById("txtTabIzquierdo"),
+            icoTabIzq: document.getElementById("icoTabIzquierdo")
+        };
+        if (!layout || !this.esVistaMovil() || reducirMovimiento || Object.values(el).some(e => !e)) {
+            aplicarCambios();
+            return;
+        }
+
+        // 1. Foto del estado de origen
+        const antes = this._medirLayout(layout, el);
+        const vistaMesaAntes = !el.vistaConMesa.classList.contains("hidden");
+        const clon = antes.izq ? this._clonarContenido(el.contIzq) : null;
+
+        // 2. Aplicar el estado destino (síncrono, sin pintar todavía)
+        aplicarCambios();
+        const despues = this._medirLayout(layout, el);
+        if (!antes.barra || !despues.barra) return;
+
+        const cambioVistaIzq = vistaMesaAntes !== !el.vistaConMesa.classList.contains("hidden");
+        if (cambioVistaIzq) el.contIzq.scrollTop = 0;
+
+        // 3. Geometría de la animación (coordenadas relativas al layout)
+        const H = despues.H;
+        const T = despues.barra.h;
+        const y0 = antes.barra.top, y1 = despues.barra.top;
+        const rectIzq = despues.izq || antes.izq;          // contenido izquierdo: anclado arriba
+        const rectDer = despues.der || antes.der;          // contenido derecho: fijo en su sitio
+        const hayFooter = !!(despues.footer || antes.footer);
+        const f0 = antes.footer ? antes.footer.top : H;    // H = fuera de pantalla (abajo)
+        const f1 = despues.footer ? despues.footer.top : H;
+        const usarClon = !!clon && cambioVistaIzq;
+        const cortinaClon = usarClon && !!despues.izq;     // la vista nueva aparece en el mismo lugar
+
+        // 4. Tomar control del layout con posicionamiento absoluto
+        const tocados = new Map();
+        const set = (e, prop, val) => {
+            e.style.setProperty(prop, val, "important");
+            if (!tocados.has(e)) tocados.set(e, new Set());
+            tocados.get(e).add(prop);
+        };
+        set(layout, "position", "relative");
+        [el.panelIzq, el.panelDer].forEach(p => {
+            set(p, "position", "absolute"); set(p, "left", "0"); set(p, "right", "0");
+            set(p, "margin", "0"); set(p, "flex", "none"); set(p, "overflow", "hidden");
+            set(p, "min-height", "0"); set(p, "max-height", "none");
+        });
+        set(el.panelIzq, "top", "0"); set(el.panelIzq, "z-index", "1");
+        set(el.panelDer, "z-index", "2");
+
+        // Una sola barra móvil: el tab derecho (va pegado arriba del panel derecho)
+        set(el.tabIzq, "display", "none");
+        set(el.tabDer, "display", "flex");
+        set(el.tabDer, "position", "relative");
+        set(el.tabDer, "z-index", "2");
+        const etiquetaTabDer = [el.txtTabDer.textContent, el.icoTabDer.textContent];
+        const cambiarEtiqueta = despues.barra.el === el.tabIzq;
+        if (cambiarEtiqueta) {
+            el.txtTabDer.textContent = el.txtTabIzq.textContent;
+            el.icoTabDer.textContent = el.icoTabIzq.textContent;
+        }
+
+        if (rectIzq) {
+            set(el.contIzq, "display", "flex"); set(el.contIzq, "position", "absolute");
+            set(el.contIzq, "left", "0"); set(el.contIzq, "right", "0");
+            set(el.contIzq, "top", rectIzq.top + "px"); set(el.contIzq, "height", rectIzq.h + "px");
+        }
+        if (rectDer) {
+            set(el.contDer, "display", "flex"); set(el.contDer, "position", "absolute");
+            set(el.contDer, "left", "0"); set(el.contDer, "right", "0");
+            set(el.contDer, "height", rectDer.h + "px");
+        } else {
+            set(el.contDer, "display", "none");
+        }
+        if (hayFooter) {
+            set(el.footer, "display", "flex"); set(el.footer, "position", "absolute");
+            set(el.footer, "left", "0"); set(el.footer, "right", "0");
+            set(el.footer, "margin", "0"); set(el.footer, "z-index", "3");
+        }
+        if (usarClon) {
+            clon.nodo.style.top = antes.izq.top + "px";
+            clon.nodo.style.height = antes.izq.h + "px";
+            el.panelIzq.appendChild(clon.nodo);
+            clon.nodo.scrollTop = clon.scroll;
+        }
+
+        // 5. Pintado de un fotograma (p = progreso suavizado 0..1)
+        const lerp = (a, b, p) => a + (b - a) * p;
+        const finDer = rectDer ? rectDer.top + rectDer.h : 0;
+        const pintar = (p) => {
+            const barY = lerp(y0, y1, p);
+            set(el.panelIzq, "height", barY + "px");
+            set(el.panelDer, "top", barY + "px");
+            set(el.panelDer, "height", Math.max(T, finDer - barY) + "px");
+            if (rectDer) {
+                // El contenido derecho no se mueve en pantalla; solo se recorta bajo la barra
+                set(el.contDer, "top", (rectDer.top - barY) + "px");
+                set(el.contDer, "clip-path", `inset(${Math.max(0, barY + T - rectDer.top)}px 0 0 0)`);
+            }
+            if (hayFooter) set(el.footer, "top", lerp(f0, f1, p) + "px");
+            if (cortinaClon) clon.nodo.style.clipPath = `inset(${p * antes.izq.h}px 0 0 0)`;
+        };
+
+        // 6. Bucle de animación
+        const suavizar = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const duracion = this.DURACION_TRANSICION_MS;
+        let raf = null, inicio = null, terminada = false;
+        const anim = {
+            terminar: () => {
+                if (terminada) return;
+                terminada = true;
+                if (raf) cancelAnimationFrame(raf);
+                tocados.forEach((props, e) => props.forEach(prop => e.style.removeProperty(prop)));
+                if (usarClon) clon.nodo.remove();
+                if (cambiarEtiqueta) {
+                    el.txtTabDer.textContent = etiquetaTabDer[0];
+                    el.icoTabDer.textContent = etiquetaTabDer[1];
+                }
+                if (this._animLayout === anim) this._animLayout = null;
+            }
+        };
+        this._animLayout = anim;
+        pintar(0);
+        const paso = (ts) => {
+            if (inicio === null) inicio = ts;
+            const t = Math.min(1, (ts - inicio) / duracion);
+            pintar(suavizar(t));
+            if (t < 1) raf = requestAnimationFrame(paso);
+            else anim.terminar();
+        };
+        raf = requestAnimationFrame(paso);
+    },
     clickMesa: function (elementoMesa) {
         const nombreMesa = elementoMesa.querySelector("h4").innerText;
         const idMesa = elementoMesa.getAttribute("data-id");
@@ -606,26 +796,25 @@ window.gestorUI = {
         } else {
             mesaSeleccionadaActual = nombreMesa;
             modoActual = "mesa";
-            this.seleccionarMesa(nombreMesa, elementoMesa);
-            if (window.innerWidth <= 768) {
-                this.transicionContenido("izquierdo", () => {
-                    this.cambiarEstadoLayout("state-mesa-info");
+            this.transicionLayout(() => {
+                this.seleccionarMesa(nombreMesa, elementoMesa);
+                if (this.esVistaMovil()) {
                     document.getElementById("tabDerecho").classList.remove("hidden");
                     document.getElementById("txtTabDerecho").innerText = `Consumo ${nombreMesa}`;
                     document.getElementById("icoTabDerecho").innerText = "keyboard_arrow_up";
-                });
-            }
+                }
+            });
         }
     },
     clickTabIzquierdo: function () {
         if (modoActual === "barra") {
-            this.transicionContenido("izquierdo", () => {
+            this.transicionLayout(() => {
                 this.cambiarEstadoLayout("state-seleccionando");
                 document.getElementById("txtTabDerecho").innerText = "Seleccionando Mesa";
                 document.getElementById("icoTabDerecho").innerText = "close";
             });
         } else if (modoActual === "mesa") {
-            this.transicionContenido("izquierdo", () => {
+            this.transicionLayout(() => {
                 this.cambiarEstadoLayout("state-mesa-info");
                 document.getElementById("txtTabDerecho").innerText = `Consumo ${mesaSeleccionadaActual}`;
                 document.getElementById("icoTabDerecho").innerText = "keyboard_arrow_up";
@@ -634,27 +823,19 @@ window.gestorUI = {
     },
     clickTabDerecho: function () {
         if (modoActual === "barra") {
-            this.transicionContenido("derecho", () => {
+            this.transicionLayout(() => {
                 this.cambiarEstadoLayout("state-barra");
                 document.getElementById("txtTabIzquierdo").innerText = "seleccionar mesa...";
                 document.getElementById("icoTabIzquierdo").innerText = "keyboard_arrow_down";
             });
         } else if (modoActual === "mesa") {
-            this.transicionContenido("derecho", () => {
+            this.transicionLayout(() => {
                 this.cambiarEstadoLayout("state-mesa-consumo");
                 document.getElementById("txtTabIzquierdo").innerText = `Información ${mesaSeleccionadaActual}`;
                 document.getElementById("icoTabIzquierdo").innerText = "keyboard_arrow_down";
                 document.getElementById("lblTituloVenta").innerText = `Venta: ${mesaSeleccionadaActual}`;
             });
         }
-    },
-    transicionContenido: function (panel, accionCambioDOM) {
-        const target = panel === "izquierdo" ? document.getElementById("contenidoIzquierdo") : document.getElementById("contenidoDerecho");
-        if (target) target.classList.add("fade-out");
-        setTimeout(() => {
-            accionCambioDOM();
-            if (target) target.classList.remove("fade-out");
-        }, 150);
     },
     seleccionarMesa: function (nombreMesa, elementoMesa) {
         modoActual = "mesa";
@@ -736,6 +917,11 @@ window.gestorUI = {
         this.cambiarEstadoLayout("state-mesa-info");
     },
     deseleccionarMesa: function () {
+        // En móvil: la barra sube al top tapando la info de mesa y revelando el carrito,
+        // y el footer de acciones baja fuera de pantalla antes de ocultarse.
+        this.transicionLayout(() => this._aplicarDeseleccionMesa());
+    },
+    _aplicarDeseleccionMesa: function () {
         modoActual = "barra";
         mesaSeleccionadaActual = "";
         this.cambiarEstadoLayout("state-barra");
