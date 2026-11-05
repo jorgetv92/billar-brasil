@@ -97,6 +97,19 @@ body {
 }
 
 
+/* Sidebar colapsado (escritorio): el contenido ocupa todo el ancho */
+@media (min-width: 769px) {
+    body.sidebar-collapsed .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    body.sidebar-collapsed .sidebar {
+        transform: translateX(-100%);
+    }
+}
+
+
 /* --- SIDEBAR DE NAVEGACIÓN --- */
 
 .sidebar {

@@ -30,6 +30,60 @@ document.addEventListener("DOMContentLoaded", () => {
                 return `<span class="bola-billar${tam}" title="${txt}"><span>${txt}</span></span>`;
             }
 
+            // --- UI: Ordenamiento de tablas por click en el encabezado ---
+            // Primer click en una columna: ascendente. Segundo click: descendente (y así alternando).
+            function ordenarLista(lista, estado, tipos) {
+                const factor = estado.dir === "desc" ? -1 : 1;
+                const esNum = tipos[estado.campo] === "num";
+                const valor = (item) => esNum
+                    ? (parseFloat(item[estado.campo]) || 0)
+                    : String(item[estado.campo] ?? "");
+                return [...lista].sort((a, b) => {
+                    const va = valor(a), vb = valor(b);
+                    const cmp = esNum ? va - vb : va.localeCompare(vb, "es", { numeric: true, sensitivity: "base" });
+                    return cmp * factor;
+                });
+            }
+
+            function marcarOrdenEnEncabezados(thead, estado) {
+                thead.querySelectorAll("th[data-sort]").forEach(th => {
+                    if (th.dataset.sort === estado.campo) {
+                        th.setAttribute("aria-sort", estado.dir === "asc" ? "ascending" : "descending");
+                    } else {
+                        th.removeAttribute("aria-sort");
+                    }
+                });
+            }
+
+            function activarOrdenEnEncabezados(tbodyId, estado, alCambiar) {
+                const tbody = document.getElementById(tbodyId);
+                const thead = tbody && tbody.closest("table") ? tbody.closest("table").tHead : null;
+                if (!thead) return;
+                thead.querySelectorAll("th[data-sort]").forEach(th => {
+                    th.addEventListener("click", () => {
+                        if (estado.campo === th.dataset.sort) {
+                            estado.dir = estado.dir === "asc" ? "desc" : "asc";
+                        } else {
+                            estado.campo = th.dataset.sort;
+                            estado.dir = "asc";
+                        }
+                        marcarOrdenEnEncabezados(thead, estado);
+                        alCambiar();
+                    });
+                });
+                marcarOrdenEnEncabezados(thead, estado);
+            }
+
+            // Reaplica el texto del buscador sobre las filas recién dibujadas
+            function reaplicarFiltroBusqueda(inputId, tbodyId) {
+                const input = document.getElementById(inputId);
+                if (!input || !input.value) return;
+                const termino = input.value.toLowerCase();
+                document.querySelectorAll("#" + tbodyId + " tr").forEach(fila => {
+                    fila.style.display = fila.innerText.toLowerCase().includes(termino) ? "" : "none";
+                });
+            }
+
             // Lista global en memoria para almacenar los usuarios traídos por AJAX (Ayuda a la edición rápida sin re-consultar)
             let listaUsuariosGlobal = [];
             let listaTiposGlobal = [];
@@ -95,7 +149,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             });
 
+            // Escritorio (> 768px): colapsa/expande el sidebar para ganar espacio.
+            // Móvil/tablet (<= 768px): sidebar deslizable con overlay.
+            const SIDEBAR_KEY = "admin_sidebar_collapsed";
+            try {
+                if (localStorage.getItem(SIDEBAR_KEY) === "1") document.body.classList.add("sidebar-collapsed");
+            } catch (e) {}
+
             function toggleMenu() {
+                if (window.innerWidth > 768) {
+                    const colapsado = document.body.classList.toggle("sidebar-collapsed");
+                    try { localStorage.setItem(SIDEBAR_KEY, colapsado ? "1" : "0"); } catch (e) {}
+                    return;
+                }
                 sidebar.classList.toggle("open");
                 overlay.classList.toggle("show");
             }
@@ -1030,7 +1096,13 @@ document.addEventListener("DOMContentLoaded", () => {
             // -------------------------------------------------------------------
             let listaProductosGlobal = [];
 
+            // Por defecto: orden de registro (id ascendente)
+            let ordenProductos = { campo: "id_producto", dir: "asc" };
+            const tiposOrdenProductos = { id_producto: "num", nombre_producto: "texto", precio_venta: "num", stock_actual: "num" };
+
             function inicializarModuloProductos() {
+                ordenProductos = { campo: "id_producto", dir: "asc" };
+                activarOrdenEnEncabezados("tablaProductosBody", ordenProductos, renderizarProductos);
                 consultarProductosAPI();
 
                 // Buscador interactivo
@@ -1105,39 +1177,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     if (response.ok && result.status === "success") {
                         listaProductosGlobal = result.data;
-                        tbody.innerHTML = "";
-
-                        if (listaProductosGlobal.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay productos en el inventario</td></tr>`;
-                            return;
-                        }
-
-                        listaProductosGlobal.forEach(p => {
-                            // UX: Lógica de colores para el Stock
-                            let stockUI = `<b>${p.stock_actual}</b>`;
-                            if (parseInt(p.stock_actual) === 0) {
-                                stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
-                            } else if (parseInt(p.stock_actual) <= 5) {
-                                stockUI = `<span style="color: var(--warning); font-weight: bold;">${p.stock_actual} (Bajo)</span>`;
-                            }
-
-                            tbody.innerHTML += `
-                    <tr>
-                        <td>${bolaBillar(p.id_producto)}</td>
-                        <td style="font-weight: 500;">${p.nombre_producto}</td>
-                        <td style="color: var(--primary); font-weight: bold;">${parseFloat(p.precio_venta).toFixed(2)} Bs.</td>
-                        <td>${stockUI}</td>
-                        <td>
-                            <button class="icon-btn text-primary btn-editar-producto" data-id="${p.id_producto}"><i class="material-icons">edit</i></button>
-                            <button class="icon-btn text-danger btn-eliminar-producto" data-id="${p.id_producto}"><i class="material-icons">delete</i></button>
-                        </td>
-                    </tr>
-                `;
-                        });
+                        renderizarProductos();
                     }
                 } catch (error) {
                     mostrarToast("No se pudo cargar el inventario", "error");
                 }
+            }
+
+            function renderizarProductos() {
+                const tbody = document.getElementById("tablaProductosBody");
+                if (!tbody) return;
+                tbody.innerHTML = "";
+
+                if (listaProductosGlobal.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay productos en el inventario</td></tr>`;
+                    return;
+                }
+
+                let filasHTML = "";
+                ordenarLista(listaProductosGlobal, ordenProductos, tiposOrdenProductos).forEach(p => {
+                    // UX: Lógica de colores para el Stock
+                    let stockUI = `<b>${p.stock_actual}</b>`;
+                    if (parseInt(p.stock_actual) === 0) {
+                        stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
+                    } else if (parseInt(p.stock_actual) <= 5) {
+                        stockUI = `<span style="color: var(--warning); font-weight: bold;">${p.stock_actual} (Bajo)</span>`;
+                    }
+
+                    filasHTML += `
+            <tr>
+                <td>${bolaBillar(p.id_producto)}</td>
+                <td style="font-weight: 500;">${p.nombre_producto}</td>
+                <td style="color: var(--primary); font-weight: bold;">${parseFloat(p.precio_venta).toFixed(2)} Bs.</td>
+                <td>${stockUI}</td>
+                <td>
+                    <button class="icon-btn text-primary btn-editar-producto" data-id="${p.id_producto}"><i class="material-icons">edit</i></button>
+                    <button class="icon-btn text-danger btn-eliminar-producto" data-id="${p.id_producto}"><i class="material-icons">delete</i></button>
+                </td>
+            </tr>
+        `;
+                });
+                tbody.innerHTML = filasHTML;
+                reaplicarFiltroBusqueda("buscarProducto", "tablaProductosBody");
             }
 
             function configurarModalProducto(titulo, esEdicion, id = null) {
@@ -1185,7 +1266,13 @@ document.addEventListener("DOMContentLoaded", () => {
             // -------------------------------------------------------------------
             let listaInsumosGlobal = [];
 
+            // Por defecto: orden de registro (id ascendente)
+            let ordenInsumos = { campo: "id_insumo", dir: "asc" };
+            const tiposOrdenInsumos = { id_insumo: "num", nombre_insumo: "texto", unidad_medida: "texto", stock_actual: "num" };
+
             function inicializarModuloInsumos() {
+                ordenInsumos = { campo: "id_insumo", dir: "asc" };
+                activarOrdenEnEncabezados("tablaInsumosBody", ordenInsumos, renderizarInsumos);
                 consultarInsumosAPI();
 
                 // Buscador interactivo
@@ -1260,42 +1347,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     if (response.ok && result.status === "success") {
                         listaInsumosGlobal = result.data;
-                        tbody.innerHTML = "";
-
-                        if (listaInsumosGlobal.length === 0) {
-                            tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay insumos registrados</td></tr>`;
-                            return;
-                        }
-
-                        listaInsumosGlobal.forEach(i => {
-                            // Formateo para decimales (si es entero, no muestra .00 por limpieza visual)
-                            let stockNum = parseFloat(i.stock_actual);
-                            let stockFormateado = stockNum % 1 === 0 ? stockNum : stockNum.toFixed(2);
-
-                            let stockUI = `<b>${stockFormateado}</b>`;
-                            if (stockNum <= 0) {
-                                stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
-                            } else if (stockNum <= 5) {
-                                stockUI = `<span style="color: var(--warning); font-weight: bold;">${stockFormateado} (Bajo)</span>`;
-                            }
-
-                            tbody.innerHTML += `
-                    <tr>
-                        <td>${bolaBillar(i.id_insumo)}</td>
-                        <td style="font-weight: 500;">${i.nombre_insumo}</td>
-                        <td><span style="background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${i.unidad_medida}</span></td>
-                        <td>${stockUI}</td>
-                        <td>
-                            <button class="icon-btn text-primary btn-editar-insumo" data-id="${i.id_insumo}"><i class="material-icons">edit</i></button>
-                            <button class="icon-btn text-danger btn-eliminar-insumo" data-id="${i.id_insumo}"><i class="material-icons">delete</i></button>
-                        </td>
-                    </tr>
-                `;
-                        });
+                        renderizarInsumos();
                     }
                 } catch (error) {
                     mostrarToast("No se pudieron cargar los insumos", "error");
                 }
+            }
+
+            function renderizarInsumos() {
+                const tbody = document.getElementById("tablaInsumosBody");
+                if (!tbody) return;
+                tbody.innerHTML = "";
+
+                if (listaInsumosGlobal.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay insumos registrados</td></tr>`;
+                    return;
+                }
+
+                let filasHTML = "";
+                ordenarLista(listaInsumosGlobal, ordenInsumos, tiposOrdenInsumos).forEach(i => {
+                    // Formateo para decimales (si es entero, no muestra .00 por limpieza visual)
+                    let stockNum = parseFloat(i.stock_actual);
+                    let stockFormateado = stockNum % 1 === 0 ? stockNum : stockNum.toFixed(2);
+
+                    let stockUI = `<b>${stockFormateado}</b>`;
+                    if (stockNum <= 0) {
+                        stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
+                    } else if (stockNum <= 5) {
+                        stockUI = `<span style="color: var(--warning); font-weight: bold;">${stockFormateado} (Bajo)</span>`;
+                    }
+
+                    filasHTML += `
+            <tr>
+                <td>${bolaBillar(i.id_insumo)}</td>
+                <td style="font-weight: 500;">${i.nombre_insumo}</td>
+                <td><span style="background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${i.unidad_medida}</span></td>
+                <td>${stockUI}</td>
+                <td>
+                    <button class="icon-btn text-primary btn-editar-insumo" data-id="${i.id_insumo}"><i class="material-icons">edit</i></button>
+                    <button class="icon-btn text-danger btn-eliminar-insumo" data-id="${i.id_insumo}"><i class="material-icons">delete</i></button>
+                </td>
+            </tr>
+        `;
+                });
+                tbody.innerHTML = filasHTML;
+                reaplicarFiltroBusqueda("buscarInsumo", "tablaInsumosBody");
             }
 
             function configurarModalInsumo(titulo, esEdicion, id = null) {
@@ -1343,7 +1439,32 @@ document.addEventListener("DOMContentLoaded", () => {
             // -------------------------------------------------------------------
             let listaPromosGlobal = [];
 
+            // Normaliza "HH:MM:SS" (BD) a "HH:MM" (formato 24 h del formulario)
+            function horaCorta(valor) {
+                return valor ? String(valor).substring(0, 5) : "";
+            }
+
+            // Inputs de hora en formato 24 h (HH:MM) sin depender del idioma del navegador
+            function activarInputsHora24() {
+                document.querySelectorAll(".input-hora24").forEach(inp => {
+                    inp.addEventListener("input", () => {
+                        let d = inp.value.replace(/\D/g, "").substring(0, 4);
+                        inp.value = d.length > 2 ? d.substring(0, 2) + ":" + d.substring(2) : d;
+                    });
+                    inp.addEventListener("blur", () => {
+                        const d = inp.value.replace(/\D/g, "");
+                        if (!d) { inp.value = ""; return; }
+                        let h, m;
+                        if (d.length <= 2) { h = d; m = "00"; }
+                        else if (d.length === 3) { h = "0" + d[0]; m = d.substring(1); }
+                        else { h = d.substring(0, 2); m = d.substring(2); }
+                        inp.value = h.padStart(2, "0") + ":" + m.padStart(2, "0");
+                    });
+                });
+            }
+
             async function inicializarModuloPromociones() {
+                activarInputsHora24();
                 consultarPromocionesAPI();
 
                 // Listener de búsqueda interactiva
@@ -1477,7 +1598,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             // Formateo visual amigable del tipo de promoción (UX)
                             let tipoLabel = p.tipo_promo.replace('_', ' ').toUpperCase();
                             let vigencia = (p.fecha_inicio && p.fecha_fin) ? `${p.fecha_inicio} a ${p.fecha_fin}` : 'Vigencia Permanente';
-                            let horario = (p.hora_inicio && p.hora_fin) ? `${p.hora_inicio} - ${p.hora_fin}` : 'Todo el día';
+                            let horario = (p.hora_inicio && p.hora_fin) ? `${horaCorta(p.hora_inicio)} - ${horaCorta(p.hora_fin)}` : 'Todo el día';
                             if (p.dias_semana) horario += ` (${p.dias_semana})`;
 
                             tbody.innerHTML += `
@@ -1563,8 +1684,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         document.getElementById("tipo_promo").value = promo.tipo_promo;
                         document.getElementById("fecha_inicio").value = promo.fecha_inicio || "";
                         document.getElementById("fecha_fin").value = promo.fecha_fin || "";
-                        document.getElementById("hora_inicio").value = promo.hora_inicio || "";
-                        document.getElementById("hora_fin").value = promo.hora_fin || "";
+                        document.getElementById("hora_inicio").value = horaCorta(promo.hora_inicio);
+                        document.getElementById("hora_fin").value = horaCorta(promo.hora_fin);
                         document.getElementById("dias_semana").value = promo.dias_semana || "";
 
                         // Llenado pre-seleccionado condicional (Re-armando el estado previo)
@@ -2804,7 +2925,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- 9. LOGOUT ---
     document.getElementById("btnLogout").addEventListener("click", () => {
         localStorage.removeItem("usuario_nombre"); // Limpiar el almacenamiento
-        window.location.href = "index.html";
+        window.location.href = "../index.html";
     });
 
     // Carga automática inicial del Dashboard

@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btnSubmit.disabled = true;
 
             // Hacemos la petición POST al backend (Ajusta la ruta según tu servidor)
-            const response = await fetch("../backend/api/login.php", {
+            const response = await fetch("backend/api/login.php", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -43,9 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 localStorage.setItem("id_usuario", result.data.id_usuario);
                 localStorage.setItem("usuario_nombre", result.data.nombres + " " + result.data.apellidos);
                 if (rol === "administrador") {
-                    window.location.href = "portal_admin.html";
+                    window.location.href = "frontend/portal_admin.html";
                 } else if (rol === "atencion") {
-                    window.location.href = "portal_atencion.html";
+                    window.location.href = "frontend/portal_atencion.html";
                 }
             } else {
                 // Credenciales incorrectas

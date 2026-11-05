@@ -385,6 +385,24 @@ input, select, textarea, button {
     transition: 0.3s ease;
 }
 
+/* Dashboard: sin padding inferior para que el footer de KPIs quede pegado al borde */
+.main-content:has(> .dashboard) {
+    padding-bottom: 0;
+}
+
+/* Sidebar colapsado (escritorio): el contenido ocupa todo el ancho */
+@media (min-width: 769px) {
+    body.sidebar-collapsed .sidebar {
+        transform: translateX(-100%);
+        box-shadow: none;
+    }
+
+    body.sidebar-collapsed .main-content {
+        margin-left: 18px;
+        width: calc(100% - 36px);
+    }
+}
+
 .main-content > h2 {
     font-size: 2rem;
     margin-bottom: 6px;
@@ -601,6 +619,35 @@ input, select, textarea, button {
 
 .data-table tbody tr:hover {
     background: #faf6ec;
+}
+
+/* Encabezados ordenables (click: ascendente -> descendente) */
+.data-table th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.data-table th[data-sort]::after {
+    content: "\2195";
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 0.85em;
+    opacity: 0.35;
+}
+
+.data-table th[data-sort][aria-sort="ascending"]::after {
+    content: "\25B2";
+    opacity: 1;
+}
+
+.data-table th[data-sort][aria-sort="descending"]::after {
+    content: "\25BC";
+    opacity: 1;
+}
+
+.data-table th[data-sort]:hover::after {
+    opacity: 0.8;
 }
 
 /* Tabla principal de cada CRUD: encabezado verde con filete dorado */
@@ -1475,7 +1522,7 @@ input, select, textarea, button {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
-    margin: 0 calc(-1 * var(--dash-pad-x)) calc(-1 * var(--dash-pad-y));
+    margin: 0 calc(-1 * var(--dash-pad-x));
     padding: 14px var(--dash-pad-x) 16px;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.12)),

@@ -60,29 +60,53 @@ function obtenerPromocionesActivas($pdo, $fechaHora = null) {
         $stmt->execute();
         $promos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $activas = [];
-        foreach ($promos as $p) {
-            if (!empty($p['fecha_inicio']) && $fechaActual < $p['fecha_inicio']) {
-                continue;
+
+        // Normaliza un día (minúsculas y sin tildes) para comparar con dias_semana
+        $normalizarDia = function($d) {
+            return str_replace(['é', 'á', 'í', 'ó', 'ú'], ['e', 'a', 'i', 'o', 'u'], strtolower(trim($d)));
+        };
+
+        // Evalúa fecha de vigencia y día de la semana para un día calendario concreto
+        $cumpleFechaYDia = function($p, $fechaYmd) use ($diasEsp, $normalizarDia) {
+            if (!empty($p['fecha_inicio']) && $fechaYmd < $p['fecha_inicio']) {
+                return false;
             }
-            if (!empty($p['fecha_fin']) && $fechaActual > $p['fecha_fin']) {
-                continue;
-            }
-            if (!empty($p['hora_inicio']) && $horaActual < $p['hora_inicio']) {
-                continue;
-            }
-            if (!empty($p['hora_fin']) && $horaActual > $p['hora_fin']) {
-                continue;
+            if (!empty($p['fecha_fin']) && $fechaYmd > $p['fecha_fin']) {
+                return false;
             }
             if (!empty($p['dias_semana'])) {
-                $diasArr = array_map('trim', explode(',', strtolower($p['dias_semana'])));
-                $diaActualClean = strtolower($diaActual);
-                $diasArrNorm = array_map(function($d) {
-                    return str_replace(['é', 'á', 'í', 'ó', 'ú'], ['e', 'a', 'i', 'o', 'u'], $d);
-                }, $diasArr);
-                $diaActualNorm = str_replace(['é', 'á', 'í', 'ó', 'ú'], ['e', 'a', 'i', 'o', 'u'], $diaActualClean);
-                if (!in_array($diaActualNorm, $diasArrNorm)) {
+                $diaEvaluado = $diasEsp[intval(date('N', strtotime($fechaYmd)))];
+                $diasPromo = array_map($normalizarDia, explode(',', $p['dias_semana']));
+                if (!in_array($normalizarDia($diaEvaluado), $diasPromo)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        $fechaAyer = date('Y-m-d', strtotime('-1 day', $ts));
+
+        foreach ($promos as $p) {
+            $hIni = !empty($p['hora_inicio']) ? $p['hora_inicio'] : null;
+            $hFin = !empty($p['hora_fin']) ? $p['hora_fin'] : null;
+
+            if ($hIni !== null && $hFin !== null && $hIni > $hFin) {
+                // Horario que cruza la medianoche (ej. 17:00 -> 02:00).
+                // La promoción pertenece al día en que COMIENZA su horario:
+                //  - desde la hora de inicio hasta las 23:59 se evalúa con la fecha/día de hoy
+                //  - desde las 00:00 hasta la hora fin se evalúa con la fecha/día de ayer
+                if ($horaActual >= $hIni) {
+                    if (!$cumpleFechaYDia($p, $fechaActual)) continue;
+                } elseif ($horaActual <= $hFin) {
+                    if (!$cumpleFechaYDia($p, $fechaAyer)) continue;
+                } else {
                     continue;
                 }
+            } else {
+                // Horario normal dentro del mismo día (o sin horario)
+                if (!$cumpleFechaYDia($p, $fechaActual)) continue;
+                if ($hIni !== null && $horaActual < $hIni) continue;
+                if ($hFin !== null && $horaActual > $hFin) continue;
             }
             $activas[] = $p;
         }

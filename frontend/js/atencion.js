@@ -414,7 +414,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // --- 3. RESPONSIVO Y MENU ---
+    // Escritorio (> 768px): colapsa/expande el sidebar para ganar espacio.
+    // Móvil/tablet (<= 768px): sidebar deslizable con overlay.
+    const SIDEBAR_KEY = "atencion_sidebar_collapsed";
+    try {
+        if (localStorage.getItem(SIDEBAR_KEY) === "1") document.body.classList.add("sidebar-collapsed");
+    } catch (e) {}
+
     function toggleMenu() {
+        if (window.innerWidth > 768) {
+            const colapsado = document.body.classList.toggle("sidebar-collapsed");
+            try { localStorage.setItem(SIDEBAR_KEY, colapsado ? "1" : "0"); } catch (e) {}
+            return;
+        }
         sidebar.classList.toggle("open");
         overlay.classList.toggle("show");
     }
@@ -442,7 +454,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- 5. LOGOUT ---
     document.getElementById("btnLogout").addEventListener("click", () => {
         localStorage.clear();
-        window.location.href = "index.html";
+        window.location.href = "../index.html";
     });
 
     // Inicializar SPA apuntando al Dashboard por defecto
