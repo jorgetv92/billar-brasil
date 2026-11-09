@@ -10,6 +10,7 @@ const GRUPOS = {
   doble: { archivos: ['doble_ocupacion.js'] },
   motor: { archivos: ['motor.js'] },
   ajustes: { archivos: ['ajustes.js'] },
+  reportes: { archivos: ['reportes.js'] },
   limpieza: { archivos: ['limpieza.js'], reset: false },
   reglas: { archivos: ['reglas_negocio.js'] },
   turnos: { archivos: ['turnos.js', 'dirigidas.js', 'analizar.js'] },

@@ -2,6 +2,7 @@
 // backend/api/reportes.php
 header('Content-Type: application/json');
 include_once '../config/database.php';
+include_once '../models/ResumenJornada.php';
 
 $database = new Database();
 $pdo = $database->getConnection();
@@ -74,116 +75,92 @@ try {
                 ];
             }
 
+            // Lo cobrado en la jornada repartido entre mesas y productos: las dos secciones suman lo que entró a caja.
+            $ingresosJornada = ResumenJornada::ingresos($pdo, $id);
+            $formatoTiempo = function ($segundos) {
+                return sprintf('%02d:%02d:%02d', floor($segundos / 3600), floor(($segundos % 3600) / 60), $segundos % 60);
+            };
+
             // =================================================================
-            // SECCIÓN: HORAS DE USO DE MESAS (CORREGIDO Y TOTALIZADO)
+            // SECCIÓN: HORAS DE USO DE MESAS (una fila por cobro, aunque la partida haya pasado por varias mesas)
             // =================================================================
             if ($data["filtros"]["mesas"]) {
-                // 1. Obtener las filas detalladas
                 $stmtM = $pdo->prepare("
-                    SELECT 
-                        m.numero_mesa as mesa, 
-                        tm.fecha_hora_inicio as fecha_hora, 
-                        TIMEDIFF(tm.fecha_hora_fin, tm.fecha_hora_inicio) as tiempo_uso,
-                        (SELECT GROUP_CONCAT(metodo_pago SEPARATOR ' + ') FROM pagos_venta pv WHERE pv.id_venta = v.id_venta) as metodo,
-                        v.subtotal_mesas as total,
-                        v.id_venta
+                    SELECT
+                        v.id_venta,
+                        GROUP_CONCAT(m.numero_mesa ORDER BY tm.id_tramo SEPARATOR '|') as mesas,
+                        MIN(tm.fecha_hora_inicio) as fecha_hora,
+                        SUM(GREATEST(0, TIMESTAMPDIFF(SECOND, tm.fecha_hora_inicio, COALESCE(tm.fecha_hora_fin, tm.fecha_hora_pausa, v.fecha_hora_venta)))) as segundos,
+                        (SELECT GROUP_CONCAT(metodo_pago SEPARATOR ' + ') FROM pagos_venta pv WHERE pv.id_venta = v.id_venta) as metodo
                     FROM ventas v
-                    JOIN sesiones_juego sj ON v.id_sesion = sj.id_sesion
-                    JOIN tramos_mesas tm ON sj.id_sesion = tm.id_sesion
+                    JOIN tramos_mesas tm ON tm.id_sesion = v.id_sesion
                     JOIN mesas m ON tm.id_mesa = m.id_mesa
-                    WHERE v.id_jornada = ? AND tm.tarifa_hora_aplicada > 0
+                    JOIN tipos_mesa t ON t.id_tipo_mesa = m.id_tipo_mesa
+                    WHERE v.id_jornada = ? AND t.precio_hora > 0
+                    GROUP BY v.id_venta
+                    ORDER BY fecha_hora
                 ");
                 $stmtM->execute([$id]);
-                $filasMesas = $stmtM->fetchAll(PDO::FETCH_ASSOC);
-                $data["mesas"]["filas"] = $filasMesas;
 
-                // 2. Calcular Resúmenes Matemáticos Reales
+                $filasMesas = [];
                 $totalSegundos = 0;
-                $efectivoMesas = 0;
-                $qrMesas = 0;
-
-                foreach ($filasMesas as $f) {
-                    // CORRECCIÓN AQUÍ: Añadido el '$' faltante a la variable $parts en la línea 108
-                    if (!empty($f['tiempo_uso'])) {
-                        $parts = explode(':', $f['tiempo_uso']);
-                        if (count($parts) == 3) {
-                            $totalSegundos += ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
-                        }
+                foreach ($stmtM->fetchAll(PDO::FETCH_ASSOC) as $f) {
+                    // Pausar y reanudar repite la mesa: se muestra cada cambio de mesa una sola vez.
+                    $recorrido = [];
+                    foreach (explode('|', $f['mesas']) as $mesa) {
+                        if (end($recorrido) !== $mesa) $recorrido[] = $mesa;
                     }
-
-                    // Extraer los pagos reales de esta venta específica para Mesas
-                    $stmtPagos = $pdo->prepare("SELECT metodo_pago, monto_pagado FROM pagos_venta WHERE id_venta = ?");
-                    $stmtPagos->execute([$f['id_venta']]);
-                    $pagos = $stmtPagos->fetchAll(PDO::FETCH_ASSOC);
-
-                    foreach ($pagos as $p) {
-                        if ($p['metodo_pago'] === 'efectivo') {
-                            $efectivoMesas += $p['monto_pagado'];
-                        } elseif ($p['metodo_pago'] === 'qr') {
-                            $qrMesas += $p['monto_pagado'];
-                        }
-                    }
+                    $reparto = isset($ingresosJornada['ventas'][intval($f['id_venta'])]) ? $ingresosJornada['ventas'][intval($f['id_venta'])] : null;
+                    $cobrado = $reparto ? ($reparto['mesas_efectivo'] + $reparto['mesas_qr']) / 100 : 0;
+                    $totalSegundos += intval($f['segundos']);
+                    $filasMesas[] = [
+                        "mesa" => implode(' → ', $recorrido),
+                        "fecha_hora" => $f['fecha_hora'],
+                        "tiempo_uso" => $formatoTiempo(intval($f['segundos'])),
+                        "metodo" => $f['metodo'],
+                        "total" => number_format($cobrado, 2, '.', ''),
+                        "id_venta" => $f['id_venta']
+                    ];
                 }
-
-                // Convertir el total de segundos de vuelta al formato HH:mm:ss
-                $horas = floor($totalSegundos / 3600);
-                $minutos = floor(($totalSegundos % 3600) / 60);
-                $segundos = $totalSegundos % 60;
-                $tiempoFormateado = sprintf('%02d:%02d:%02d', $horas, $minutos, $segundos);
-
+                $data["mesas"]["filas"] = $filasMesas;
                 $data["mesas"]["resumen"] = [
-                    "horas" => $tiempoFormateado,
-                    "efectivo" => number_format($efectivoMesas, 2, '.', ''),
-                    "qr" => number_format($qrMesas, 2, '.', '')
+                    "horas" => $formatoTiempo($totalSegundos),
+                    "efectivo" => number_format($ingresosJornada['mesas']['efectivo'], 2, '.', ''),
+                    "qr" => number_format($ingresosJornada['mesas']['qr'], 2, '.', '')
                 ];
             }
 
             // =================================================================
-            // SECCIÓN: VENTA DE PRODUCTOS (CORREGIDO Y TOTALIZADO)
+            // SECCIÓN: VENTA DE PRODUCTOS (lo cobrado por productos, después de promos)
             // =================================================================
             if ($data["filtros"]["productos"]) {
-                // 1. Obtener las filas detalladas
                 $stmtP = $pdo->prepare("
-                    SELECT 
+                    SELECT
                         IF(v.id_sesion IS NULL, 'Barra', 'Mesa') as modo,
                         v.fecha_hora_venta as fecha_hora,
                         (SELECT COALESCE(SUM(cantidad), 0) FROM detalle_venta_productos dvp WHERE dvp.id_venta = v.id_venta) as cantidad,
                         (SELECT GROUP_CONCAT(metodo_pago SEPARATOR ' + ') FROM pagos_venta pv WHERE pv.id_venta = v.id_venta) as metodo,
-                        v.subtotal_productos as total,
                         v.id_venta
                     FROM ventas v
                     WHERE v.id_jornada = ? AND v.subtotal_productos > 0
+                    ORDER BY v.fecha_hora_venta
                 ");
                 $stmtP->execute([$id]);
-                $filasProductos = $stmtP->fetchAll(PDO::FETCH_ASSOC);
-                $data["productos"]["filas"] = $filasProductos;
 
-                // 2. Calcular Resúmenes Matemáticos Reales
+                $filasProductos = [];
                 $totalProductos = 0;
-                $efectivoProductos = 0;
-                $qrProductos = 0;
-
-                foreach ($filasProductos as $f) {
+                foreach ($stmtP->fetchAll(PDO::FETCH_ASSOC) as $f) {
+                    $reparto = isset($ingresosJornada['ventas'][intval($f['id_venta'])]) ? $ingresosJornada['ventas'][intval($f['id_venta'])] : null;
+                    $cobrado = $reparto ? ($reparto['productos_efectivo'] + $reparto['productos_qr']) / 100 : 0;
                     $totalProductos += (int)$f['cantidad'];
-
-                    // Extraer los pagos reales de esta venta específica para Productos
-                    $stmtPagosP = $pdo->prepare("SELECT metodo_pago, monto_pagado FROM pagos_venta WHERE id_venta = ?");
-                    $stmtPagosP->execute([$f['id_venta']]);
-                    $pagosP = $stmtPagosP->fetchAll(PDO::FETCH_ASSOC);
-
-                    foreach ($pagosP as $p) {
-                        if ($p['metodo_pago'] === 'efectivo') {
-                            $efectivoProductos += $p['monto_pagado'];
-                        } elseif ($p['metodo_pago'] === 'qr') {
-                            $qrProductos += $p['monto_pagado'];
-                        }
-                    }
+                    $f['total'] = number_format($cobrado, 2, '.', '');
+                    $filasProductos[] = $f;
                 }
-
+                $data["productos"]["filas"] = $filasProductos;
                 $data["productos"]["resumen"] = [
                     "cantidad" => $totalProductos,
-                    "efectivo" => number_format($efectivoProductos, 2, '.', ''),
-                    "qr" => number_format($qrProductos, 2, '.', '')
+                    "efectivo" => number_format($ingresosJornada['productos']['efectivo'], 2, '.', ''),
+                    "qr" => number_format($ingresosJornada['productos']['qr'], 2, '.', '')
                 ];
             }
 

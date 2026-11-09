@@ -80,13 +80,13 @@ for (const j of R.jornadas) {
     const fin = j.stockFinal[id];
     const ok = ap - vend + car === fin;
     const fila = inv[nombre[id]];
-    const repOk = fila ? +fila.stock_inicial - +fila.vendido + (+fila.cargas || 0) === fin : null;
+    const repOk = fila ? +fila.stock_inicial - +fila.vendido + (+fila.cargas || 0) === fin && !+fila.ajuste : null;
     if (!ok) malas++;
     if (repOk === false) reporteMalo++;
     if (!ok || repOk === false) lineas.push(`   ✗ ${nombre[id]}: ${ap} - ${vend} + ${car} = ${ap - vend + car} | stock BD ${fin} | reporte vendió ${fila && fila.vendido}`);
   }
-  if (malas) fallasTotales++;
-  console.log(`${malas ? '✗' : '✓'} Jornada ${j.id}: descuadre real ${malas} | filas del reporte que no cierran ${reporteMalo}`);
+  if (malas || reporteMalo) fallasTotales++;
+  console.log(`${malas || reporteMalo ? '✗' : '✓'} Jornada ${j.id}: descuadre real ${malas} | filas del reporte que no cierran ${reporteMalo}`);
   if (lineas.length) console.log(lineas.join('\n'));
 }
 
@@ -99,20 +99,29 @@ for (let i = 1; i < R.jornadas.length; i++) {
   console.log(`${dif.length ? '✗ ' + dif.join(',') : '✓'} J${a.id} -> J${b.id}`);
 }
 
-console.log('\n=== H. REPORTES: Mesas + Productos debe ser igual a lo cobrado');
+console.log('\n=== H. REPORTES: Mesas + Productos = cobrado, admin = cierre, mesas = lo cobrado por tiempo');
 for (const j of R.jornadas) {
   const d0 = j.reporte.data;
   const real = +d0.apertura.ingreso_efectivo + +d0.apertura.ingreso_qr;
   const me = +d0.mesas.resumen.efectivo + +d0.mesas.resumen.qr;
   const pr = +d0.productos.resumen.efectivo + +d0.productos.resumen.qr;
+  const filasMesas = d0.mesas.filas.reduce((s, f) => s + +f.total, 0);
+  const filasProductos = d0.productos.filas.reduce((s, f) => s + +f.total, 0);
+  // Lo cobrado por tiempo: el tiempo de cada venta más su redondeo (las ventas nuevas cuadran al centavo).
+  const tiempoCobrado = +q(`SELECT COALESCE(SUM(subtotal_mesas + IF(subtotal_mesas > 0, redondeo, 0)), 0) t FROM ventas WHERE id_jornada=${j.id}`)[0].t;
   const t = j.textoFinal.replace(/\s+/g, ' ');
   const cierre = t.match(/Rendimiento de Mesas ([\d:]+) hrs jugadas (-?[\d.]+) Bs Rendimiento de Productos (\d+) uds vendidas (-?[\d.]+) Bs Total Recaudado \(Limpio de Egresos\) (-?[\d.]+)/i);
   const mesasCierre = cierre ? +cierre[2] : NaN;
   const prodCierre = cierre ? +cierre[4] : NaN;
-  const mal = difieren(me + pr, real) || difieren(mesasCierre + prodCierre, real);
-  if (mal) fallasTotales++;
+  const fallas = [];
+  if (difieren(me + pr, real)) fallas.push('ADMIN≠COBRADO');
+  if (difieren(mesasCierre + prodCierre, real)) fallas.push('CIERRE≠COBRADO');
+  if (difieren(me, mesasCierre) || difieren(pr, prodCierre)) fallas.push('ADMIN≠CIERRE');
+  if (difieren(me, tiempoCobrado)) fallas.push('MESAS≠TIEMPO_COBRADO');
+  if (difieren(filasMesas, me) || difieren(filasProductos, pr)) fallas.push('FILAS≠RESUMEN');
+  if (fallas.length) fallasTotales++;
   console.log(
-    `${mal ? '✗' : '✓'} Jornada ${j.id}: cobrado ${f2(real)} | admin: mesas ${f2(me)} + productos ${f2(pr)} = ${f2(me + pr)} | reporte de cierre: mesas ${cierre && cierre[2]} + productos ${cierre && cierre[4]} (recaudado ${cierre && cierre[5]})`,
+    `${fallas.length ? '✗' : '✓'} Jornada ${j.id}: cobrado ${f2(real)} | admin: mesas ${f2(me)} + productos ${f2(pr)} | cierre: mesas ${cierre && cierre[2]} + productos ${cierre && cierre[4]} | tiempo cobrado ${f2(tiempoCobrado)} | filas ${f2(filasMesas)} / ${f2(filasProductos)} ${fallas.join(' ')}`,
   );
 }
 

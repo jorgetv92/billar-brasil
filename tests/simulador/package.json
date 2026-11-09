@@ -8,6 +8,7 @@
     "doble": "node correr.js doble",
     "motor": "node correr.js motor",
     "ajustes": "node correr.js ajustes",
+    "reportes": "node correr.js reportes",
     "limpieza": "node correr.js limpieza",
     "reglas": "node correr.js reglas",
     "turnos": "node correr.js turnos",

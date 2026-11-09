@@ -156,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                                 <tr style="background:#f1f5f9; color:#475569; text-align:center;">
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:left;">Producto</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Stock inicial</th>
+                                                    <th style="padding:10px; border:1px solid #cbd5e1;">Cargas</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Vendido</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Precio unitario</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Sub total</th>
@@ -166,15 +167,16 @@ document.addEventListener("DOMContentLoaded", () => {
                                 `;
 
                                 data.inventario.forEach(p => {
-                                    const subtotal = p.vendido * p.precio_unitario;
+                                    const f = filaInventario(p);
                                     htmlTablas += `
                                         <tr style="color:#334155; text-align:center;">
                                             <td style="padding:10px; border:1px solid #cbd5e1; text-align:left; font-weight:500;">${p.nombre_producto}</td>
                                             <td style="padding:10px; border:1px solid #cbd5e1;">${p.stock_inicial}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; color:var(--success, #10b981);">${p.vendido}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">${parseFloat(p.precio_unitario).toFixed(2)} Bs</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:bold;">${subtotal.toFixed(2)} Bs</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; background:#f8fafc;">${p.stock_final}</td>
+                                            <td style="padding:10px; border:1px solid #cbd5e1;">${f.cargas}</td>
+                                            <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; color:var(--success, #10b981);">${textoVendido(f)}</td>
+                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">${f.precio.toFixed(2)} Bs</td>
+                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:bold;">${f.importe.toFixed(2)} Bs</td>
+                                            <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; background:#f8fafc;">${textoStockFinal(p, f)}</td>
                                         </tr>
                                     `;
                                 });
@@ -251,6 +253,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             console.log("[DEBUG PRECIERRE] 5. Validando caché de datos contables previos...");
                             console.log("-> Contenido de dataPrecierreCache:", dataPrecierreCache);
 
+                            // El cierre devuelve sus propias cifras, calculadas al cerrar: valen más que las del pre-cierre.
+                            if (data.reporte) dataPrecierreCache = data.reporte;
                             if (!dataPrecierreCache) {
                                 console.warn("[DEBUG PRECIERRE] Alerta: dataPrecierreCache está vacío. Intentando recuperar datos de contingencia en caliente.");
                                 // Contingencia en caso de que se haya perdido el puntero de memoria
@@ -587,6 +591,31 @@ function pintarKpisDashboard(kpis) {
     });
 }
 
+// Una fila de inventario del pre-cierre o del cierre. El importe es a los precios con que se vendió
+// (con promos de precio); el 2x1 y el redondeo se muestran aparte, en el total de productos.
+function filaInventario(p) {
+    const vendido = parseInt(p.vendido) || 0;
+    const importe = p.importe_vendido !== undefined ? parseFloat(p.importe_vendido) : vendido * parseFloat(p.precio_unitario);
+    return {
+        vendido,
+        importe,
+        precio: vendido > 0 ? importe / vendido : parseFloat(p.precio_unitario),
+        cargas: parseInt(p.cargas) || 0,
+        enMesas: parseInt(p.en_mesas) || 0,
+        ajuste: parseInt(p.ajuste) || 0
+    };
+}
+
+function textoVendido(f) {
+    return f.enMesas ? `${f.vendido} <small style="color:#64748b;">(+${f.enMesas} en mesas abiertas)</small>` : `${f.vendido}`;
+}
+
+// Stock final; si no cuadra con inicial + cargas - vendido, se marca la diferencia (por ejemplo, un ajuste manual).
+function textoStockFinal(p, f) {
+    if (!f.ajuste) return `${p.stock_final}`;
+    return `${p.stock_final} <span style="color:#dc2626;" title="Diferencia que no explican las ventas ni las cargas">(dif. ${f.ajuste > 0 ? '+' : ''}${f.ajuste})</span>`;
+}
+
 function abrirReporteFinal(precierre, kpiBase) {
     const j = kpiBase.jornada;
     const k = kpiBase.kpis;
@@ -595,10 +624,9 @@ function abrirReporteFinal(precierre, kpiBase) {
     document.getElementById("reporteHeaderTitulo").innerText = `Reporte Definitivo de Jornada #${j.id_jornada}`;
     document.getElementById("modalReporteFinal").style.display = "flex";
 
-    const totalHorasDecimal = parseFloat(k.horas_jugadas || 0);
-    const hrs = Math.floor(totalHorasDecimal);
-    const mins = Math.floor((totalHorasDecimal - hrs) * 60);
-    const tiempoFormateado = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    const totalHorasDecimal = parseFloat(precierre.horas_totales !== undefined ? precierre.horas_totales : (k.horas_jugadas || 0));
+    const totalMinutos = Math.floor(totalHorasDecimal * 60 + 1e-6);
+    const tiempoFormateado = `${Math.floor(totalMinutos / 60).toString().padStart(2, '0')}:${(totalMinutos % 60).toString().padStart(2, '0')}`;
 
     const totalCajaEfectivo = c.monto_apertura + c.ingresos_efectivo - c.egresos;
     const ingresosTotales = c.ingresos_efectivo + c.ingresos_qr;
@@ -607,21 +635,34 @@ function abrirReporteFinal(precierre, kpiBase) {
     let htmlInventarioFilas = "";
 
     precierre.inventario.forEach(p => {
-        const sub = p.vendido * p.precio_unitario;
-        totalVendidoProductos += sub;
+        const f = filaInventario(p);
+        totalVendidoProductos += f.importe;
         htmlInventarioFilas += `
             <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
                 <td style="padding: 4px 8px; font-weight: 500;">${p.nombre_producto}</td>
                 <td style="padding: 4px 8px; text-align: center;">${p.stock_inicial}</td>
-                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${p.vendido}</td>
-                <td style="padding: 4px 8px; text-align: right;">${parseFloat(p.precio_unitario).toFixed(2)}</td>
-                <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${sub.toFixed(2)}</td>
-                <td style="padding: 4px 8px; text-align: center; font-weight: 600; background: #f8fafc;">${p.stock_final}</td>
+                <td style="padding: 4px 8px; text-align: center;">${f.cargas}</td>
+                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${textoVendido(f)}</td>
+                <td style="padding: 4px 8px; text-align: right;">${f.precio.toFixed(2)}</td>
+                <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${f.importe.toFixed(2)}</td>
+                <td style="padding: 4px 8px; text-align: center; font-weight: 600; background: #f8fafc;">${textoStockFinal(p, f)}</td>
             </tr>
         `;
     });
 
-    const totalHorasImporte = ingresosTotales - totalVendidoProductos;
+    // Lo cobrado repartido por el backend entre mesas y productos: suma exactamente los ingresos totales.
+    const ingresosProductos = precierre.ingresos ? precierre.ingresos.productos.total : totalVendidoProductos;
+    const totalHorasImporte = precierre.ingresos ? precierre.ingresos.mesas.total : ingresosTotales - totalVendidoProductos;
+    const promosYRedondeo = ingresosProductos - totalVendidoProductos;
+    if (Math.abs(promosYRedondeo) >= 0.005) {
+        htmlInventarioFilas += `
+            <tr style="color: #047857; font-weight: 600;">
+                <td colspan="5" style="padding: 4px 8px; text-align: right;">Promociones (2x1, incentivos) y redondeo</td>
+                <td style="padding: 4px 8px; text-align: right;">${promosYRedondeo > 0 ? '+' : ''}${promosYRedondeo.toFixed(2)}</td>
+                <td></td>
+            </tr>
+        `;
+    }
     const totalRecaudadoLimpio = ingresosTotales - c.egresos;
 
     const layoutReporteVisual = `
@@ -682,6 +723,7 @@ function abrirReporteFinal(precierre, kpiBase) {
                             <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; text-align: left;">
                                 <th style="padding: 6px 8px; font-weight: 600;">Producto</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Stock Inicial</th>
+                                <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Cargas</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Vendido</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: right;">Precio Unit.</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: right;">Subtotal</th>
@@ -708,7 +750,7 @@ function abrirReporteFinal(precierre, kpiBase) {
                     <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px; font-weight: 500;">Rendimiento de Productos</div>
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
                         <span style="font-size: 1.1rem; font-weight: 600; color: #0f172a;">${k.productos_vendidos} <span style="font-size: 0.75rem; font-weight: 400; color: #64748b;">uds vendidas</span></span>
-                        <span style="font-size: 1.1rem; font-weight: 600; color: #10b981;">${totalVendidoProductos.toFixed(2)} Bs</span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: #10b981;">${ingresosProductos.toFixed(2)} Bs</span>
                     </div>
                 </div>
             </div>
@@ -738,7 +780,7 @@ function abrirReporteFinal(precierre, kpiBase) {
             ingresos_efectivo: c.ingresos_efectivo,
             ingresos_qr: c.ingresos_qr,
             total_tiempo_mesas: totalHorasImporte,
-            total_productos: totalVendidoProductos,
+            total_productos: ingresosProductos,
             total_caja: totalCajaEfectivo
         };
         gestorImpresion.imprimirTicketJornada(datosJornadaImpresion);

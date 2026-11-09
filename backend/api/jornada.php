@@ -5,9 +5,50 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
 // Inclusión correcta de la clase de base de datos según tu entorno
 include_once '../config/database.php'; 
 include_once '../models/Liquidacion.php';
+include_once '../models/ResumenJornada.php';
 $database = new Database();
 $pdo = $database->getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Lo que muestran el pre-cierre y el reporte de cierre. El cierre lo calcula dentro de su transacción,
+// así el reporte coincide con lo que quedó guardado aunque alguien haya vendido después del pre-cierre.
+function datosPrecierre($pdo, array $jornada) {
+    $id_jornada = $jornada['id_jornada'];
+
+    $stmtPagos = $pdo->prepare("SELECT
+            COALESCE(SUM(CASE WHEN pv.metodo_pago = 'efectivo' THEN pv.monto_pagado END), 0) AS efectivo,
+            COALESCE(SUM(CASE WHEN pv.metodo_pago = 'qr' THEN pv.monto_pagado END), 0) AS qr
+        FROM pagos_venta pv INNER JOIN ventas v ON pv.id_venta = v.id_venta WHERE v.id_jornada = ?");
+    $stmtPagos->execute([$id_jornada]);
+    $pagos = $stmtPagos->fetch(PDO::FETCH_ASSOC);
+
+    $stmtEgresos = $pdo->prepare("SELECT COALESCE(SUM(monto), 0) FROM egresos_caja WHERE id_jornada = ?");
+    $stmtEgresos->execute([$id_jornada]);
+
+    $stmtDetEgresos = $pdo->prepare("SELECT id_egreso, descripcion, monto, fecha_hora FROM egresos_caja WHERE id_jornada = ? ORDER BY fecha_hora ASC");
+    $stmtDetEgresos->execute([$id_jornada]);
+
+    $ingresos = ResumenJornada::ingresos($pdo, $id_jornada);
+    return [
+        "status" => "success",
+        "jornada_id" => $id_jornada,
+        "fecha_apertura" => $jornada['fecha_hora_apertura'],
+        "horas_totales" => ResumenJornada::segundosJugados($pdo, $id_jornada) / 3600,
+        "caja" => [
+            "monto_apertura" => (float)$jornada['monto_inicial_caja'],
+            "ingresos_efectivo" => (float)$pagos['efectivo'],
+            "egresos" => (float)$stmtEgresos->fetchColumn(),
+            "ingresos_qr" => (float)$pagos['qr']
+        ],
+        // Lo cobrado repartido entre mesas y productos: suma lo mismo que los ingresos totales
+        "ingresos" => [
+            "mesas" => $ingresos['mesas'],
+            "productos" => $ingresos['productos']
+        ],
+        "egresos_detalle" => $stmtDetEgresos->fetchAll(PDO::FETCH_ASSOC),
+        "inventario" => ResumenJornada::inventario($pdo, $id_jornada, $jornada['fecha_hora_apertura'])
+    ];
+}
 
 if ($method === 'GET') {
     $action = $_GET['action'] ?? 'status';
@@ -28,18 +69,7 @@ if ($method === 'GET') {
         // ACCIÓN: DASHBOARD DEL PORTAL ADMIN (datos del turno + KPIs acumulados)
         if ($action === 'dashboard_admin') {
             // Segundos jugados en todas las mesas con tarifa (mismo criterio que el pre-cierre).
-            // Un tramo en pausa deja de sumar desde su hora de pausa; uno en curso suma hasta ahora.
-            $stmtHoras = $pdo->prepare("
-                SELECT COALESCE(SUM(GREATEST(0, TIMESTAMPDIFF(SECOND, tr.fecha_hora_inicio,
-                           COALESCE(tr.fecha_hora_fin, tr.fecha_hora_pausa, NOW())))), 0)
-                FROM tramos_mesas tr
-                INNER JOIN sesiones_juego s ON tr.id_sesion = s.id_sesion
-                INNER JOIN mesas m ON tr.id_mesa = m.id_mesa
-                INNER JOIN tipos_mesa tm ON m.id_tipo_mesa = tm.id_tipo_mesa
-                WHERE s.id_jornada = ? AND tm.precio_hora > 0
-            ");
-            $stmtHoras->execute([$id_jornada]);
-            $segundos_jugados = (int)$stmtHoras->fetchColumn();
+            $segundos_jugados = ResumenJornada::segundosJugados($pdo, $id_jornada);
 
             // Unidades vendidas (solo productos ya cobrados en una venta del turno)
             $stmtProductos = $pdo->prepare("
@@ -51,15 +81,9 @@ if ($method === 'GET') {
             $stmtProductos->execute([$id_jornada]);
             $productos_vendidos = (int)$stmtProductos->fetchColumn();
 
-            // Bs ingresados por tiempo de mesa y por productos (mismos campos que usan los reportes)
-            $stmtIngresos = $pdo->prepare("
-                SELECT COALESCE(SUM(subtotal_mesas), 0) AS mesas,
-                       COALESCE(SUM(subtotal_productos), 0) AS productos
-                FROM ventas
-                WHERE id_jornada = ?
-            ");
-            $stmtIngresos->execute([$id_jornada]);
-            $ingresos = $stmtIngresos->fetch(PDO::FETCH_ASSOC);
+            // Bs cobrados por tiempo de mesa y por productos (el mismo reparto que usan los reportes)
+            $resumenIngresos = ResumenJornada::ingresos($pdo, $id_jornada);
+            $ingresos = ['mesas' => $resumenIngresos['mesas']['total'], 'productos' => $resumenIngresos['productos']['total']];
 
             echo json_encode([
                 "status" => "success",
@@ -173,80 +197,7 @@ if ($method === 'GET') {
         }
 
         if ($action === 'precierre') {
-
-            // 1. CUADRE DE CAJA: Sumas cruzadas por método de pago y egresos
-            $stmtEfectivo = $pdo->prepare("SELECT COALESCE(SUM(pv.monto_pagado), 0) FROM pagos_venta pv 
-                                           INNER JOIN ventas v ON pv.id_venta = v.id_venta 
-                                           WHERE v.id_jornada = ? AND pv.metodo_pago = 'efectivo'");
-            $stmtEfectivo->execute([$id_jornada]);
-            $ingresos_efectivo = (float)$stmtEfectivo->fetchColumn();
-
-            $stmtQR = $pdo->prepare("SELECT COALESCE(SUM(pv.monto_pagado), 0) FROM pagos_venta pv 
-                                     INNER JOIN ventas v ON pv.id_venta = v.id_venta 
-                                     WHERE v.id_jornada = ? AND pv.metodo_pago = 'qr'");
-            $stmtQR->execute([$id_jornada]);
-            $ingresos_qr = (float)$stmtQR->fetchColumn();
-
-            $stmtEgresos = $pdo->prepare("SELECT COALESCE(SUM(monto), 0) FROM egresos_caja WHERE id_jornada = ?");
-            $stmtEgresos->execute([$id_jornada]);
-            $egresos = (float)$stmtEgresos->fetchColumn();
-
-            // 2. CUADRE DE INVENTARIO: Subconsulta limpia para evitar duplicados por joins múltiples
-            $stmtInventario = $pdo->prepare("
-                SELECT 
-                    p.nombre_producto,
-                    jia.stock_apertura AS stock_inicial,
-                    COALESCE(ventas_prod.total_vendido, 0) AS vendido,
-                    p.precio_venta AS precio_unitario,
-                    p.stock_actual AS stock_final
-                FROM jornada_inventario_apertura jia
-                INNER JOIN productos p ON jia.id_producto = p.id_producto
-                LEFT JOIN (
-                    SELECT dv.id_producto, SUM(dv.cantidad) AS total_vendido
-                    FROM detalle_venta_productos dv
-                    INNER JOIN ventas v ON dv.id_venta = v.id_venta
-                    WHERE v.id_jornada = ?
-                    GROUP BY dv.id_producto
-                ) ventas_prod ON p.id_producto = ventas_prod.id_producto
-                WHERE jia.id_jornada = ?
-            ");
-            $stmtInventario->execute([$id_jornada, $id_jornada]);
-            $cuadre_inventario = $stmtInventario->fetchAll(PDO::FETCH_ASSOC);
-
-            // 3. HORAS TOTALES JUGADAS EN LA JORNADA
-            $stmtHoras = $pdo->prepare("SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, tr.fecha_hora_inicio, IFNULL(tr.fecha_hora_fin, NOW())) / 60.0), 0) AS total_horas 
-                                        FROM tramos_mesas tr
-                                        INNER JOIN sesiones_juego s ON tr.id_sesion = s.id_sesion
-                                        INNER JOIN mesas m ON tr.id_mesa = m.id_mesa
-                                        INNER JOIN tipos_mesa tm ON m.id_tipo_mesa = tm.id_tipo_mesa
-                                        WHERE s.id_jornada = ? AND tm.precio_hora > 0");
-            $stmtHoras->execute([$id_jornada]);
-            $horas_totales = (float)$stmtHoras->fetchColumn();
-
-            // 4. DETALLE DE EGRESOS DE LA JORNADA (para mostrar en pre-cierre)
-            $stmtDetEgresos = $pdo->prepare(
-                "SELECT id_egreso, descripcion, monto, fecha_hora
-                 FROM egresos_caja
-                 WHERE id_jornada = ?
-                 ORDER BY fecha_hora ASC"
-            );
-            $stmtDetEgresos->execute([$id_jornada]);
-            $detalle_egresos = $stmtDetEgresos->fetchAll(PDO::FETCH_ASSOC);
-
-            echo json_encode([
-                "status" => "success",
-                "jornada_id" => $id_jornada,
-                "fecha_apertura" => $jornada['fecha_hora_apertura'],
-                "horas_totales" => $horas_totales,
-                "caja" => [
-                    "monto_apertura" => (float)$jornada['monto_inicial_caja'],
-                    "ingresos_efectivo" => $ingresos_efectivo,
-                    "egresos" => $egresos,
-                    "ingresos_qr" => $ingresos_qr
-                ],
-                "egresos_detalle" => $detalle_egresos,
-                "inventario" => $cuadre_inventario
-            ]);
+            echo json_encode(datosPrecierre($pdo, $jornada));
             exit;
         } else {
             if ($jornada) {
@@ -259,15 +210,8 @@ if ($method === 'GET') {
                 $stmtMesas->execute();
                 $kpi_mesas = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
-                // KPI 2: Recuento total de horas jugadas mapeando los tramos de la sesión en esta jornada
-                $stmtHoras = $pdo->prepare("SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, tr.fecha_hora_inicio, IFNULL(tr.fecha_hora_fin, NOW())) / 60.0), 0) AS total_horas 
-                                            FROM tramos_mesas tr
-                                            INNER JOIN sesiones_juego s ON tr.id_sesion = s.id_sesion
-                                            INNER JOIN mesas m ON tr.id_mesa = m.id_mesa
-                                            INNER JOIN tipos_mesa tm ON m.id_tipo_mesa = tm.id_tipo_mesa
-                                            WHERE s.id_jornada = ? AND tm.precio_hora > 0");
-                $stmtHoras->execute([$id_jornada]);
-                $total_horas = (float)$stmtHoras->fetchColumn();
+                // KPI 2: Horas jugadas en mesas con tarifa (mismo criterio que el pre-cierre)
+                $total_horas = ResumenJornada::segundosJugados($pdo, $id_jornada) / 3600;
 
                 // KPI 3: Cantidad total de productos vendidos consolidados en detalle_venta_productos
                 $stmtProductos = $pdo->prepare("SELECT COALESCE(SUM(dv.cantidad), 0) AS total_productos
@@ -310,6 +254,10 @@ if ($method === 'POST') {
         try {
             $pdo->beginTransaction();
 
+            // 0. Bloquear la jornada: espera a los cobros en curso (que la leen con bloqueo compartido) y
+            // frena los nuevos hasta terminar. Las lecturas siguientes ven todo lo que ya se guardó.
+            $pdo->query("SELECT id_jornada FROM jornadas WHERE estado = 'abierta' FOR UPDATE")->fetchAll();
+
             // 1. Validación crítica: Asegurar que no existan mesas ocupadas
             $stmtCheckMesas = $pdo->prepare("SELECT COUNT(*) FROM mesas WHERE estado_actual = 'ocupada'");
             $stmtCheckMesas->execute();
@@ -325,7 +273,7 @@ if ($method === 'POST') {
             }
 
             // 2. Obtener la jornada abierta actual
-            $stmtJornada = $pdo->prepare("SELECT id_jornada, monto_inicial_caja FROM jornadas WHERE estado = 'abierta' LIMIT 1");
+            $stmtJornada = $pdo->prepare("SELECT id_jornada, monto_inicial_caja, fecha_hora_apertura FROM jornadas WHERE estado = 'abierta' LIMIT 1");
             $stmtJornada->execute();
             $jornada = $stmtJornada->fetch(PDO::FETCH_ASSOC);
 
@@ -337,19 +285,13 @@ if ($method === 'POST') {
 
             $id_jornada = $jornada['id_jornada'];
 
-            // 3. Calcular balances en caliente para guardar el histórico exacto
-            $stmtEfectivo = $pdo->prepare("SELECT COALESCE(SUM(pv.monto_pagado), 0) FROM pagos_venta pv 
-                                           INNER JOIN ventas v ON pv.id_venta = v.id_venta 
-                                           WHERE v.id_jornada = ? AND pv.metodo_pago = 'efectivo'");
-            $stmtEfectivo->execute([$id_jornada]);
-            $ingresos_efectivo = (float)$stmtEfectivo->fetchColumn();
-
-            $stmtEgresos = $pdo->prepare("SELECT COALESCE(SUM(monto), 0) FROM egresos_caja WHERE id_jornada = ?");
-            $stmtEgresos->execute([$id_jornada]);
-            $egresos = (float)$stmtEgresos->fetchColumn();
+            // 3. Calcular balances en caliente para guardar el histórico exacto. Se calculan antes de borrar la
+            // foto de inventario y se devuelven: el reporte de cierre muestra exactamente lo que quedó cerrado.
+            $reporte = datosPrecierre($pdo, $jornada);
+            $caja = $reporte['caja'];
 
             // Efectivo real esperado en caja según balance transaccional
-            $monto_final_real = (float)$jornada['monto_inicial_caja'] + $ingresos_efectivo - $egresos;
+            $monto_final_real = $caja['monto_apertura'] + $caja['ingresos_efectivo'] - $caja['egresos'];
 
             // 4. Actualizar estado de la jornada a 'cerrada'
             $stmtUpdateJornada = $pdo->prepare("UPDATE jornadas SET fecha_hora_cierre = NOW(), monto_final_efectivo_real = ?, estado = 'cerrada' WHERE id_jornada = ?");
@@ -360,7 +302,7 @@ if ($method === 'POST') {
             $stmtLimpiarInv->execute([$id_jornada]);
 
             $pdo->commit();
-            echo json_encode(["status" => "success", "message" => "Jornada cerrada con éxito de manera segura."]);
+            echo json_encode(["status" => "success", "message" => "Jornada cerrada con éxito de manera segura.", "reporte" => $reporte]);
 
         } catch (PDOException $e) {
             $pdo->rollBack();
