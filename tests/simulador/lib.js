@@ -75,9 +75,10 @@ class Sim {
     this.now = t;
     fs.writeFileSync(RELOJ, String(Math.floor(t / 1000)));
     await this.page.clock.setFixedTime(new Date(t));
+    // Espera el refresco que dispara la pantalla cuando empieza un bloque nuevo, como pasaría con el reloj real.
     await this.page
       .evaluate(() => {
-        if (window.gestorUI && document.querySelector('.mesa-card')) gestorUI.actualizarRelojes();
+        if (window.gestorUI && document.querySelector('.mesa-card')) return gestorUI.actualizarRelojes();
       })
       .catch(() => {});
   }

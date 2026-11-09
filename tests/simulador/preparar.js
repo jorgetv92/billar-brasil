@@ -7,6 +7,8 @@ const { BD_SIM, DIR_RESULTADOS, DIR_SIM, DIR_SITIO, MYSQL, MYSQLDUMP, PHP, RAIZ_
 
 const ARCHIVO_DB = path.join('backend', 'config', 'database.php');
 const CLAVE_ADMIN_SIM = 'sim-admin';
+// Migraciones que el código actual necesita y que la BD de origen puede no tener todavía.
+const MIGRACIONES = [path.join('backend', 'config', 'migracion_motor_cobro.sql')];
 
 function leerBdOrigen() {
   const php = fs.readFileSync(path.join(RAIZ_REPO, ARCHIVO_DB), 'utf8');
@@ -27,7 +29,6 @@ function copiarSitio() {
 
 // PHP lee la hora desde un archivo que la simulación va adelantando.
 function redirigirReloj() {
-  const dirApi = path.join(DIR_SITIO, 'backend', 'api');
   const dirConfig = path.join(DIR_SITIO, 'backend', 'config');
   fs.writeFileSync(
     path.join(dirConfig, 'sim_clock.php'),
@@ -37,15 +38,18 @@ function sim_date($f,$ts=null){ return date($f, $ts===null ? sim_time() : $ts); 
 `,
   );
   fs.writeFileSync(path.join(dirConfig, 'sim_clock.txt'), String(Math.floor(Date.now() / 1000)));
-  for (const archivo of fs.readdirSync(dirApi).filter((f) => f.endsWith('.php'))) {
-    const ruta = path.join(dirApi, archivo);
-    let codigo = fs.readFileSync(ruta, 'utf8');
-    let cambios = 0;
-    codigo = codigo
-      .replace(/(?<![\w>$])date\(/g, () => (cambios++, 'sim_date('))
-      .replace(/(?<![\w>$])time\(\)/g, () => (cambios++, 'sim_time()'));
-    if (cambios) {
-      fs.writeFileSync(ruta, codigo.replace('<?php', "<?php require_once __DIR__.'/../config/sim_clock.php';"));
+  for (const carpeta of ['api', 'models']) {
+    const dir = path.join(DIR_SITIO, 'backend', carpeta);
+    for (const archivo of fs.readdirSync(dir).filter((f) => f.endsWith('.php'))) {
+      const ruta = path.join(dir, archivo);
+      let codigo = fs.readFileSync(ruta, 'utf8');
+      let cambios = 0;
+      codigo = codigo
+        .replace(/(?<![\w>$:])date\(/g, () => (cambios++, 'sim_date('))
+        .replace(/(?<![\w>$:])time\(\)/g, () => (cambios++, 'sim_time()'));
+      if (cambios) {
+        fs.writeFileSync(ruta, codigo.replace('<?php', "<?php require_once __DIR__.'/../config/sim_clock.php';"));
+      }
     }
   }
 }
@@ -79,6 +83,14 @@ function clonarBd(origen, { reset }) {
     execFileSync(MYSQL, ['-uroot', '--default-character-set=utf8mb4', ...args], { input, maxBuffer: 1 << 26 });
   mysql(['-e', `DROP DATABASE IF EXISTS ${BD_SIM}; CREATE DATABASE ${BD_SIM} CHARACTER SET utf8mb4;`]);
   mysql([BD_SIM], fs.readFileSync(volcado));
+  for (const migracion of MIGRACIONES) {
+    const yaAplicada = execFileSync(
+      MYSQL,
+      ['-uroot', '--batch', '--skip-column-names', BD_SIM, '-e', "SHOW COLUMNS FROM ventas LIKE 'redondeo'"],
+      { encoding: 'utf8' },
+    ).trim();
+    if (!yaAplicada) mysql([BD_SIM], fs.readFileSync(path.join(RAIZ_REPO, migracion)));
+  }
   if (reset) {
     mysql([BD_SIM], fs.readFileSync(path.join(__dirname, 'reset.sql')));
     const hash = execFileSync(

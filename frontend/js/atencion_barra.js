@@ -1,7 +1,6 @@
 let mesaSeleccionadaActual = "";
 let modoActual = "barra"; // barra | mesa
 let mesaPendienteOcupar = "";
-let totalActualCobro = 0.00;
 window.idMesaPendiente = null;
 window.intervaloMesas = null;
 
@@ -32,7 +31,26 @@ window.gestorUI = {
     idProductoHoraPromo: null, // ID del producto especial para item hora promo
     mesaIncentivoAsignada: null, // ID de mesa asignada en modal_apply_incentivoproducto en modo barra
     flujoIncentivoPendiente: null, // Configuración activa del modal de incentivo
-    totalDividirCongelado: 0,
+    cotizacion: null, // Barra: lo que el backend calculó para el carrito actual
+    secuenciaCotizacion: 0,
+    cotizacionPendiente: null,
+    liquidacionMesa: null, // Mesa seleccionada: lo que se cobraría ahora, según el backend
+    cobroEnCurso: null, // { modo, id_mesa, nombre, liquidacion } que muestra el modal de cobro abierto
+    siguienteRefresco: 0, // Momento (ms) en que hay que volver a pedir importes, promos y precios
+    refrescoEnCurso: null,
+    INTERVALO_REFRESCO_MS: 60000,
+    api: async function (cuerpo) {
+        const response = await fetch(this.apiURL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(cuerpo)
+        });
+        return response.json();
+    },
+    tarjetaSeleccionada: function () {
+        if (!mesaSeleccionadaActual) return null;
+        return Array.from(document.querySelectorAll('.mesa-card')).find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual) || null;
+    },
     inicializar: async function () {
         await Promise.all([
             this.cargarGrillaMesas(),
@@ -75,6 +93,7 @@ window.gestorUI = {
             contenedor.innerHTML = '';
             tiposMesas.forEach(tipo => {
                 let mesasHTML = tipo.mesas.map(m => {
+                    const liq = m.liquidacion; // Lo que se cobraría ahora, calculado por el backend
                     let esOcupada = m.estado_actual === 'ocupada';
                     // Detectar pausa por la presencia de hora_pausa
                     let esPausada = esOcupada && m.hora_pausa && m.hora_pausa !== '' && m.hora_pausa !== null && m.hora_pausa !== 'null';
@@ -99,9 +118,9 @@ window.gestorUI = {
                         data-estado="${m.estado_actual}"
                         data-hora-inicio="${m.fecha_hora_inicio || ''}"
                         data-hora-pausa="${m.hora_pausa || ''}"
-                        data-consumo="${m.total_consumo || '0.00'}"
-                        data-importe="${parseFloat(m.importe_acumulado_tiempo || 0).toFixed(2)}"
-                        data-importe-acumulado="${parseFloat(m.importe_acumulado_tiempo || 0).toFixed(2)}"
+                        data-consumo="${liq ? Number(liq.subtotal_productos).toFixed(2) : '0.00'}"
+                        data-importe="${liq ? Number(liq.tiempo).toFixed(2) : '0.00'}"
+                        data-total="${liq ? Number(liq.total).toFixed(2) : '0.00'}"
                         data-segundos-acumulados="${m.segundos_acumulados || 0}"
                         data-precio-hora="${tipo.precio_hora}"
                         data-primera-hora-gratis="${m.primera_hora_gratis || 0}"
@@ -119,8 +138,15 @@ window.gestorUI = {
                     <div class="grid-mesas">${mesasHTML}</div>
                 `;
             });
+            // El próximo refresco toca cuando alguna mesa empiece un bloque nuevo, o al minuto como máximo.
+            const esperas = tiposMesas.flatMap(t => t.mesas)
+                .map(m => m.liquidacion && m.liquidacion.proximo_cambio)
+                .filter(seg => seg > 0)
+                .map(seg => seg * 1000);
+            this.siguienteRefresco = Date.now() + Math.min(this.INTERVALO_REFRESCO_MS, ...esperas);
         } catch (error) {
             console.error("Error al cargar mesas:", error);
+            this.siguienteRefresco = Date.now() + 10000;
         }
     },
     cargarDatalistProductos: async function () {
@@ -248,36 +274,30 @@ window.gestorUI = {
                 });
             }
             this.limpiarFormularioVenta();
-            this.renderizarCarrito();
-
-            // =========================================================================
-            // REACCIÓN EN CALIENTE: Sincroniza el footer tras añadir al carrito en Barra
-            // =========================================================================
-            this.actualizarTotalesVista();
-            // =========================================================================
+            await this.cotizarCarrito();
         }
     },
     eliminarDelCarrito: async function (index) {
         if (modoActual === "mesa") {
             const item = this.itemsCarrito[index];
             if (!item.id_detalle_prod) return;
+            const mesaCard = this.tarjetaSeleccionada();
             try {
                 const response = await fetch(this.apiURL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         accion: "eliminar_producto_mesa",
+                        id_mesa: mesaCard ? mesaCard.getAttribute("data-id") : null,
                         id_detalle_prod: item.id_detalle_prod
                     })
                 });
                 const data = await response.json();
                 if (data.status === "success") {
-                    const mesaCard = document.querySelector(`.mesa-card[data-nombre="${mesaSeleccionadaActual}"]`);
                     if (mesaCard) await this.cargarConsumoMesaActual(mesaCard.getAttribute("data-id"));
                     await this.cargarGrillaMesas();
                     await this.cargarDatalistProductos(); // Actualizar stock de buscador
-                    this.actualizarRelojes();
-                    this.actualizarTotalesVista();
+                    this.pintarRelojes();
                 } else {
                     window.mostrarToast(data.message, "error");
                 }
@@ -291,8 +311,7 @@ window.gestorUI = {
                 this.mesaIncentivoAsignada = null;
             }
             this.itemsCarrito.splice(index, 1);
-            this.renderizarCarrito();
-            this.actualizarTotalesVista();
+            await this.cotizarCarrito();
         }
     },
     limpiarFormularioVenta: function () {
@@ -303,6 +322,8 @@ window.gestorUI = {
     },
     limpiarCarrito: function () {
         this.itemsCarrito = [];
+        this.cotizacion = null;
+        this.secuenciaCotizacion++; // descarta una cotización que todavía estuviera en camino
         this.renderizarCarrito();
     },
     limpiarFormYCarrito: function () {
@@ -344,21 +365,26 @@ window.gestorUI = {
             window.mostrarToast("Error de conexión", "error");
         }
     },
+    // Consumo y total de la mesa tal como se cobrarían ahora, según el backend.
     cargarConsumoMesaActual: async function (id_mesa) {
         try {
-            const response = await fetch(`${this.apiURL}?accion=get_consumo_mesa&id_mesa=${id_mesa}`);
+            const response = await fetch(`${this.apiURL}?accion=get_liquidacion_mesa&id_mesa=${id_mesa}`);
             const data = await response.json();
-            if (Array.isArray(data)) {
-                this.itemsCarrito = data.map(prod => ({
+            if (data.status === "success") {
+                this.liquidacionMesa = data.liquidacion;
+                this.itemsCarrito = data.liquidacion.productos.map(prod => ({
                     id_detalle_prod: prod.id_detalle_prod,
                     id_producto: prod.id_producto,
-                    nombre: prod.display_nombre,
-                    precio: parseFloat(prod.precio),
+                    nombre: prod.nombre,
+                    precio: Number(prod.precio),
                     cantidad: parseInt(prod.cantidad),
-                    total: parseFloat(prod.precio) * parseInt(prod.cantidad)
+                    total: Number(prod.subtotal)
                 }));
-                this.renderizarCarrito();
+            } else {
+                this.liquidacionMesa = null;
+                this.itemsCarrito = [];
             }
+            this.renderizarCarrito();
         } catch (error) {
             console.error("Error al obtener consumo de la mesa:", error);
         }
@@ -431,114 +457,23 @@ window.gestorUI = {
             if (tbodyActual) tbodyActual.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error al cargar</td></tr>';
         }
     },
-    calcularDescuentosLocales: function () {
-        let descuentoTotal = 0;
-        let detallesDescuento = [];
-
-        if (!this.promocionesActivas || this.promocionesActivas.length === 0) {
-            return { descuentoTotal: 0, detalles: [] };
-        }
-
-        // 1. Combo 2x1
-        const combos2x1 = this.promocionesActivas.filter(p => p.tipo_promo === 'combo_2x1');
-        combos2x1.forEach(cp => {
-            const idItem = parseInt(cp.id_item_condicion);
-            this.itemsCarrito.forEach(item => {
-                if (parseInt(item.id_producto) === idItem && item.cantidad >= 2) {
-                    const gratis = Math.floor(item.cantidad / 2);
-                    const monto = gratis * item.precio;
-                    descuentoTotal += monto;
-                    detallesDescuento.push({
-                        nombre: cp.nombre_promo,
-                        descripcion: `2x1 (${item.nombre})`,
-                        monto: monto
-                    });
-                }
-            });
-        });
-
-        // 2. Incentivo Cruzado (Mesa + Barra)
-        if (modoActual === "mesa" && mesaSeleccionadaActual) {
-            const mesaCard = document.querySelector(`.mesa-card[data-nombre="${mesaSeleccionadaActual}"]`);
-            if (mesaCard) {
-                const segundosAcumulados = parseInt(mesaCard.getAttribute('data-segundos-acumulados')) || 0;
-                const horaInicioStr = mesaCard.getAttribute('data-hora-inicio');
-                let segundosActuales = 0;
-                if (horaInicioStr && horaInicioStr !== 'null' && horaInicioStr !== '') {
-                    const horaInicio = new Date(horaInicioStr.replace(/-/g, '/'));
-                    segundosActuales = Math.floor((new Date() - horaInicio) / 1000);
-                    if (segundosActuales < 0) segundosActuales = 0;
-                }
-                const horasTotales = (segundosAcumulados + segundosActuales) / 3600;
-
-            const cruzados = this.promocionesActivas.filter(p => p.tipo_promo === 'incentivo_cruzado');
-                cruzados.forEach(xp => {
-                    const horasRequeridas = parseFloat(xp.cantidad_condicion);
-                    if (horasTotales >= horasRequeridas) {
-                        const idBenef = parseInt(xp.id_item_condicion);
-                        const precioEspecial = parseFloat(xp.valor_descuento);
-                        this.itemsCarrito.forEach(item => {
-                            if (parseInt(item.id_producto) === idBenef && item.precio > precioEspecial) {
-                                const monto = (item.precio - precioEspecial) * item.cantidad;
-                                descuentoTotal += monto;
-                                detallesDescuento.push({
-                                    nombre: xp.nombre_promo,
-                                    descripcion: `Incentivo (${horasRequeridas}h juego): ${item.nombre}`,
-                                    monto: monto
-                                });
-                            }
-                        });
-                    }
-                });
-
-                // 3. Incentivo en Mesa (Descuento por horas jugadas)
-                const incMesaPromos = this.promocionesActivas.filter(p => p.tipo_promo === 'incentivo_mesa');
-                incMesaPromos.forEach(imp => {
-                    const horasRequeridas = parseFloat(imp.cantidad_condicion);
-                    if (horasTotales >= horasRequeridas) {
-                        const idMesaRequerida = parseInt(imp.id_item_condicion);
-                        const idMesaActual = parseInt(mesaCard.getAttribute('data-id-tipo-mesa'));
-                        
-                        if (idMesaActual === idMesaRequerida) {
-                            const importeTotalActual = parseFloat(mesaCard.getAttribute('data-importe')) || 0;
-                            const precioEspecialHora = parseFloat(imp.valor_descuento);
-                            const costoEspecialTotal = precioEspecialHora * horasTotales;
-                            
-                            if (importeTotalActual > costoEspecialTotal) {
-                                const montoDesc = importeTotalActual - costoEspecialTotal;
-                                descuentoTotal += montoDesc;
-                                detallesDescuento.push({
-                                    nombre: imp.nombre_promo,
-                                    descripcion: `Descuento en Mesa`,
-                                    monto: montoDesc
-                                });
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        return { descuentoTotal, detalles: detallesDescuento };
-    },
+    // === Carrito: líneas, descuentos y totales los calcula el backend ===
     renderizarCarrito: function () {
         const tbody = document.querySelector('#tablaCarritoVenta tbody');
         if (!tbody) return;
         if (this.itemsCarrito.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color: #94a3b8; padding: 20px;">Carrito vacío</td></tr>`;
-            this.actualizarUIPrecios(0);
+            this.actualizarTotalesVista();
             return;
         }
         let html = "";
-        let granTotal = 0;
         this.itemsCarrito.forEach((item, index) => {
-            granTotal += item.total;
             html += `
                 <tr>
                     <td>${item.nombre}</td>
                     <td class="text-center">${item.cantidad}</td>
-                    <td class="text-center">${item.precio.toFixed(2)}</td>
-                    <td class="text-right">${item.total.toFixed(2)}</td>
+                    <td class="text-center">${Number(item.precio).toFixed(2)}</td>
+                    <td class="text-right">${Number(item.total).toFixed(2)}</td>
                     <td class="text-center">
                         <button class="btn-icon" style="color: var(--danger); cursor: pointer; border: none; background: none;" onclick="gestorUI.eliminarDelCarrito(${index})">
                             <i class="material-icons" style="font-size: 18px;">delete</i>
@@ -548,44 +483,71 @@ window.gestorUI = {
             `;
         });
 
-        const resPromo = this.calcularDescuentosLocales();
-        if (resPromo.descuentoTotal > 0) {
-            resPromo.detalles.forEach(d => {
-                html += `
-                    <tr style="background: #edfdf6; color: #047857; font-weight: bold;">
-                        <td colspan="3">🏷️ ${d.nombre} (${d.descripcion})</td>
-                        <td class="text-right">-${d.monto.toFixed(2)}</td>
-                        <td></td>
-                    </tr>
-                `;
-            });
-        }
+        const fuente = modoActual === "mesa" ? this.liquidacionMesa : this.cotizacion;
+        ((fuente && fuente.detalles) || []).forEach(d => {
+            html += `
+                <tr style="background: #edfdf6; color: #047857; font-weight: bold;">
+                    <td colspan="3">🏷️ ${d.nombre} (${d.producto})</td>
+                    <td class="text-right">-${Number(d.monto).toFixed(2)}</td>
+                    <td></td>
+                </tr>
+            `;
+        });
 
         tbody.innerHTML = html;
-        this.actualizarUIPrecios(granTotal);
+        this.actualizarTotalesVista();
     },
-    actualizarUIPrecios: function (totalCarrito) {
-        const resPromo = this.calcularDescuentosLocales();
-        const descuentoTotal = resPromo.descuentoTotal;
-        const totalCarritoNeto = Math.max(0, totalCarrito - descuentoTotal);
-
-        const lblTotalCarrito = document.getElementById('lblTotalCarrito');
-        if (lblTotalCarrito) lblTotalCarrito.innerText = `${totalCarritoNeto.toFixed(2)} Bs`;
-
-        const lblTotalUnificado = document.getElementById('lblTotalUnificado');
-        if (modoActual === "mesa") {
-            const mesaCard = document.querySelector(`.mesa-card[data-nombre="${mesaSeleccionadaActual}"]`);
-            const importeMesa = mesaCard ? parseFloat(mesaCard.getAttribute('data-importe')) || 0 : 0;
-            const importeTiempoRedondeado = parseFloat(this.redondearTarifaMesa(importeMesa));
-            totalActualCobro = Math.max(0, importeTiempoRedondeado + totalCarrito - descuentoTotal);
-            if (lblTotalUnificado) lblTotalUnificado.innerText = `${totalActualCobro.toFixed(2)} Bs`;
-
-            const rowsDer = document.querySelectorAll(".detalle-columnas .col-der strong");
-            if (rowsDer[1]) rowsDer[1].innerText = `${totalCarritoNeto.toFixed(2)} Bs`;
-        } else {
-            totalActualCobro = totalCarritoNeto;
-            if (lblTotalUnificado) lblTotalUnificado.innerText = `${totalActualCobro.toFixed(2)} Bs`;
+    // Barra: el backend fija precios y promos del carrito. Si llegan dos respuestas, vale la del último pedido.
+    cotizarCarrito: function () {
+        const promesa = this._cotizar(++this.secuenciaCotizacion);
+        this.cotizacionPendiente = promesa;
+        return promesa;
+    },
+    _cotizar: async function (secuencia) {
+        if (this.itemsCarrito.length === 0) {
+            this.cotizacion = null;
+            this.renderizarCarrito();
+            return null;
         }
+        let data;
+        try {
+            data = await this.api({
+                accion: "cotizar_carrito",
+                productos: this.itemsCarrito.map(item => ({ id_producto: item.id_producto, cantidad: item.cantidad }))
+            });
+        } catch (error) {
+            console.error("Error al cotizar el carrito:", error);
+            window.mostrarToast("Error de conexión al calcular el total", "error");
+            return null;
+        }
+        if (secuencia !== this.secuenciaCotizacion) return this.cotizacionPendiente;
+
+        if (data.status === "success") {
+            this.cotizacion = data.cotizacion;
+            // Se muestran los precios que fijó el backend: pueden diferir de la lista si empezó o terminó una promo.
+            data.cotizacion.productos.forEach(linea => {
+                const item = this.itemsCarrito.find(i => parseInt(i.id_producto) === parseInt(linea.id_producto));
+                if (item) {
+                    item.precio = Number(linea.precio);
+                    item.total = Number(linea.subtotal);
+                }
+            });
+            this.renderizarCarrito();
+            return this.cotizacion;
+        }
+        if (data.codigo === "promo_no_vigente") {
+            this.quitarHoraPromoDelCarrito();
+            window.mostrarToast(data.message, "warning");
+            return this.cotizarCarrito();
+        }
+        this.cotizacion = null;
+        this.renderizarCarrito();
+        window.mostrarToast(data.message || "No se pudo calcular el total", "error");
+        return null;
+    },
+    quitarHoraPromoDelCarrito: function () {
+        this.itemsCarrito = this.itemsCarrito.filter(i => !i.es_promo_hora && parseInt(i.id_producto) !== parseInt(this.idProductoHoraPromo));
+        this.mesaIncentivoAsignada = null;
     },
     // === 3. CENTRALIZADOR DE TRANSICIONES Y NAVEGACIÓN (MÓVIL / SPA) ===
     cambiarEstadoLayout: function (nuevaClaseEstado) {
@@ -910,6 +872,8 @@ window.gestorUI = {
                 }
             }
         }
+        // No mostrar el total de la mesa anterior mientras llega el de esta.
+        this.liquidacionMesa = null;
         this.cargarConsumoMesaActual(elementoMesa.getAttribute("data-id"));
         // Diferir el historial un tick para asegurar que vistaConMesa ya está en el DOM
         const _idMesa = elementoMesa.getAttribute("data-id");
@@ -935,9 +899,11 @@ window.gestorUI = {
         const btnDerecho = document.querySelector("#footerVentaBarra button");
         if (btnDerecho) {
             btnDerecho.innerText = "Realizar Venta";
-            btnDerecho.onclick = () => gestorUI.abrirModalCobro();
+            // Pasa por el flujo completo, que ofrece la hora gratis cuando corresponde.
+            btnDerecho.onclick = () => gestorUI.iniciarFlujoCobro('efectivo_qr');
         }
         // Limpiamos el carrito local (si era de una mesa, se limpiará la memoria temporal)
+        this.liquidacionMesa = null;
         this.limpiarCarrito();
         document.getElementById("footerAccionesMesa").classList.add("hidden");
         if (window.innerWidth <= 768) {
@@ -947,157 +913,109 @@ window.gestorUI = {
         }
     },
     // =========================================================================
-    // MÉTODO CENTRALIZADO: CALCULA Y SINCRO-REACCIONA LOS TOTALES EN EL FOOTER
+    // TOTALES DEL PIE: vienen del backend (cotización del carrito o liquidación de la mesa)
     // =========================================================================
     actualizarTotalesVista: function () {
-        // 1. Calcular el total puramente del carrito de productos
-        const totalCarrito = this.itemsCarrito.reduce((suma, item) => suma + item.total, 0);
-
-        let totalMesaTiempo = 0;
-
-        // 2. Si estamos en modo mesa, extraemos el importe de tiempo congelado o dinámico de la tarjeta activa
+        let texto = "0.00 Bs";
         if (modoActual === "mesa" && mesaSeleccionadaActual) {
-            const mesaCard = Array.from(document.querySelectorAll('.mesa-card'))
-                .find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual);
-
-            if (mesaCard) {
-                totalMesaTiempo = parseFloat(mesaCard.getAttribute('data-importe')) || 0;
-            }
+            const card = this.tarjetaSeleccionada();
+            const total = this.liquidacionMesa ? Number(this.liquidacionMesa.total) : (card ? parseFloat(card.getAttribute('data-total')) || 0 : 0);
+            texto = `${total.toFixed(2)} Bs`;
+            const rowsDer = document.querySelectorAll(".detalle-columnas .col-der strong");
+            if (rowsDer[1] && this.liquidacionMesa) rowsDer[1].innerText = `${Number(this.liquidacionMesa.subtotal_productos).toFixed(2)} Bs`;
+        } else if (this.itemsCarrito.length) {
+            texto = this.cotizacion ? `${Number(this.cotizacion.total).toFixed(2)} Bs` : "Calculando...";
         }
-
-        // Aplicamos la regla de redondeo comercial al importe de la mesa
-        totalMesaTiempo = parseFloat(this.redondearTarifaMesa(totalMesaTiempo));
-
-        // 3. Seteamos la variable maestra global combinada para el cobro unificado
-        totalActualCobro = totalCarrito + totalMesaTiempo;
-
-        // 4. Inyectamos reactivamente el valor en el texto del Footer de acciones
-        const lblTotalFooter = document.getElementById("lblTotalUnificado") || document.getElementById("lblTotalPagarFooter") || document.getElementById("totalPagar");
-        if (lblTotalFooter) {
-            lblTotalFooter.innerText = `${totalActualCobro.toFixed(2)} Bs`;
-        }
+        ["lblTotalUnificado", "lblTotalCarrito"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = texto;
+        });
     },
 
     // =========================================================================
-    // MOTOR DEL RELOJ UNIFICADO Y REACTIVO
+    // RELOJ: cada segundo corre el tiempo en pantalla. Los importes no se calculan aquí: cuando empieza un
+    // bloque nuevo en alguna mesa (o pasa un minuto) se piden al backend junto con promos y precios.
     // =========================================================================
-    actualizarRelojes: function () {
-        const mesasOcupadas = document.querySelectorAll('.mesa-card.ocupada, .mesa-card.pausada');
-        const ahora = new Date();
-
-        mesasOcupadas.forEach(mesa => {
-            const inicioStr = mesa.getAttribute('data-hora-inicio');
-            const pausaStr = mesa.getAttribute('data-hora-pausa');
+    segundosEnMesa: function (mesa, ahora) {
+        const inicioStr = mesa.getAttribute('data-hora-inicio');
+        if (!inicioStr || inicioStr === "null") return 0;
+        const pausaStr = mesa.getAttribute('data-hora-pausa');
+        const fin = (pausaStr && pausaStr !== "null") ? new Date(pausaStr.replace(/-/g, '/')).getTime() : ahora;
+        const actual = Math.max(0, Math.floor((fin - new Date(inicioStr.replace(/-/g, '/')).getTime()) / 1000));
+        return actual + (parseInt(mesa.getAttribute('data-segundos-acumulados')) || 0);
+    },
+    pintarRelojes: function () {
+        const ahora = Date.now();
+        const dos = n => n.toString().padStart(2, '0');
+        document.querySelectorAll('.mesa-card.ocupada, .mesa-card.pausada').forEach(mesa => {
+            const total = (parseFloat(mesa.getAttribute('data-total')) || 0).toFixed(2);
             const precioHora = parseFloat(mesa.getAttribute('data-precio-hora')) || 0;
-            const total_consumo = parseFloat(mesa.getAttribute('data-consumo')) || 0;
-
-            // =========================================================================
-            // BLINDAJE PARA MESAS DE CONSUMO (PRECIO HORA = 0) CON REGLA DE TRASPASO
-            // =========================================================================
+            const resumen = mesa.querySelector('.mesa-info-resumen');
+            let tiempo = "00:00:00";
             if (precioHora === 0) {
-                const importeActual = parseFloat(mesa.getAttribute('data-importe')) || 0;
-                const importeTiempo = importeActual > 0 ? importeActual : 0.00;
-                const importe_total = (importeTiempo + total_consumo).toFixed(2);
-
-                const resumen = mesa.querySelector('.mesa-info-resumen');
-                if (resumen) {
-                    resumen.innerHTML = `
-                        <span class="estado-badge" style="background:#3b82f6;">Consumo</span>
-                        <span class="total-badge">${importe_total} Bs</span>
-                    `;
-                }
-
-                mesa.setAttribute('data-tiempo', `00:00:00`);
-                mesa.setAttribute('data-importe', importeTiempo.toFixed(2));
-
-                // Sincronización en caliente con el Panel Lateral Derecho si la mesa está seleccionada
-                if (modoActual === "mesa" && mesaSeleccionadaActual === mesa.getAttribute('data-nombre')) {
-                    const rowsIzq = document.querySelectorAll(".detalle-columnas .col-izq strong");
-                    const rowsDer = document.querySelectorAll(".detalle-columnas .col-der strong");
-
-                    if (rowsIzq && rowsIzq[1]) rowsIzq[1].innerText = `00:00:00`;
-                    if (rowsDer && rowsDer[0]) rowsDer[0].innerText = `${importeTiempo.toFixed(2)} Bs`;
-
-                    const lblTiempo = document.getElementById("lblTiempoMesa");
-                    const lblImporte = document.getElementById("lblImporteMesa");
-                    if (lblTiempo) lblTiempo.innerText = `00:00:00`;
-                    if (lblImporte) lblImporte.innerText = `${importeTiempo.toFixed(2)} Bs`;
-                }
-                return; // Saltamos los cálculos matemáticos de tiempo dinámico para esta mesa de consumo
+                if (resumen) resumen.innerHTML = `
+                    <span class="estado-badge" style="background:#3b82f6;">Consumo</span>
+                    <span class="total-badge">${total} Bs</span>
+                `;
+            } else {
+                const seg = this.segundosEnMesa(mesa, ahora);
+                const hh = dos(Math.floor(seg / 3600));
+                const mm = dos(Math.floor((seg % 3600) / 60));
+                tiempo = `${hh}:${mm}:${dos(seg % 60)}`;
+                const badgeGratis = mesa.getAttribute('data-primera-hora-gratis') === '1'
+                    ? `<span style="background:#8b5cf6; color:white; font-size:0.75rem; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold;">1ª H. Gratis</span>`
+                    : '';
+                if (resumen) resumen.innerHTML = `
+                    <span class="estado-badge">${hh}:${mm} hrs</span>
+                    <span class="total-badge">${total} Bs</span>
+                    ${badgeGratis}
+                `;
             }
-            // =========================================================================
+            mesa.setAttribute('data-tiempo', tiempo);
 
-            // Flujo estándar de cálculo para mesas de billar con tarifa activa por hora
-            if (inicioStr && inicioStr !== "null" && inicioStr !== "") {
-                const horaInicio = new Date(inicioStr.replace(/-/g, '/'));
-                let horaFinCalculo = ahora;
-
-                if (pausaStr && pausaStr !== "null" && pausaStr !== "") {
-                    horaFinCalculo = new Date(pausaStr.replace(/-/g, '/'));
-                }
-
-                const difTotalSegundos = Math.floor((horaFinCalculo - horaInicio) / 1000);
-                if (difTotalSegundos < 0) return;
-
-                const difMinutos = Math.floor(difTotalSegundos / 60);
-                const bloques = Math.ceil(difMinutos / 5);
-                const minutesCobrables = bloques * 5;
-
-                const acumulado = parseFloat(mesa.getAttribute('data-importe-acumulado')) || 0;
-                let importeCalculado = (acumulado + (minutesCobrables * (precioHora / 60)));
-
-                const tienePrimeraHoraGratis = mesa.getAttribute('data-primera-hora-gratis') === '1';
-                if (tienePrimeraHoraGratis && precioHora > 0) {
-                    importeCalculado = Math.max(0, importeCalculado - precioHora);
-                }
-                const importe = importeCalculado.toFixed(2);
-                const importe_total = (Number(importe) + Number(total_consumo)).toFixed(2);
-
-                const segundosAcumuladosAnteriores = parseInt(mesa.getAttribute('data-segundos-acumulados')) || 0;
-                const segundosVisuales = difTotalSegundos + segundosAcumuladosAnteriores;
-
-                const horasV = Math.floor(segundosVisuales / 3600).toString().padStart(2, '0');
-                const minV = Math.floor((segundosVisuales % 3600) / 60).toString().padStart(2, '0');
-                const segV = (segundosVisuales % 60).toString().padStart(2, '0');
-
-                const resumen = mesa.querySelector('.mesa-info-resumen');
-                if (resumen) {
-                    const badgeGratis = tienePrimeraHoraGratis ? `<span style="background:#8b5cf6; color:white; font-size:0.75rem; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold;">1ª H. Gratis</span>` : '';
-                    resumen.innerHTML = `
-                        <span class="estado-badge">${horasV}:${minV} hrs</span>
-                        <span class="total-badge">${importe_total} Bs</span>
-                        ${badgeGratis}
-                    `;
-                }
-
-                mesa.setAttribute('data-tiempo', `${horasV}:${minV}:${segV}`);
-                mesa.setAttribute('data-importe', importe);
-
-                if (modoActual === "mesa" && mesaSeleccionadaActual === mesa.getAttribute('data-nombre')) {
-                    const rowsIzq = document.querySelectorAll(".detalle-columnas .col-izq strong");
-                    const rowsDer = document.querySelectorAll(".detalle-columnas .col-der strong");
-
-                    if (rowsIzq && rowsIzq[1]) rowsIzq[1].innerText = `${horasV}:${minV}:${segV}`;
-                    if (rowsDer && rowsDer[0]) rowsDer[0].innerText = `${importe} Bs`;
-
-                    const lblTiempo = document.getElementById("lblTiempoMesa");
-                    const lblImporte = document.getElementById("lblImporteMesa");
-                    if (lblTiempo) lblTiempo.innerText = `${horasV}:${minV}:${segV}`;
-                    if (lblImporte) lblImporte.innerText = `${importe} Bs`;
-                }
+            if (modoActual === "mesa" && mesaSeleccionadaActual === mesa.getAttribute('data-nombre')) {
+                const importe = this.liquidacionMesa
+                    ? Number(this.liquidacionMesa.tiempo).toFixed(2)
+                    : (parseFloat(mesa.getAttribute('data-importe')) || 0).toFixed(2);
+                const rowsIzq = document.querySelectorAll(".detalle-columnas .col-izq strong");
+                const rowsDer = document.querySelectorAll(".detalle-columnas .col-der strong");
+                if (rowsIzq[1]) rowsIzq[1].innerText = tiempo;
+                if (rowsDer[0]) rowsDer[0].innerText = `${importe} Bs`;
+                const lblTiempo = document.getElementById("lblTiempoMesa");
+                const lblImporte = document.getElementById("lblImporteMesa");
+                if (lblTiempo) lblTiempo.innerText = tiempo;
+                if (lblImporte) lblImporte.innerText = `${importe} Bs`;
             }
         });
-
-        // =========================================================================
-        // REFRESCAMIENTO AUTOMÁTICO EN CADA SEGUNDO PARA EL TOTAL DEL FOOTER ACCIONES
-        // =========================================================================
-        if (modoActual === "mesa" && mesaSeleccionadaActual) {
-            this.actualizarTotalesVista();
-        }
+        if (modoActual === "mesa" && mesaSeleccionadaActual) this.actualizarTotalesVista();
+    },
+    // Devuelve la promesa del refresco en curso, para quien necesite esperarlo.
+    actualizarRelojes: function () {
+        this.pintarRelojes();
+        if (Date.now() >= this.siguienteRefresco) return this.refrescarDatos();
+        return this.refrescoEnCurso || undefined;
+    },
+    refrescarDatos: function () {
+        if (this.refrescoEnCurso) return this.refrescoEnCurso;
+        this.refrescoEnCurso = (async () => {
+            try {
+                await Promise.all([this.cargarGrillaMesas(), this.cargarPromocionesActivas(), this.cargarDatalistProductos()]);
+                const card = this.tarjetaSeleccionada();
+                if (modoActual === "mesa" && card) await this.cargarConsumoMesaActual(card.getAttribute("data-id"));
+                else if (modoActual !== "mesa" && this.itemsCarrito.length) await this.cotizarCarrito();
+                this.pintarRelojes();
+            } catch (error) {
+                console.error("Error al refrescar datos:", error);
+                this.siguienteRefresco = Date.now() + 10000;
+            } finally {
+                this.refrescoEnCurso = null;
+            }
+        })();
+        return this.refrescoEnCurso;
     },
     iniciarMotorReloj: function () {
         if (window.intervaloMesas) clearInterval(window.intervaloMesas);
-        this.actualizarRelojes();
+        this.pintarRelojes();
         window.intervaloMesas = setInterval(() => this.actualizarRelojes(), 1000);
     },
     abrirModal: function (idModal) {
@@ -1117,33 +1035,28 @@ window.gestorUI = {
     },
     cerrarModal: async function (idModal) {
         document.getElementById(idModal).classList.add('hidden');
-        if ((idModal === 'modalConfirmarCobro' || idModal === 'modalDividirPago') && (modoActual === "barra" || modoActual === undefined) && this.mesaIncentivoAsignada) {
-            // Si se cancela el cobro en barra y se había asignado incentivo, revertir el item de hora promo
-            this.itemsCarrito = this.itemsCarrito.filter(i => !i.es_promo_hora && i.id_producto != this.idProductoHoraPromo);
-            this.mesaIncentivoAsignada = null;
-            this.renderizarCarrito();
-            this.actualizarTotalesVista();
+        if (idModal !== 'modalConfirmarCobro' && idModal !== 'modalDividirPago') return;
+        const cobro = this.cobroEnCurso;
+        this.cobroEnCurso = null;
+        if ((modoActual === "barra" || modoActual === undefined) && this.mesaIncentivoAsignada) {
+            // Se canceló el cobro en barra con la hora gratis elegida: se quita la hora y quedan los productos.
+            this.quitarHoraPromoDelCarrito();
+            await this.cotizarCarrito();
         }
-        if ((idModal === 'modalConfirmarCobro' || idModal === 'modalDividirPago') && window.mesaAutoPausada) {
-            window.mesaAutoPausada = false;
-            if (modoActual === "mesa" && mesaSeleccionadaActual) {
-                const mesaCardSeleccionada = Array.from(document.querySelectorAll('.mesa-card'))
-                    .find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual);
-                if (mesaCardSeleccionada) {
-                    const idMesa = mesaCardSeleccionada.getAttribute("data-id");
-                    try {
-                        await fetch(this.apiURL, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ accion: "reanudar_mesa", id_mesa: idMesa, tipo_pausa: "sistema" })
-                        });
-                        await this.cargarGrillaMesas();
-                        this.actualizarRelojes();
-                    } catch (error) {
-                        console.error("Error al auto-reanudar:", error);
-                    }
-                }
-            }
+        if (window.mesaAutoPausada) await this.reanudarPausaSistema(cobro && cobro.id_mesa);
+    },
+    // Deshace la pausa que puso el sistema al abrir el cobro: el tiempo sigue como si no se hubiera pausado.
+    reanudarPausaSistema: async function (idMesa) {
+        window.mesaAutoPausada = false;
+        const card = this.tarjetaSeleccionada();
+        const id = idMesa || (card && card.getAttribute("data-id"));
+        if (!id) return;
+        try {
+            await this.api({ accion: "reanudar_mesa", id_mesa: id, tipo_pausa: "sistema" });
+            await this.cargarGrillaMesas();
+            this.pintarRelojes();
+        } catch (error) {
+            console.error("Error al auto-reanudar:", error);
         }
     },
     detectarPromoIncentivoBarra: function () {
@@ -1182,11 +1095,11 @@ window.gestorUI = {
         return null;
     },
     // Método orquestador: intercepta "Realizar Venta" y "Pago Mixto" en modo barra
-    iniciarFlujoCobro: function (tipoFlujo) {
+    iniciarFlujoCobro: async function (tipoFlujo) {
         if (modoActual !== 'barra') {
             // No debe llamarse en modo mesa, pero por seguridad redirigimos
-            if (tipoFlujo === 'mixto') this.prepararPagoDividido();
-            else this.abrirModalCobro();
+            if (tipoFlujo === 'mixto') await this.prepararPagoDividido();
+            else await this.abrirModalCobro();
             return;
         }
         if (this.itemsCarrito.length === 0) {
@@ -1205,8 +1118,8 @@ window.gestorUI = {
             });
         } else {
             // Sin promo: abrir directamente el modal de cobro
-            if (tipoFlujo === 'mixto') this.prepararPagoDividido();
-            else this.abrirModalCobro();
+            if (tipoFlujo === 'mixto') await this.prepararPagoDividido();
+            else await this.abrirModalCobro();
         }
     },
     abrirModalIncentivoProducto: function (config) {
@@ -1306,9 +1219,10 @@ window.gestorUI = {
         if (rdoNo && rdoNo.checked) {
             // Confirmar el "No": cerrar modal y abrir cobro normal
             this.cerrarModal('modal_apply_incentivoproducto');
+            this.flujoIncentivoPendiente = null;
             if (config.modo === 'barra') {
-                if (config.origen === 'pago_mixto') this.prepararPagoDividido();
-                else this.abrirModalCobro();
+                if (config.origen === 'pago_mixto') await this.prepararPagoDividido();
+                else await this.abrirModalCobro();
             } else if (config.modo === 'mesa') {
                 await this.ejecutarAgregarProductoMesaDirecto(config.id_mesa, config.producto, config.cantidad, config.precioUnitario, false);
             }
@@ -1325,8 +1239,8 @@ window.gestorUI = {
             }
 
             this.mesaIncentivoAsignada = idMesaSeleccionada;
-            
-            // Agregar el item hora con descuento al carrito
+
+            // Agregar el item hora al carrito. El monto definitivo lo fija el backend al cotizar.
             this.itemsCarrito.push({
                 id_producto: this.idProductoHoraPromo || 47,
                 nombre: `Hora Promo (Incentivo)`,
@@ -1336,17 +1250,15 @@ window.gestorUI = {
                 es_promo_hora: true
             });
 
-            this.renderizarCarrito();
-            this.actualizarTotalesVista();
             this.cerrarModal('modal_apply_incentivoproducto');
+            this.flujoIncentivoPendiente = null;
 
             // Abrir el modal de cobro con el monto + aumento aplicado
             if (config.origen === 'pago_mixto') {
-                this.prepararPagoDividido();
+                await this.prepararPagoDividido();
             } else {
-                this.abrirModalCobro();
+                await this.abrirModalCobro();
             }
-            this.flujoIncentivoPendiente = null;
 
         } else if (config.modo === 'mesa') {
             this.cerrarModal('modal_apply_incentivoproducto');
@@ -1362,66 +1274,31 @@ window.gestorUI = {
             this.flujoIncentivoPendiente = null;
         }
     },
+    // El precio lo fija el backend con las promos vigentes; no se envía desde la pantalla.
     ejecutarAgregarProductoMesaDirecto: async function (idMesa, producto, cantidad, precioUnitario, aplicarPromo, promo) {
-        const productosPayload = [{
-            id_producto: producto.id_producto,
-            cantidad: cantidad,
-            precio_unitario: precioUnitario
-        }];
-
+        const productosPayload = [{ id_producto: producto.id_producto, cantidad: cantidad }];
         if (aplicarPromo && promo) {
-            const montoAumento = parseFloat(promo.valor_descuento) || 0;
-            productosPayload.push({
-                id_producto: this.idProductoHoraPromo || 47,
-                cantidad: 1,
-                precio_unitario: montoAumento
-            });
+            productosPayload.push({ id_producto: this.idProductoHoraPromo || 47, cantidad: 1 });
         }
 
         try {
-            const payload = {
-                accion: "agregar_productos_mesa",
-                id_mesa: idMesa,
-                productos: productosPayload
-            };
-            if (aplicarPromo) {
-                payload.aplicar_primera_hora_gratis = 1;
-            }
-
-            const response = await fetch(this.apiURL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
+            const data = await this.api({ accion: "agregar_productos_mesa", id_mesa: idMesa, productos: productosPayload });
 
             if (data.status === "success") {
                 this.limpiarFormularioVenta();
-
-                // Si se aplicó la promo: ajustar el data-importe de la mesa card restando una hora
-                if (aplicarPromo && promo) {
-                    const mesaCard = document.querySelector(`.mesa-card[data-id="${idMesa}"]`);
-                    if (mesaCard) {
-                        const precioHora = parseFloat(mesaCard.getAttribute('data-precio-hora')) || 0;
-                        const importeActual = parseFloat(mesaCard.getAttribute('data-importe')) || 0;
-                        const nuevoImporte = Math.max(0, importeActual - precioHora);
-                        mesaCard.setAttribute('data-importe', nuevoImporte.toFixed(2));
-                        mesaCard.setAttribute('data-primera-hora-gratis', '1');
-                    }
-                }
-
                 await this.cargarConsumoMesaActual(idMesa);
                 await this.cargarGrillaMesas();
                 await this.cargarDatalistProductos();
-                this.actualizarRelojes();
-                this.actualizarTotalesVista();
+                this.pintarRelojes();
                 if (aplicarPromo) {
                     window.mostrarToast("¡Promoción aplicada! 1 hora gratis en mesa y aumento añadido al carrito.", "success");
                 } else {
                     window.mostrarToast("Producto agregado a la mesa.", "success");
                 }
+            } else if (data.codigo === "mesa_sin_partida") {
+                await this.manejarErrorCobro(data, null);
             } else {
-                window.mostrarToast(data.message || "Error al agregar a mesa", "error");
+                window.mostrarToast(data.message || "Error al agregar a mesa", data.codigo ? "warning" : "error");
             }
         } catch (error) {
             console.error("Error al agregar a mesa:", error);
@@ -1479,10 +1356,6 @@ window.gestorUI = {
             return;
         }
 
-        // Capturamos el importe devengado acumulado en caliente de la mesa origen antes de destruirla
-        const mesaCardOrigen = document.querySelector(`.mesa-card[data-id="${idMesaOrigen}"]`);
-        const importeTiempoAcumulado = mesaCardOrigen ? parseFloat(mesaCardOrigen.getAttribute('data-importe')) || 0 : 0;
-
         const btn = document.querySelector('#modalTransferirMesa .btn-primary');
         const originalHTML = setBtnLoading(btn, true);
 
@@ -1505,9 +1378,8 @@ window.gestorUI = {
                 const nombreNuevaMesa = selectDestino.options[selectDestino.selectedIndex].text;
                 mesaSeleccionadaActual = nombreNuevaMesa;
 
-                // 1. Volver a cargar la grilla (trae los nuevos tramos desde la Base de Datos)
+                // 1. Volver a cargar la grilla: el backend ya suma el tiempo de la mesa anterior al total
                 await this.cargarGrillaMesas();
-                this.actualizarRelojes();
 
                 // Cargar el historial de tramos de la nueva mesa destino
                 this.cargarHistorialTramos(idMesaDestino);
@@ -1516,29 +1388,8 @@ window.gestorUI = {
                 const lblNombreMesa = document.getElementById("lblNombreMesaSeleccionada");
                 if (lblNombreMesa) lblNombreMesa.innerText = nombreNuevaMesa;
 
-                // 3. Buscar la nueva tarjeta destino en el DOM recién renderizado
-                const nuevaMesaCard = document.querySelector(`.mesa-card[data-id="${idMesaDestino}"]`);
-                if (nuevaMesaCard) {
-                    const precioHoraDestino = parseFloat(nuevaMesaCard.getAttribute('data-precio-hora')) || 0;
-
-                    if (precioHoraDestino === 0) {
-                        // REGLA DE ORO DE TRASPASO: Inyectamos el valor acumulado directamente.
-                        // Si el backend por retraso de caché de subconsulta devolviera 0, el cliente no pierde dinero.
-                        // Si el backend devolviera el saldo correcto, garantizamos la consistencia decimal exacta de lo que vio en pantalla.
-                        nuevaMesaCard.setAttribute('data-importe', importeTiempoAcumulado.toFixed(2));
-
-                        // Levantar los hilos del reloj (ahora blindados contra sobreescritura a cero)
-                        this.iniciarMotorReloj();
-
-                        // Forzar al panel lateral derecho a renderizar de inmediato el saldo unificado
-                        const totalProductos = this.itemsCarrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-                        this.actualizarUIPrecios(totalProductos);
-                    } else {
-                        this.iniciarMotorReloj();
-                    }
-                } else {
-                    this.iniciarMotorReloj();
-                }
+                await this.cargarConsumoMesaActual(idMesaDestino);
+                this.pintarRelojes();
 
             } else if (data.codigo === "mesa_no_disponible") {
                 await this.avisarMesaNoDisponible(data, "modalTransferirMesa");
@@ -1555,9 +1406,9 @@ window.gestorUI = {
     // Otra caja ya tomó la mesa: no se guardó nada. Se cierra el modal y se refrescan las mesas para elegir otra.
     avisarMesaNoDisponible: async function (data, idModal) {
         window.mostrarToast(data.message, "warning");
-        await this.cerrarModal(idModal);
+        if (idModal) await this.cerrarModal(idModal);
         await this.cargarGrillaMesas();
-        this.actualizarRelojes();
+        this.pintarRelojes();
     },
     confirmarOcupacion: async function () {
         if (!window.idMesaPendiente) return;
@@ -1581,7 +1432,7 @@ window.gestorUI = {
                 // Crucial: Recargar grilla para pintar la tarjeta de ocupada (rojo) 
                 // e inyectar la 'hora_inicio' real asignada por la Base de Datos
                 await this.cargarGrillaMesas();
-                this.actualizarRelojes();
+                this.pintarRelojes();
             } else if (data.codigo === "mesa_no_disponible") {
                 await this.avisarMesaNoDisponible(data, "modalOcuparMesa");
             } else {
@@ -1629,7 +1480,8 @@ window.gestorUI = {
                 // Recargar grilla para obtener nuevos timestamps desde la BD
                 // NOTA: esto regenera el DOM, las referencias a mesaCardActiva quedan obsoletas
                 await this.cargarGrillaMesas();
-                this.actualizarRelojes();
+                await this.cargarConsumoMesaActual(idMesa);
+                this.pintarRelojes();
 
                 // Recargar historial de tramos inmediatamente tras cambiar estado
                 this.cargarHistorialTramos(idMesa);
@@ -1661,201 +1513,93 @@ window.gestorUI = {
             }
         }
     },
+    // =========================================================================
+    // COBRO: la pantalla solo muestra lo que calcula el backend y le envía lo que el cajero vio.
+    // Si al confirmar el total ya no es el mismo, el backend no guarda nada y devuelve el nuevo.
+    // =========================================================================
+    totalCobroEnCurso: function () {
+        return this.cobroEnCurso ? Number(this.cobroEnCurso.liquidacion.total) : 0;
+    },
     calcularDividirPago: function (origen) {
         const inputEf = document.getElementById("inputDividirEfectivo");
         const inputQR = document.getElementById("inputDividirQR");
-        let valEf = parseFloat(inputEf.value) || 0;
-        let valQR = parseFloat(inputQR.value) || 0;
-
-        // Usamos el total CONGELADO para que no varíe si el reloj hace tick de 5 min en este instante
+        const total = this.totalCobroEnCurso();
         if (origen === 'efectivo') {
-            let faltante = this.totalDividirCongelado - valEf;
+            const faltante = total - (parseFloat(inputEf.value) || 0);
             inputQR.value = faltante > 0 ? faltante.toFixed(2) : 0;
         } else if (origen === 'qr') {
-            let faltante = this.totalDividirCongelado - valQR;
+            const faltante = total - (parseFloat(inputQR.value) || 0);
             inputEf.value = faltante > 0 ? faltante.toFixed(2) : 0;
         }
     },
-    // === MÉTODO CORAZÓN: PREPARAR EL MODAL ===
-    // === 1. PREPARAR PAGO DIVIDIDO / MIXTO ===
-    prepararPagoDividido: async function () {
-        if (totalActualCobro <= 0) {
-            window.mostrarToast("No hay un monto válido para cobrar.", "warning");
-            return;
-        }
-
-        // Validación y lógica exclusiva para modo Mesa
+    // Pide el desglose al backend. En mesa fija la hora de corte: pausa la mesa si no lo estaba.
+    prepararCobro: async function () {
         if (modoActual === "mesa") {
-            if (!mesaSeleccionadaActual) {
-                window.mostrarToast("Seleccione una mesa para realizar este cobro.", "warning");
-                return;
-            }
-
-            // [REINTEGRADO]: Lógica de Auto-Pausar Mesa Física
-            const mesaCardSeleccionada = Array.from(document.querySelectorAll('.mesa-card'))
-                .find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual);
-
-            if (mesaCardSeleccionada) {
-                const horaPausaStr = mesaCardSeleccionada.getAttribute("data-hora-pausa");
-                const estaPausada = horaPausaStr && horaPausaStr !== "null" && horaPausaStr !== "";
-                if (!estaPausada) {
-                    const idMesa = mesaCardSeleccionada.getAttribute("data-id");
-                    try {
-                        await fetch(this.apiURL, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ accion: "pausar_mesa", id_mesa: idMesa, tipo_pausa: "sistema" })
-                        });
-                        window.mesaAutoPausada = true;
-                        await this.cargarGrillaMesas();
-                        if (typeof this.actualizarRelojes === "function") this.actualizarRelojes();
-                        this.actualizarTotalesVista();
-                    } catch (error) {
-                        console.error("Error al auto-pausar:", error);
-                    }
-                } else {
-                    window.mesaAutoPausada = false;
-                }
-            }
-
-            // [REINTEGRADO]: Aplicar regla de redondeo por bloques de 5 minutos en mesas
-            this.totalDividirCongelado = parseFloat(this.redondearTarifaMesa(totalActualCobro));
-        }
-        // Validación exclusiva para modo Barra
-        else if (modoActual === "barra") {
-            if (this.itemsCarrito.length === 0) {
-                window.mostrarToast("El carrito está vacío, no hay nada que cobrar.", "warning");
-                return;
-            }
-            // En barra es una venta directa, no lleva redondeo de tiempo
-            this.totalDividirCongelado = totalActualCobro;
-        }
-
-        // Imprimir el total congelado unificado en el modal
-        const lblTotal = document.getElementById("lblTotalDividir");
-        if (lblTotal) lblTotal.innerText = this.totalDividirCongelado.toFixed(2);
-
-        // Por UX, sugerimos efectivo total por defecto
-        document.getElementById("inputDividirEfectivo").value = this.totalDividirCongelado.toFixed(2);
-        document.getElementById("inputDividirQR").value = "0.00";
-
-        this.abrirModal('modalDividirPago');
-    },
-
-    // === 2. CONFIRMAR PAGO DIVIDIDO / MIXTO ===
-    confirmarPagoDividido: async function () {
-        const inputEf = document.getElementById("inputDividirEfectivo");
-        const inputQR = document.getElementById("inputDividirQR");
-
-        let valEf = parseFloat(inputEf.value) || 0;
-        let valQR = parseFloat(inputQR.value) || 0;
-        let sumaPagar = valEf + valQR;
-
-        // Validar descuadre matemático
-        if (Math.abs(sumaPagar - this.totalDividirCongelado) > 0.01) {
-            window.mostrarToast(`Los montos ingresados (Ef: ${valEf.toFixed(2)} + QR: ${valQR.toFixed(2)} = ${sumaPagar.toFixed(2)}) no cuadran con el total de ${this.totalDividirCongelado.toFixed(2)} Bs.`, "warning");
-            return;
-        }
-
-        // Validación previa de mesa
-        let id_mesa_actual = null;
-        if (modoActual === "mesa") {
-            const mesaCard = Array.from(document.querySelectorAll('.mesa-card'))
-                .find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual);
-
+            const mesaCard = this.tarjetaSeleccionada();
             if (!mesaCard) {
-                window.mostrarToast("No se encontró la mesa activa en pantalla.", "error");
-                return;
+                window.mostrarToast("Por favor, seleccione una mesa en la grilla antes de proceder al cobro.", "warning");
+                return null;
             }
-            id_mesa_actual = mesaCard.getAttribute("data-id");
+            const idMesa = mesaCard.getAttribute("data-id");
+            const data = await this.api({ accion: "preparar_cobro", id_mesa: idMesa });
+            if (data.status !== "success") {
+                await this.manejarErrorCobro(data, null);
+                return null;
+            }
+            window.mesaAutoPausada = !!data.auto_pausada;
+            this.cobroEnCurso = { modo: "mesa", id_mesa: idMesa, nombre: data.mesa, liquidacion: data.liquidacion };
+            await this.cargarGrillaMesas();
+            this.pintarRelojes();
+        } else {
+            if (this.itemsCarrito.length < 1) {
+                window.mostrarToast("Debe agregar productos al carrito para realizar una venta", "warning");
+                return null;
+            }
+            const cotizacion = await this.cotizarCarrito();
+            if (!cotizacion) return null;
+            this.cobroEnCurso = { modo: "barra", liquidacion: cotizacion };
         }
-
+        return this.cobroEnCurso;
+    },
+    // El cobro no llegó a mostrarse: la mesa vuelve a correr.
+    descartarCobro: async function () {
+        this.cobroEnCurso = null;
+        if (window.mesaAutoPausada) await this.reanudarPausaSistema();
+    },
+    prepararPagoDividido: async function () {
+        if (!(await this.prepararCobro())) return;
+        if (this.totalCobroEnCurso() <= 0) {
+            window.mostrarToast("No hay un monto para dividir. Use el cobro normal.", "warning");
+            await this.descartarCobro();
+            return;
+        }
+        this.mostrarModalDividir();
+    },
+    mostrarModalDividir: function () {
+        const total = this.totalCobroEnCurso();
+        const lblTotal = document.getElementById("lblTotalDividir");
+        if (lblTotal) lblTotal.innerText = total.toFixed(2);
+        // Por UX, sugerimos efectivo total por defecto
+        document.getElementById("inputDividirEfectivo").value = total.toFixed(2);
+        document.getElementById("inputDividirQR").value = "0.00";
+        document.getElementById("modalDividirPago").classList.remove("hidden");
+    },
+    confirmarPagoDividido: async function () {
+        const cobro = this.cobroEnCurso;
+        if (!cobro) return;
+        const valEf = parseFloat(document.getElementById("inputDividirEfectivo").value) || 0;
+        const valQR = parseFloat(document.getElementById("inputDividirQR").value) || 0;
+        const total = this.totalCobroEnCurso();
+        if (valEf < 0 || valQR < 0 || Math.abs(valEf + valQR - total) > 0.001) {
+            window.mostrarToast(`Los montos ingresados (Ef: ${valEf.toFixed(2)} + QR: ${valQR.toFixed(2)} = ${(valEf + valQR).toFixed(2)}) no cuadran con el total de ${total.toFixed(2)} Bs.`, "warning");
+            return;
+        }
         const btn = document.querySelector('#modalDividirPago .btn-success');
         const originalHTML = setBtnLoading(btn, true);
-
         try {
-            // ==========================================
-            // RAMA 1: COBRAR MESA CON PAGO DIVIDIDO
-            // ==========================================
-            if (modoActual === "mesa") {
-                const payload = {
-                    accion: "cobrar_mesa_pago_dividido", // <<< ¡CORREGIDO AQUÍ!
-                    id_mesa: id_mesa_actual,
-                    metodo_pago: "dividido",
-                    monto_efectivo: valEf,
-                    monto_qr: valQR,
-                    total_congelado_frontend: this.totalDividirCongelado
-                };
-
-                const response = await fetch(this.apiURL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-
-                if (data.status === "success") {
-                    window.mostrarToast("Cobro dividido registrado con éxito.", "success");
-                    this.cerrarModal('modalDividirPago');
-
-                    // Deselección formal y limpieza de interfaz de mesa
-                    this.deseleccionarMesa();
-                    mesaSeleccionadaActual = "";
-                    modoActual = "barra";
-                    this.limpiarCarrito();
-
-                    const lblModo = document.getElementById("lblModoVenta");
-                    if (lblModo) lblModo.innerText = "Venta: en barra";
-                    const seccionMesa = document.getElementById("seccionInfoMesaSeleccionada");
-                    if (seccionMesa) seccionMesa.style.display = "none";
-
-                    await this.cargarGrillaMesas();
-                } else {
-                    window.mostrarToast(data.message || "Error al procesar el cobro dividido", "error");
-                }
-            }
-            // ==========================================
-            // RAMA 2: COBRAR BARRA CON PAGO MIXTO (CARRITO)
-            // ==========================================
-            else if (modoActual === "barra") {
-                const payload = {
-                    accion: "cobrar_carrito_dividido", // <<< Mantiene el endpoint de barra pura
-                    metodo_pago: "dividido",
-                    monto_efectivo: valEf,
-                    monto_qr: valQR,
-                    total_congelado_frontend: this.totalDividirCongelado,
-                    productos: this.itemsCarrito.map(item => ({
-                        id_producto: item.id_producto,
-                        cantidad: item.cantidad,
-                        precio_unitario: item.precio
-                    }))
-                };
-                // Si hay mesa promo asignada por incentivo_producto, incluirla
-                if (this.mesaIncentivoAsignada) {
-                    payload.id_mesa_ocupar_promo = this.mesaIncentivoAsignada;
-                }
-
-                const response = await fetch(this.apiURL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-
-                if (data.status === "success") {
-                    window.mostrarToast("Venta mixta en barra exitosa.", "success");
-                    this.cerrarModal('modalDividirPago');
-                    this.mesaIncentivoAsignada = null; // Limpiar estado de promo tras cobro
-                    this.limpiarCarrito();
-                    await this.cargarDatalistProductos();
-                    this.actualizarTotalesVista();
-                } else if (data.codigo === "mesa_no_disponible") {
-                    // Al cerrar el modal se quita la hora gratis del carrito y se conservan los productos.
-                    await this.avisarMesaNoDisponible(data, "modalDividirPago");
-                } else {
-                    window.mostrarToast(data.message || "Error al procesar", "error");
-                }
-            }
+            const pagos = [{ metodo: "efectivo", monto: valEf }, { metodo: "qr", monto: valQR }];
+            const data = await this.enviarCobro(cobro, pagos);
+            await this.procesarRespuestaCobro(data, "modalDividirPago");
         } catch (error) {
             console.error("Error en cobro dividido:", error);
             window.mostrarToast("Error de red al conectar con el servidor.", "error");
@@ -1863,260 +1607,53 @@ window.gestorUI = {
             setBtnLoading(btn, false, originalHTML);
         }
     },
-    // === MÓDULO DE COBRO UNIFICADO (BARRA / MESA) ===
-    // Algoritmo de redondeo estratégico (Sube al .50 o al entero superior más cercano)
-    redondearTarifaMesa: function (valor) {
-        const numero = parseFloat(valor) || 0;
-        return (Math.ceil(numero * 2) / 2).toFixed(2);
-    },
     prepararCobroMesa: async function () {
-        // 1. Seteamos la variable de control maestro de la SPA a modo mesa
         modoActual = "mesa";
-        // 2. Buscamos en el DOM la tarjeta de la mesa que se encuentra activa o seleccionada en la grilla
-        const mesaCardSeleccionada = Array.from(document.querySelectorAll('.mesa-card'))
-            .find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual);
-        if (!mesaCardSeleccionada) {
-            window.mostrarToast("Por favor, seleccione una mesa en la grilla antes de proceder al cobro.", "warning");
-            return;
-        }
-        // 3. Extraemos dinámicamente el identificador semántico (nombre) de los atributos de la tarjeta
-        const nombreMesa = mesaCardSeleccionada.getAttribute('data-nombre');
-        if (!nombreMesa) {
-            window.mostrarToast("La tarjeta de la mesa seleccionada no cuenta con el atributo 'data-nombre'.", "error");
-            return;
-        }
-        // 4. Registramos el identificador en la variable de control global
-        mesaSeleccionadaActual = nombreMesa;
-
-        const horaPausaStr = mesaCardSeleccionada.getAttribute("data-hora-pausa");
-        const estaPausada = horaPausaStr && horaPausaStr !== "null" && horaPausaStr !== "";
-        if (!estaPausada) {
-            const idMesa = mesaCardSeleccionada.getAttribute("data-id");
-            try {
-                await fetch(this.apiURL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ accion: "pausar_mesa", id_mesa: idMesa, tipo_pausa: "sistema" })
-                });
-                window.mesaAutoPausada = true;
-                await this.cargarGrillaMesas();
-                this.actualizarRelojes();
-            } catch (error) {
-                console.error("Error al auto-pausar:", error);
-            }
-        } else {
-            window.mesaAutoPausada = false;
-        }
-
-        // 5. Invocamos al método de inyección y apertura; este interceptará la tarjeta .ocupada sin problemas
-        this.abrirModalCobro();
+        if (!(await this.prepararCobro())) return;
+        this.mostrarModalCobro();
     },
-    // Orquestador del Modal de Confirmación de Cobro
-    abrirModalCobro: function () {
-        const contenedorDetalles = document.getElementById("contenedorDetallesMesa");
-        // Configuración inicial común: Resetear el radio button por defecto a Efectivo
+    abrirModalCobro: async function () {
+        if (modoActual === "mesa") return this.prepararCobroMesa();
+        if (!(await this.prepararCobro())) return;
+        this.mostrarModalCobro();
+    },
+    mostrarModalCobro: function () {
+        const cobro = this.cobroEnCurso;
+        const liq = cobro.liquidacion;
+        const esMesa = cobro.modo === "mesa";
+        const fijar = (id, texto) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = texto;
+        };
+        const mostrar = (id, visible) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = visible ? "block" : "none";
+        };
+        fijar("lblTipoCobroModal", esMesa ? `Liquidación: ${cobro.nombre}` : "Venta en Barra Directa");
+        mostrar("contenedorDetallesMesa", true);
+        mostrar("rowTiempoModal", esMesa);
+        fijar("lblDetalleTiempoModal", `${Number(liq.tiempo).toFixed(2)} Bs`);
+        fijar("lblDetalleConsumoModal", `${Number(liq.subtotal_productos).toFixed(2)} Bs`);
+        mostrar("rowDescuentoModal", liq.descuentos > 0);
+        fijar("lblDetalleDescuentoModal", `-${Number(liq.descuentos).toFixed(2)} Bs`);
+        mostrar("rowRedondeoModal", liq.redondeo > 0);
+        fijar("lblDetalleRedondeoModal", `+${Number(liq.redondeo).toFixed(2)} Bs`);
+        fijar("lblTotalCobrarModal", `${Number(liq.total).toFixed(2)} Bs`);
         const rdoEfectivo = document.getElementById("pagoEfectivo");
         if (rdoEfectivo) rdoEfectivo.checked = true;
-        console.log("Modo actual al abrir modal:", modoActual);
-        // Caso A: Venta directa en Barra
-        if (modoActual === "barra" || modoActual === undefined) {
-            if (this.itemsCarrito.length < 1) {
-                window.mostrarToast("Debe agregar productos al carrito para realizar una venta", "warning");
-                return;
-            }
-            // Ocultar detalles de comanda de tiempo en modo barra
-            if (contenedorDetalles) contenedorDetalles.style.display = "none";
-            const totalInsumos = this.itemsCarrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-            const resPromo = this.calcularDescuentosLocales();
-            const descuentoTotal = resPromo.descuentoTotal;
-            const totalInsumosNeto = Math.max(0, totalInsumos - descuentoTotal);
-
-            // ========================================================
-            // BLINDAJE DEFENSIVO - CASO BARRA
-            // ========================================================
-            const lblTipo = document.getElementById("lblTipoCobroModal");
-            if (lblTipo) lblTipo.innerText = "Venta en Barra Directa";
-            const lblTotal = document.getElementById("lblTotalCobrarModal");
-            if (lblTotal) lblTotal.innerText = `${totalInsumosNeto.toFixed(2)} Bs`;
-
-            // Establecer el total definitivo global para el cobro
-            window.totalActualCobro = totalInsumosNeto;
-            this.abrirModal('modalConfirmarCobro');
-        }
-        // Caso B: Venta y Cierre Operativo de Mesa
-        else if (modoActual === "mesa") {
-            const mesaCard = Array.from(document.querySelectorAll('.mesa-card'))
-                .find(el => el.getAttribute('data-nombre') === mesaSeleccionadaActual);
-
-            if (!mesaCard) {
-                window.mostrarToast("No se pudo interceptar la tarjeta de la mesa activa.", "error");
-                return;
-            }
-            // Mostrar los detalles específicos de la mesa (tiempo + productos)
-            if (contenedorDetalles) contenedorDetalles.style.display = "block";
-
-            const idMesa = mesaCard.getAttribute("data-id");
-
-            // =========================================================================
-            // BLINDAJE ESTRATÉGICO PARA COBRO DE MESA (CONTEMPLA TRASPASOS CON SALDOS)
-            // =========================================================================
-            const importeTiempoCrudo = parseFloat(mesaCard.getAttribute("data-importe")) || 0;
-            // =========================================================================
-
-            // REGLA DE ORO: Aplicar el redondeo comercial hacia arriba (.50 o entero)
-            const importeTiempoRedondeado = parseFloat(this.redondearTarifaMesa(importeTiempoCrudo));
-            // Calcular consumos actuales en el carrito de esta comanda
-            const totalCarritoActual = this.itemsCarrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-            const resPromo = this.calcularDescuentosLocales();
-            const descuentoTotal = resPromo.descuentoTotal;
-            // Gran Total Combinado con Descuentos
-            const granTotalMesa = Math.max(0, importeTiempoRedondeado + totalCarritoActual - descuentoTotal);
-
-            // ========================================================
-            // BLINDAJE DEFENSIVO - CASO MESA
-            // ========================================================
-            const lblTipo = document.getElementById("lblTipoCobroModal");
-            if (lblTipo) lblTipo.innerText = `Liquidación: ${mesaSeleccionadaActual}`;
-            const lblDetalleTiempo = document.getElementById("lblDetalleTiempoModal");
-            if (lblDetalleTiempo) lblDetalleTiempo.innerText = `${importeTiempoRedondeado.toFixed(2)} Bs`;
-            const lblDetalleConsumo = document.getElementById("lblDetalleConsumoModal");
-            if (lblDetalleConsumo) lblDetalleConsumo.innerText = `${totalCarritoActual.toFixed(2)} Bs`;
-
-            const rowDesc = document.getElementById("rowDescuentoModal");
-            const lblDesc = document.getElementById("lblDetalleDescuentoModal");
-            if (rowDesc && lblDesc) {
-                if (descuentoTotal > 0) {
-                    lblDesc.innerText = `-${descuentoTotal.toFixed(2)} Bs`;
-                    rowDesc.style.display = "block";
-                } else {
-                    rowDesc.style.display = "none";
-                }
-            }
-
-            const lblTotalMesa = document.getElementById("lblTotalCobrarModal");
-            if (lblTotalMesa) lblTotalMesa.innerText = `${granTotalMesa.toFixed(2)} Bs`;
-
-            // Almacenar estados maestros en memoria global del script
-            window.idMesaPendiente = idMesa;
-            window.totalActualCobro = granTotalMesa;
-
-            this.abrirModal('modalConfirmarCobro');
-        }
+        document.getElementById("modalConfirmarCobro").classList.remove("hidden");
     },
-    // Enrutador del botón definitivo "Confirmar Cobro" dentro del Modal
+    // Botón "Confirmar Pago" del modal
     ejecutarCobroConfirmado: async function () {
+        const cobro = this.cobroEnCurso;
+        if (!cobro) return;
         const btn = document.querySelector('#modalConfirmarCobro .btn-primary.btn-success');
         const originalHTML = setBtnLoading(btn, true);
         try {
-            // 1. Obtener el método de pago seleccionado en el modal
             const rdoQR = document.getElementById("pagoQR");
-            const metodoPago = (rdoQR && rdoQR.checked) ? "qr" : "efectivo";
-            let operacionExitosa = false;
-            let mensajeExito = "Operación procesada exitosamente";
-            let datosImpresion = null;
-
-            // 2. Bifurcación de flujos según el modo de venta actual
-            if (modoActual === "barra" || modoActual === undefined) {
-                // Armamos el payload específico para registrar la venta directa en barra
-                const payloadBarra = {
-                    accion: "registrar_venta_barra",
-                    id_usuario: 1, // Reemplazar dinámicamente según sesión de usuario activa
-                    total: window.totalActualCobro,
-                    metodo_pago: metodoPago,
-                    productos: this.itemsCarrito.map(item => ({
-                        id_producto: item.id_producto,
-                        cantidad: item.cantidad,
-                        precio_unitario: item.precio,
-                        nombre: item.nombre
-                    }))
-                };
-                // Si hay mesa promo asignada por incentivo_producto, incluirla
-                if (this.mesaIncentivoAsignada) {
-                    payloadBarra.id_mesa_ocupar_promo = this.mesaIncentivoAsignada;
-                }
-                const response = await fetch(this.apiURL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payloadBarra)
-                });
-                const data = await response.json();
-                if (data.status === "success") {
-                    operacionExitosa = true;
-                    mensajeExito = data.message || "Venta en barra registrada";
-                    datosImpresion = {
-                        tipo: "Barra",
-                        nombreMesa: "",
-                        total: window.totalActualCobro,
-                        metodo_pago: metodoPago,
-                        productos: [...payloadBarra.productos],
-                        tiempoMesa: 0
-                    };
-                } else if (data.codigo === "mesa_no_disponible") {
-                    // Al cerrar el modal se quita la hora gratis del carrito y se conservan los productos.
-                    await this.avisarMesaNoDisponible(data, "modalConfirmarCobro");
-                } else {
-                    window.mostrarToast(data.message || "Error al procesar venta en barra", "error");
-                }
-            } else if (modoActual === "mesa") {
-                // Armamos el payload para el desglose de pagos de la mesa
-                const payloadMesa = {
-                    accion: "cobrar_mesa",
-                    id_mesa: window.idMesaPendiente,
-                    id_usuario: 1, // Reemplazar dinámicamente según sesión de usuario activa
-                    total: window.totalActualCobro,
-                    pagos: [
-                        { metodo: metodoPago, monto: window.totalActualCobro }
-                    ],
-                    // ========================================================
-                    // SOLUCIÓN AL DOBLE DESCUENTO: 
-                    // En modo mesa el stock ya se descontó al "agregar producto".
-                    // Pasamos un array vacío porque el backend ya tiene los consumos en BD.
-                    // ========================================================
-                    productos: []
-                    // ========================================================
-                };
-                const response = await fetch(this.apiURL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payloadMesa)
-                });
-                const data = await response.json();
-                if (data.status === "success") {
-                    operacionExitosa = true;
-                    mensajeExito = data.message || "Cobro realizado y mesa liberada";
-
-                    const lblTiempoModal = document.getElementById("lblDetalleTiempoModal");
-                    const tiempoMesaVal = lblTiempoModal ? parseFloat(lblTiempoModal.innerText) || 0 : 0;
-
-                    datosImpresion = {
-                        tipo: "Mesa",
-                        nombreMesa: mesaSeleccionadaActual,
-                        total: window.totalActualCobro,
-                        metodo_pago: metodoPago,
-                        productos: this.itemsCarrito.map(item => ({ cantidad: item.cantidad, nombre: item.nombre, precio_unitario: item.precio })),
-                        tiempoMesa: tiempoMesaVal
-                    };
-
-                    this.deseleccionarMesa();
-                } else {
-                    window.mostrarToast(data.message || "Error al procesar cobro de mesa", "error");
-                }
-            }
-            // 3. Bloque común de finalización tras una transacción exitosa en base de datos
-            if (operacionExitosa) {
-                window.mostrarToast(mensajeExito, "success");
-                this.cerrarModal('modalConfirmarCobro');
-                this.mesaIncentivoAsignada = null; // Limpiar estado de promo tras cobro
-                this.limpiarCarrito();
-                // Sincronización completa de la interfaz de usuario con el backend
-                await this.cargarGrillaMesas(); // Actualiza estados visuales e importes acumulados del grid
-                await this.cargarDatalistProductos(); // REFRESCAR EL DATALIST CON EL NUEVO STOCK REAL EN CALIENTE
-
-                // Disparar Impresión si el gestor está disponible
-                if (typeof gestorImpresion !== 'undefined' && datosImpresion) {
-                    gestorImpresion.imprimirTicketVenta(datosImpresion);
-                }
-            }
+            const metodo = (rdoQR && rdoQR.checked) ? "qr" : "efectivo";
+            const data = await this.enviarCobro(cobro, [{ metodo, monto: this.totalCobroEnCurso() }]);
+            await this.procesarRespuestaCobro(data, "modalConfirmarCobro");
         } catch (error) {
             console.error("Error en transacción unificada de cobro:", error);
             window.mostrarToast("Error de conexión al procesar la solicitud", "error");
@@ -2124,121 +1661,88 @@ window.gestorUI = {
             setBtnLoading(btn, false, originalHTML);
         }
     },
-    // NUEVO MÉTODO OPERATIVO: Transacción de Cierre y Liberación de Mesa
-    procesarCobroMesa: async function () {
-        // AQUÍ SE INCLUYE: Capturamos el radio seleccionado justo antes de armar el payload
-        const metodoSeleccionado = document.querySelector('input[name="metodoPago"]:checked').value;
-        try {
-            const payload = {
-                accion: "cobrar_mesa",
-                id_mesa: window.idMesaPendiente,
-                id_usuario: localStorage.getItem("id_usuario") || 1,
-                total: window.totalActualCobro,
-                // Inyectamos el método capturado dinámicamente para la tabla 'pagos'
-                pagos: [{ metodo: metodoSeleccionado, monto: window.totalActualCobro }],
-                productos: this.itemsCarrito.map(item => ({
-                    id_producto: item.id_producto,
-                    cantidad: item.cantidad,
-                    precio_unitario: item.precio
-                }))
-            };
-            const response = await fetch(this.apiURL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (data.status === "success") {
-                window.mostrarToast("Mesa cobrada y liberada exitosamente.", "success");
-                this.cerrarModal('modalConfirmarCobro');
-                this.limpiarCarrito();
-                modoActual = "barra";
-                mesaSeleccionadaActual = "";
-                this.cambiarEstadoLayout("state-barra");
-                await this.cargarGrillaMesas();
-            } else {
-                window.mostrarToast(data.message || "Error al procesar cobro", "error");
-            }
-        } catch (error) {
-            console.error("Error en cobro de mesa:", error);
-            window.mostrarToast("Error de red en el servidor.", "error");
+    enviarCobro: function (cobro, pagos) {
+        const total_mostrado = Number(cobro.liquidacion.total);
+        if (cobro.modo === "mesa") {
+            return this.api({ accion: "cobrar_mesa", id_mesa: cobro.id_mesa, pagos, total_mostrado });
         }
+        const cuerpo = {
+            accion: "registrar_venta_barra",
+            pagos,
+            total_mostrado,
+            productos: this.itemsCarrito.map(item => ({ id_producto: item.id_producto, cantidad: item.cantidad }))
+        };
+        if (this.mesaIncentivoAsignada) cuerpo.id_mesa_ocupar_promo = this.mesaIncentivoAsignada;
+        return this.api(cuerpo);
     },
-    procesarVentaBarra: async function () {
-        if (this.itemsCarrito.length === 0) {
-            window.mostrarToast("El carrito está vacío. Agregue productos primero.", "warning");
+    procesarRespuestaCobro: async function (data, idModal) {
+        const cobro = this.cobroEnCurso;
+        if (data.status !== "success") {
+            await this.manejarErrorCobro(data, idModal);
             return;
         }
-        // AQUÍ SE INCLUYE: Capturamos el método de pago elegido para registrarlo en la barra
-        const metodoSeleccionado = document.querySelector('input[name="metodoPago"]:checked').value;
-        try {
-            const payload = {
-                accion: "registrar_venta_barra",
-                id_usuario: localStorage.getItem("id_usuario") || 1,
-                total: this.itemsCarrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0),
-                metodo_pago: metodoSeleccionado, // Sincronizado para el Backend
-                productos: this.itemsCarrito.map(item => ({
-                    id_producto: item.id_producto,
-                    cantidad: item.cantidad,
-                    precio_unitario: item.precio
-                }))
-            };
-            const response = await fetch(this.apiURL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (data.status === "success") {
-                window.mostrarToast("Venta registrada exitosamente", "success");
-                this.limpiarCarrito();
-            } else {
-                window.mostrarToast(data.message || "Error al procesar la venta", "error");
-            }
-        } catch (error) {
-            console.error("Error en la venta de barra:", error);
-            window.mostrarToast("Error de conexión al procesar transacción", "error");
-        }
+        // El cobro ya cerró la mesa: al cerrar el modal no hay pausa que deshacer ni hora gratis que quitar.
+        window.mesaAutoPausada = false;
+        this.mesaIncentivoAsignada = null;
+        this.cobroEnCurso = null;
+        await this.cerrarModal(idModal);
+        window.mostrarToast(cobro.modo === "mesa" ? "Cobro realizado y mesa liberada" : "Venta en barra registrada", "success");
+        this.imprimirComprobante(cobro, data);
+        if (cobro.modo === "mesa") this.deseleccionarMesa();
+        else this.limpiarCarrito();
+        await Promise.all([this.cargarGrillaMesas(), this.cargarDatalistProductos()]);
+        this.pintarRelojes();
     },
-    procesarAgregarProductosMesa: async function () {
-        if (this.itemsCarrito.length === 0) {
-            window.mostrarToast("El carrito está vacío. Agregue productos primero.", "warning");
+    manejarErrorCobro: async function (data, idModal) {
+        if (data.codigo === "total_cambio" && data.liquidacion && this.cobroEnCurso) {
+            this.cobroEnCurso.liquidacion = data.liquidacion;
+            if (idModal === "modalDividirPago") this.mostrarModalDividir();
+            else this.mostrarModalCobro();
+            window.mostrarToast(data.message, "warning");
             return;
         }
-        // Obtener el ID de la mesa seleccionada actualmente
-        const mesaCard = document.querySelector(`.mesa-card[data-nombre="${mesaSeleccionadaActual}"]`);
-        if (!mesaCard) return;
-        const id_mesa_actual = mesaCard.getAttribute("data-id");
-        try {
-            const payload = {
-                accion: "agregar_productos_mesa",
-                id_mesa: id_mesa_actual,
-                productos: this.itemsCarrito.map(item => ({
-                    id_producto: item.id_producto,
-                    cantidad: item.cantidad,
-                    precio_unitario: item.precio
-                }))
-            };
-            const response = await fetch(this.apiURL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (data.status === "success") {
-                window.mostrarToast("Productos agregados a la mesa", "success");
-                this.limpiarCarrito();
-                // Recargar grilla para actualizar el consumo total y verlo en la vista
-                await this.cargarGrillaMesas();
-            } else {
-                window.mostrarToast(data.message || "Error al agregar productos a la mesa", "error");
-            }
-        } catch (error) {
-            console.error("Error al agregar a mesa:", error);
-            window.mostrarToast("Error de conexión al procesar transacción", "error");
+        if (data.codigo === "mesa_no_disponible") {
+            this.cobroEnCurso = null;
+            await this.avisarMesaNoDisponible(data, idModal);
+            return;
         }
+        if (data.codigo === "mesa_sin_partida") {
+            window.mesaAutoPausada = false;
+            this.cobroEnCurso = null;
+            if (idModal) await this.cerrarModal(idModal);
+            window.mostrarToast(data.message, "warning");
+            this.deseleccionarMesa();
+            await this.cargarGrillaMesas();
+            this.pintarRelojes();
+            return;
+        }
+        if (data.codigo === "promo_no_vigente") {
+            this.cobroEnCurso = null;
+            if (idModal) await this.cerrarModal(idModal);
+            this.quitarHoraPromoDelCarrito();
+            await this.cotizarCarrito();
+            window.mostrarToast(data.message, "warning");
+            return;
+        }
+        window.mostrarToast(data.message || "No se pudo procesar el cobro", "error");
+    },
+    imprimirComprobante: function (cobro, data) {
+        if (typeof gestorImpresion === "undefined" || !data.liquidacion) return;
+        const liq = data.liquidacion;
+        const pagos = (data.pagos || []).map(p => `${p.metodo} ${Number(p.monto).toFixed(2)}`).join(" + ");
+        gestorImpresion.imprimirTicketVenta({
+            tipo: cobro.modo === "mesa" ? "Mesa" : "Barra",
+            nombreMesa: cobro.nombre || "",
+            total: liq.total,
+            metodo_pago: pagos || "sin pago",
+            productos: liq.productos.map(p => ({ cantidad: p.cantidad, nombre: p.nombre, precio_unitario: p.precio })),
+            tiempoMesa: liq.tiempo,
+            descuentos: liq.descuentos,
+            redondeo: liq.redondeo
+        });
     },
 };
+
 // NOTA: gestorUI.inicializar() es llamado por atencion.js cuando el router
 // inyecta atencion.html en el outlet del SPA. No ejecutar aquí desde DOMContentLoaded
 // porque en ese momento #listaProductos aún no existe en el DOM.

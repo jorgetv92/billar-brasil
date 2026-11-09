@@ -157,6 +157,7 @@ CREATE TABLE ventas (
     subtotal_mesas DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     subtotal_productos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     descuentos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    redondeo DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Ajuste hacia arriba a .00 o .50
     total_pagar DECIMAL(10,2) NOT NULL,
     fecha_hora_venta DATETIME NOT NULL,
     CONSTRAINT fk_venta_jornada FOREIGN KEY (id_jornada) REFERENCES jornadas(id_jornada),
@@ -170,6 +171,7 @@ CREATE TABLE detalle_venta_productos (
     id_producto INT NOT NULL,
     cantidad INT NOT NULL,
     precio_unitario_aplicado DECIMAL(10,2) NOT NULL,
+    fecha_hora DATETIME NULL, -- Momento del pedido: define qué promos le corresponden
     CONSTRAINT fk_detalle_vp_venta FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE,
     CONSTRAINT fk_detalle_vp_sesion FOREIGN KEY (id_sesion) REFERENCES sesiones_juego(id_sesion),
     CONSTRAINT fk_detalle_vp_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)

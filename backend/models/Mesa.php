@@ -8,7 +8,7 @@ class Mesa {
     public static function bloquear($pdo, array $ids) {
         $ids = array_unique(array_map('intval', $ids));
         sort($ids);
-        $stmt = $pdo->prepare("SELECT id_mesa, numero_mesa, estado_actual FROM mesas WHERE id_mesa = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT id_mesa, id_tipo_mesa, numero_mesa, estado_actual FROM mesas WHERE id_mesa = ? FOR UPDATE");
         $mesas = [];
         foreach ($ids as $id) {
             $stmt->execute([$id]);

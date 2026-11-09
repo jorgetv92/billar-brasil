@@ -1541,6 +1541,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         datos.id_item_condicion = document.getElementById("id_item_condicion_2x1").value;
                     } else if (tipo === "incentivo_cruzado") {
                         datos.id_item_condicion = document.getElementById("id_item_condicion_cruz_prod").value;
+                        datos.id_item_secundario = document.getElementById("id_item_condicion_cruz_mesa").value;
                         datos.valor_descuento = document.getElementById("valor_descuento_cruz").value;
                         datos.cantidad_condicion = document.getElementById("cantidad_condicion_cruz").value;
                     } else if (tipo === "incentivo_mesa") {
@@ -1638,6 +1639,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     const selectIncMesa = document.getElementById("id_item_condicion_inc_mesa");
                     const selectIncProdMesa = document.getElementById("id_item_secundario_inc_prod");
                     selectMesa.innerHTML = selectCruzMesa.innerHTML = selectIncMesa.innerHTML = selectIncProdMesa.innerHTML = "";
+                    // Las promos cruzadas guardadas antes de este campo cuentan el tiempo en cualquier mesa.
+                    selectCruzMesa.innerHTML = `<option value="">Cualquier mesa</option>`;
 
                     mData.data.forEach(m => {
                         let opt = `<option value="${m.id_tipo_mesa}">${m.nombre_tipo} (${m.precio_hora} Bs/h)</option>`;
@@ -1701,8 +1704,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         } else if (tipo === "combo_2x1") {
                             document.getElementById("id_item_condicion_2x1").value = promo.id_item_condicion;
                         } else if (tipo === "incentivo_cruzado") {
-                            // En esta versión, el backend guarda el producto beneficiado en id_item_condicion
+                            // Producto beneficiado en id_item_condicion; tipo de mesa requerido en id_item_secundario
                             document.getElementById("id_item_condicion_cruz_prod").value = promo.id_item_condicion;
+                            document.getElementById("id_item_condicion_cruz_mesa").value = promo.id_item_secundario || "";
                             document.getElementById("valor_descuento_cruz").value = promo.valor_descuento;
                             document.getElementById("cantidad_condicion_cruz").value = promo.cantidad_condicion;
                         } else if (tipo === "incentivo_mesa") {

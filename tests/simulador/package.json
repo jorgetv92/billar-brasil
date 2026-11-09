@@ -6,6 +6,7 @@
   "scripts": {
     "unidad": "node correr.js unidad",
     "doble": "node correr.js doble",
+    "motor": "node correr.js motor",
     "limpieza": "node correr.js limpieza",
     "reglas": "node correr.js reglas",
     "turnos": "node correr.js turnos",

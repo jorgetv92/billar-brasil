@@ -156,7 +156,7 @@
                 <div id="block-incentivo_mesa" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #4caf50;">
                     <h4 style="margin-bottom:10px; color:#388e3c;">Configuración de Incentivo en Mesa</h4>
                     <div style="font-size:0.9rem; margin-bottom:12px; color:#475569;">
-                        Regla: "Si la mesa juega un mínimo de tiempo, el precio por hora de la mesa baja a un precio especial".
+                        Regla: "Cuando la mesa cumple el mínimo de horas de juego, desde ese momento la hora se cobra al precio especial. El tiempo anterior se cobra a la tarifa normal".
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
@@ -177,7 +177,7 @@
                 <div id="block-incentivo_producto" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #ff9800;">
                     <h4 style="margin-bottom:10px; color:#f57c00;">Configuración de Incentivo en Producto</h4>
                     <div style="font-size:0.9rem; margin-bottom:12px; color:#475569;">
-                        Regla: "Si el cliente compra X cantidad del producto seleccionado, la primera hora de juego en el tipo de mesa elegido se cobra al precio especial configurado (en lugar del precio normal)."
+                        Regla: "Si el cliente compra X cantidad del producto seleccionado y paga el monto adicional, recibe una hora de juego gratis en el tipo de mesa elegido."
                     </div>
                     <div class="form-grid">
                         <div class="input-group">
@@ -193,7 +193,7 @@
                             <select id="id_item_secundario_inc_prod"></select>
                         </div>
                         <div class="input-group">
-                            <label for="valor_descuento_inc_prod">Precio especial por 1ª hora (Bs.)</label>
+                            <label for="valor_descuento_inc_prod">Monto adicional por la hora gratis (Bs.)</label>
                             <input type="number" id="valor_descuento_inc_prod" step="0.50" min="0" placeholder="Ej: 10.00">
                         </div>
                     </div>

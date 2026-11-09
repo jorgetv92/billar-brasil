@@ -102,6 +102,12 @@ const gestorImpresion = {
             <div><span class="bold">Uso de Mesa:</span> ${parseFloat(datos.tiempoMesa).toFixed(2)} Bs</div>
             `;
         }
+        if (datos.descuentos > 0) {
+            tiempoHtml += `<div>Descuento promo: -${parseFloat(datos.descuentos).toFixed(2)} Bs</div>`;
+        }
+        if (datos.redondeo > 0) {
+            tiempoHtml += `<div>Redondeo: +${parseFloat(datos.redondeo).toFixed(2)} Bs</div>`;
+        }
 
         const html = `
             <div class="ticket-header text-center">

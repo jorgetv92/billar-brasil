@@ -42,9 +42,9 @@ function tarifaDelBloque(tipo, inicioMs, segJugados, { promos, lista }) {
 }
 
 // Cada tramo cuenta sus bloques: 00:01 cobra el primero, 05:00 sigue en el primero, 05:01 cobra el segundo.
-// La suma se hace en tarifas enteras y se divide una sola vez para no acumular errores de redondeo.
+// Cada tramo suma tarifas enteras y redondea a centavos una sola vez, así el total es la suma de los tramos.
 function liquidarTiempo(tramos, gratis, ctx) {
-  let sumaTarifasCent = 0;
+  let tiempoCent = 0;
   let bloques = 0;
   let segJugados = 0;
   let gratisPendientes = gratis ? BLOQUES_HORA_GRATIS : 0;
@@ -52,6 +52,7 @@ function liquidarTiempo(tramos, gratis, ctx) {
   for (const tramo of tramos) {
     const seg = Math.max(0, (tramo.b - tramo.a) / 1000);
     const cantidad = Math.ceil(seg / SEG_POR_BLOQUE);
+    let sumaTarifasCent = 0;
     for (let k = 0; k < cantidad; k++) {
       const inicio = tramo.a + k * SEG_POR_BLOQUE * 1000;
       const tarifa = tarifaDelBloque(tramo.tipo, inicio, segJugados + k * SEG_POR_BLOQUE, ctx);
@@ -63,10 +64,11 @@ function liquidarTiempo(tramos, gratis, ctx) {
       }
       sumaTarifasCent += Math.round(tarifa * 100);
     }
+    tiempoCent += Math.round(sumaTarifasCent / BLOQUES_POR_HORA);
     segJugados += seg;
     segPorTipo[tramo.tipo] = (segPorTipo[tramo.tipo] || 0) + seg;
   }
-  return { tiempo: r2(sumaTarifasCent / BLOQUES_POR_HORA / 100), bloques, segJugados, segPorTipo };
+  return { tiempo: r2(tiempoCent / 100), bloques, segJugados, segPorTipo };
 }
 
 // Solo cuentan las unidades pedidas durante la promo: conservan el beneficio aunque se paguen después.

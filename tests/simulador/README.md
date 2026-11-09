@@ -7,7 +7,7 @@ Es solo para desarrollo. No se despliega al hosting, y `tests/.htaccess` bloquea
 ## Qué toca
 
 - **Lee** la base configurada en `backend/config/database.php` con `mysqldump`.
-- **Escribe** solo en la base clon `billar_sim`, que se recrea en cada grupo.
+- **Escribe** solo en la base clon `billar_sim`, que se recrea en cada grupo y recibe las migraciones de `backend/config` que el código necesita.
 - **Copia** el sitio a una carpeta temporal (`%TEMP%\billar-sim`). Allí cambia el reloj de PHP y la conexión al clon. Si no puede apuntar la copia al clon, se detiene sin escribir nada.
 
 ## Requisitos
@@ -22,6 +22,7 @@ Es solo para desarrollo. No se despliega al hosting, y `tests/.htaccess` bloquea
 npm run unidad     # reglas del negocio sin navegador (segundos)
 npm run reglas     # los ejemplos del negocio jugados en pantalla
 npm run doble      # doble ocupación de mesas, incluidas dos cajas a la vez
+npm run motor      # el backend fija precios, valida pagos y no cobra dos veces la misma mesa
 npm run limpieza   # el script de sesiones huérfanas sobre el clon
 npm run turnos     # 4 turnos completos y el análisis de caja, inventario y reportes (~5 min)
 npm run todo
@@ -37,5 +38,6 @@ Los resultados detallados quedan en `%TEMP%\billar-sim\resultados`.
 | `oraculo.test.js` | Un caso por regla o ejemplo dado por el negocio. Si cambia una regla, se cambia aquí primero. |
 | `lib.js` | Maneja la pantalla real y anota lo que correspondería cobrar. |
 | `reglas_negocio.js` | Ejemplos del negocio con montos escritos a mano. |
+| `motor.js` | Validaciones del cobro en el backend y carreras entre dos cajas. |
 | `turnos.js`, `dirigidas.js`, `analizar.js` | Turnos completos, casos aislados y el análisis. |
 | `reset.sql` | Promociones de prueba. Debe coincidir con `PROMOS` en `lib.js`. |

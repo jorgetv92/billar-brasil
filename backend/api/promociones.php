@@ -67,6 +67,9 @@ switch ($method) {
             $id_item = $data->id_item_condicion; // ID del producto beneficiado / mesa
             $valor_desc = $data->valor_descuento; // Precio especial del producto / mesa
             $cant_cond = $data->cantidad_condicion; // Horas de juego requeridas
+            if ($data->tipo_promo === 'incentivo_cruzado' && !empty($data->id_item_secundario)) {
+                $id_item_secundario = $data->id_item_secundario; // Tipo de mesa donde cuentan las horas
+            }
         } elseif ($data->tipo_promo === 'incentivo_producto') {
             $id_item = $data->id_item_condicion; // ID del producto requerido
             $id_item_secundario = $data->id_item_secundario; // Tipo de mesa al que aplica
