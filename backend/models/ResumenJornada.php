@@ -10,78 +10,97 @@ class ResumenJornada {
         return (int) round(floatval($bs) * 100);
     }
 
-    // Parte de una venta que corresponde a mesas y a productos, en centavos.
-    // El redondeo acompaña al tiempo de mesa; en una venta sin tiempo, a los productos.
+    // Parte de una venta que corresponde a mesas, productos y otros cargos, en centavos.
+    // Lo pagado por la hora gratis es tiempo de mesa. El redondeo acompaña al tiempo; en una venta sin tiempo,
+    // a los productos, y si tampoco hay productos, a los cargos.
     private static function partes(array $venta) {
-        $mesas = self::centavos($venta['subtotal_mesas']);
+        $mesas = self::centavos($venta['subtotal_mesas']) + self::centavos($venta['cargos_hora']);
         $productos = max(0, self::centavos($venta['subtotal_productos']) - self::centavos($venta['descuentos']));
+        $cargos = self::centavos($venta['cargos_otros']);
+        $redondeo = self::centavos($venta['redondeo']);
         if ($mesas > 0) {
-            $mesas += self::centavos($venta['redondeo']);
+            $mesas += $redondeo;
+        } elseif ($productos > 0) {
+            $productos += $redondeo;
         } else {
-            $productos += self::centavos($venta['redondeo']);
+            $cargos += $redondeo;
         }
-        return [$mesas, $productos];
+        return [$mesas, $productos, $cargos];
     }
 
-    // Reparte los pagos de una venta. Si la venta cuadra, a mesas le toca exactamente su parte.
+    // Reparte $monto en proporción a $pesos con el método del mayor resto: las partes suman exactamente $monto.
+    // Sin pesos, todo va a la parte $porDefecto.
+    private static function repartirMonto($monto, array $pesos, $porDefecto) {
+        $base = array_sum($pesos);
+        $partes = array_fill(0, count($pesos), 0);
+        if ($base <= 0) {
+            $partes[$porDefecto] = $monto;
+            return $partes;
+        }
+        $restos = [];
+        foreach ($pesos as $k => $peso) {
+            $exacto = $monto * $peso / $base;
+            $partes[$k] = (int) floor($exacto);
+            $restos[$k] = $exacto - $partes[$k];
+        }
+        $faltan = $monto - array_sum($partes);
+        arsort($restos);
+        foreach (array_keys($restos) as $k) {
+            if ($faltan <= 0) break;
+            $partes[$k]++;
+            $faltan--;
+        }
+        return $partes;
+    }
+
+    // Reparte los pagos de una venta. Si la venta cuadra, a cada parte le toca exactamente lo suyo.
     private static function repartir(array $venta) {
-        list($mesas, $productos) = self::partes($venta);
+        $pesos = self::partes($venta);
         $efectivo = self::centavos($venta['efectivo']);
         $qr = self::centavos($venta['qr']);
-        $base = $mesas + $productos;
-
-        $mesasTotal = $base > 0 ? (int) round(($efectivo + $qr) * $mesas / $base) : 0;
-        $mesasEfectivo = min($base > 0 ? (int) round($efectivo * $mesas / $base) : 0, $mesasTotal);
-        $mesasQr = $mesasTotal - $mesasEfectivo;
-        if ($mesasQr > $qr) {
-            $mesasQr = $qr;
-            $mesasEfectivo = $mesasTotal - $qr;
-        }
+        $porDefecto = $venta['id_sesion'] ? 0 : 1;
+        $totales = self::repartirMonto($efectivo + $qr, $pesos, $porDefecto);
+        // El efectivo se reparte con el mismo peso que lo cobrado: ninguna parte recibe más de lo que le toca.
+        $enEfectivo = self::repartirMonto($efectivo, $totales, $porDefecto);
         return [
-            'mesas_efectivo' => $mesasEfectivo,
-            'mesas_qr' => $mesasQr,
-            'productos_efectivo' => $efectivo - $mesasEfectivo,
-            'productos_qr' => $qr - $mesasQr,
+            'mesas_efectivo' => $enEfectivo[0],
+            'mesas_qr' => $totales[0] - $enEfectivo[0],
+            'productos_efectivo' => $enEfectivo[1],
+            'productos_qr' => $totales[1] - $enEfectivo[1],
+            'cargos_efectivo' => $enEfectivo[2],
+            'cargos_qr' => $totales[2] - $enEfectivo[2],
         ];
     }
 
-    // Ingresos de la jornada por venta y totales de mesas y productos, separados por medio de pago.
+    // Ingresos de la jornada por venta y totales de mesas, productos y cargos, separados por medio de pago.
     public static function ingresos($pdo, $idJornada) {
         $stmt = $pdo->prepare("
-            SELECT v.id_venta, v.subtotal_mesas, v.subtotal_productos, v.descuentos, v.redondeo,
-                   COALESCE(SUM(CASE WHEN p.metodo_pago = 'efectivo' THEN p.monto_pagado END), 0) AS efectivo,
-                   COALESCE(SUM(CASE WHEN p.metodo_pago = 'qr' THEN p.monto_pagado END), 0) AS qr
+            SELECT v.id_venta, v.id_sesion, v.subtotal_mesas, v.subtotal_productos, v.descuentos, v.redondeo,
+                   COALESCE((SELECT SUM(c.monto) FROM cargos_venta c WHERE c.id_venta = v.id_venta AND c.tipo = 'hora_gratis'), 0) AS cargos_hora,
+                   COALESCE((SELECT SUM(c.monto) FROM cargos_venta c WHERE c.id_venta = v.id_venta AND c.tipo <> 'hora_gratis'), 0) AS cargos_otros,
+                   COALESCE((SELECT SUM(p.monto_pagado) FROM pagos_venta p WHERE p.id_venta = v.id_venta AND p.metodo_pago = 'efectivo'), 0) AS efectivo,
+                   COALESCE((SELECT SUM(p.monto_pagado) FROM pagos_venta p WHERE p.id_venta = v.id_venta AND p.metodo_pago = 'qr'), 0) AS qr
             FROM ventas v
-            LEFT JOIN pagos_venta p ON p.id_venta = v.id_venta
             WHERE v.id_jornada = ?
-            GROUP BY v.id_venta
         ");
         $stmt->execute([$idJornada]);
 
         $porVenta = [];
-        $suma = ['mesas_efectivo' => 0, 'mesas_qr' => 0, 'productos_efectivo' => 0, 'productos_qr' => 0];
+        $suma = ['mesas_efectivo' => 0, 'mesas_qr' => 0, 'productos_efectivo' => 0, 'productos_qr' => 0, 'cargos_efectivo' => 0, 'cargos_qr' => 0];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $venta) {
             $reparto = self::repartir($venta);
             $porVenta[intval($venta['id_venta'])] = $reparto;
             foreach ($reparto as $clave => $centavos) $suma[$clave] += $centavos;
         }
 
-        $bs = function ($centavos) {
-            return round($centavos / 100, 2);
+        $parte = function ($nombre) use ($suma) {
+            return [
+                'efectivo' => round($suma[$nombre . '_efectivo'] / 100, 2),
+                'qr' => round($suma[$nombre . '_qr'] / 100, 2),
+                'total' => round(($suma[$nombre . '_efectivo'] + $suma[$nombre . '_qr']) / 100, 2),
+            ];
         };
-        return [
-            'ventas' => $porVenta,
-            'mesas' => [
-                'efectivo' => $bs($suma['mesas_efectivo']),
-                'qr' => $bs($suma['mesas_qr']),
-                'total' => $bs($suma['mesas_efectivo'] + $suma['mesas_qr']),
-            ],
-            'productos' => [
-                'efectivo' => $bs($suma['productos_efectivo']),
-                'qr' => $bs($suma['productos_qr']),
-                'total' => $bs($suma['productos_efectivo'] + $suma['productos_qr']),
-            ],
-        ];
+        return ['ventas' => $porVenta, 'mesas' => $parte('mesas'), 'productos' => $parte('productos'), 'cargos' => $parte('cargos')];
     }
 
     // Segundos jugados en mesas con tarifa. Un tramo en pausa cuenta hasta la pausa; uno en curso, hasta ahora.
@@ -99,7 +118,25 @@ class ResumenJornada {
         return (int) $stmt->fetchColumn();
     }
 
+    // Preparados vendidos en la jornada (cócteles, vasos): no tienen stock, pero sí son venta de productos.
+    public static function preparados($pdo, $idJornada) {
+        $stmt = $pdo->prepare("
+            SELECT p.nombre_producto, SUM(dv.cantidad) AS vendido, SUM(dv.cantidad * dv.precio_unitario_aplicado) AS importe_vendido
+            FROM detalle_venta_productos dv
+            INNER JOIN ventas v ON v.id_venta = dv.id_venta
+            INNER JOIN productos p ON p.id_producto = dv.id_producto
+            WHERE v.id_jornada = ? AND p.tipo = 'preparado'
+            GROUP BY p.id_producto, p.nombre_producto
+            ORDER BY p.nombre_producto
+        ");
+        $stmt->execute([$idJornada]);
+        return array_map(function ($f) {
+            return ['nombre_producto' => $f['nombre_producto'], 'vendido' => intval($f['vendido']), 'importe_vendido' => round(floatval($f['importe_vendido']), 2)];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     // Inventario del turno por producto: inicial, cargas, vendido (cobrado y aún en mesas abiertas) y final.
+    // Solo productos con stock: los preparados no se cuentan, y los retirados solo si se movieron en el turno.
     // "ajuste" es lo que no explican las ventas ni las cargas (por ejemplo, un cambio manual de stock).
     // Necesita la foto de apertura, que se borra al cerrar la jornada.
     public static function inventario($pdo, $idJornada, $apertura, $cierre = null) {
@@ -136,7 +173,8 @@ class ResumenJornada {
                   AND cg.fecha_hora >= ? AND cg.fecha_hora <= COALESCE(?, NOW())
                 GROUP BY dc.id_producto
             ) c ON c.id_producto = p.id_producto
-            WHERE jia.id_jornada = ?
+            WHERE jia.id_jornada = ? AND p.tipo = 'inventario'
+              AND (p.activo = 1 OR COALESCE(v.cantidad, 0) > 0 OR COALESCE(c.cantidad, 0) > 0 OR COALESCE(m.cantidad, 0) > 0)
             ORDER BY p.nombre_producto
         ");
         $stmt->execute([$idJornada, $idJornada, $apertura, $cierre, $idJornada]);

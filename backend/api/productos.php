@@ -17,10 +17,20 @@ $database = new Database();
 $db = $database->getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
 
+// inventario: se compra para revender y lleva stock. preparado: se arma en la barra (vaso de fernet, cócteles), sin stock.
+function tipoProducto($data) {
+    return (isset($data->tipo) && $data->tipo === 'preparado') ? 'preparado' : 'inventario';
+}
+
+// Un producto retirado deja de aparecer para vender, cargar o reportar, pero se conserva por las ventas antiguas.
+function activoProducto($data) {
+    return (isset($data->activo) && !$data->activo) ? 0 : 1;
+}
+
 switch ($method) {
     case 'GET':
         try {
-            $query = "SELECT id_producto, nombre_producto, precio_venta, stock_actual FROM productos ORDER BY nombre_producto ASC";
+            $query = "SELECT id_producto, nombre_producto, precio_venta, stock_actual, tipo, activo FROM productos ORDER BY nombre_producto ASC";
             $stmt = $db->prepare($query);
             $stmt->execute();
             $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -38,8 +48,12 @@ switch ($method) {
         if (!empty($data->nombre_producto) && isset($data->precio_venta)) {
             try {
                 // stock_actual no se envía, la BD lo pone en 0 por el DEFAULT
-                $query = "INSERT INTO productos (nombre_producto, precio_venta) VALUES (:nombre, :precio)";
+                $query = "INSERT INTO productos (nombre_producto, precio_venta, tipo, activo) VALUES (:nombre, :precio, :tipo, :activo)";
                 $stmt = $db->prepare($query);
+                $tipo = tipoProducto($data);
+                $activo = activoProducto($data);
+                $stmt->bindParam(':tipo', $tipo);
+                $stmt->bindParam(':activo', $activo);
                 $stmt->bindParam(':nombre', $data->nombre_producto);
                 $stmt->bindParam(':precio', $data->precio_venta);
                 
@@ -62,8 +76,12 @@ switch ($method) {
         if (!empty($data->id_producto) && !empty($data->nombre_producto) && isset($data->precio_venta)) {
             try {
                 // Solo se permite actualizar nombre y precio. El stock se ignora aquí.
-                $query = "UPDATE productos SET nombre_producto = :nombre, precio_venta = :precio WHERE id_producto = :id";
+                $query = "UPDATE productos SET nombre_producto = :nombre, precio_venta = :precio, tipo = :tipo, activo = :activo WHERE id_producto = :id";
                 $stmt = $db->prepare($query);
+                $tipo = tipoProducto($data);
+                $activo = activoProducto($data);
+                $stmt->bindParam(':tipo', $tipo);
+                $stmt->bindParam(':activo', $activo);
                 $stmt->bindParam(':nombre', $data->nombre_producto);
                 $stmt->bindParam(':precio', $data->precio_venta);
                 $stmt->bindParam(':id', $data->id_producto);
@@ -97,7 +115,7 @@ switch ($method) {
             } catch (PDOException $e) {
                 if($e->getCode() == 23000) {
                     http_response_code(409);
-                    echo json_encode(["status" => "error", "message" => "No se puede eliminar porque este producto ya tiene un historial de ventas."]);
+                    echo json_encode(["status" => "error", "message" => "No se puede eliminar porque este producto ya tiene un historial de ventas. Puede marcarlo como retirado (inactivo) para que deje de aparecer."]);
                 } else {
                     http_response_code(500);
                     echo json_encode(["status" => "error", "message" => "Error al eliminar."]);

@@ -4,7 +4,7 @@ const path = require('path');
 const { DIR_RESULTADOS } = require('./config');
 const { Sim, abrirNavegador, q } = require('./lib');
 
-const P = { Macanuda: 1, Corona: 6, Palito: 9, SodaPop: 12, AmstelBot: 46, HoraPromo: 47, Chocosoda: 27 };
+const P = { Macanuda: 1, Corona: 6, Palito: 9, SodaPop: 12, AmstelBot: 46, Chocosoda: 27 };
 
 (async () => {
   const { navegador, page: p } = await abrirNavegador();

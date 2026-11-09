@@ -102,6 +102,9 @@ const gestorImpresion = {
             <div><span class="bold">Uso de Mesa:</span> ${parseFloat(datos.tiempoMesa).toFixed(2)} Bs</div>
             `;
         }
+        (datos.cargos || []).forEach(c => {
+            tiempoHtml += `<div>${c.descripcion}: ${parseFloat(c.monto).toFixed(2)} Bs</div>`;
+        });
         if (datos.descuentos > 0) {
             tiempoHtml += `<div>Descuento promo: -${parseFloat(datos.descuentos).toFixed(2)} Bs</div>`;
         }
@@ -154,6 +157,7 @@ const gestorImpresion = {
                     <tr><td>Fondo Inicial:</td><td class="text-right">${parseFloat(datos.monto_inicial).toFixed(2)} Bs</td></tr>
                     <tr><td>Ventas Tiempo:</td><td class="text-right">${parseFloat(datos.total_tiempo_mesas).toFixed(2)} Bs</td></tr>
                     <tr><td>Ventas Productos:</td><td class="text-right">${parseFloat(datos.total_productos).toFixed(2)} Bs</td></tr>
+                    ${datos.total_cargos > 0 ? `<tr><td>Otros Cargos:</td><td class="text-right">${parseFloat(datos.total_cargos).toFixed(2)} Bs</td></tr>` : ''}
                 </tbody>
             </table>
             

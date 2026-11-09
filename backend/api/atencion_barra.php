@@ -19,23 +19,6 @@ try {
 
 $method = $_SERVER['REQUEST_METHOD'];
 $ahora = date('Y-m-d H:i:s');
-// =========================================================================================
-// OBTENER ID PRODUCTO PARA ITEM HORA PROMO INCENTIVO
-// =========================================================================================
-function obtenerIdProductoPromoIncentivo($pdo) {
-    try {
-        $stmt = $pdo->query("SELECT id_producto FROM productos WHERE nombre_producto LIKE 'Hora Promo%' LIMIT 1");
-        $id = $stmt->fetchColumn();
-        if (!$id) {
-            $pdo->exec("INSERT INTO productos (nombre_producto, precio_venta, stock_actual) VALUES ('Hora Promo (Incentivo)', 0.00, 999999)");
-            $id = $pdo->lastInsertId();
-        }
-        return intval($id);
-    } catch (Exception $e) {
-        return null;
-    }
-}
-
 // Promociones vigentes ahora (o en $fechaHora), con la misma regla de horario que usa el motor de cobro.
 function obtenerPromocionesActivas($pdo, $fechaHora = null) {
     try {
@@ -184,12 +167,27 @@ function descontarStock($pdo, $idProducto, $cantidad, $nombre) {
     }
 }
 
-function registrarVenta($pdo, $idJornada, $idSesion, array $liq, array $pagos) {
+// Código único que la pantalla genera para cada intento de cobro. Sin él (pantallas viejas) no hay protección.
+function leerIdOperacion(array $data) {
+    $id = isset($data['id_operacion']) ? trim((string) $data['id_operacion']) : '';
+    return preg_match('/^[A-Za-z0-9-]{8,40}$/', $id) ? $id : null;
+}
+
+// Si la misma venta llega dos veces (doble clic, reintento de red), el índice único de id_operacion rechaza
+// la segunda y la transacción completa se revierte: no se repiten pagos ni se descuenta stock dos veces.
+function registrarVenta($pdo, $idJornada, $idSesion, array $liq, array $pagos, $idOperacion = null) {
     $stmt = $pdo->prepare("
-        INSERT INTO ventas (id_jornada, id_sesion, subtotal_mesas, subtotal_productos, descuentos, redondeo, total_pagar, fecha_hora_venta)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO ventas (id_jornada, id_sesion, subtotal_mesas, subtotal_productos, subtotal_cargos, descuentos, redondeo, total_pagar, fecha_hora_venta, id_operacion)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
     ");
-    $stmt->execute([$idJornada, $idSesion, $liq['tiempo'], $liq['subtotal_productos'], $liq['descuentos'], $liq['redondeo'], $liq['total']]);
+    try {
+        $stmt->execute([$idJornada, $idSesion, $liq['tiempo'], $liq['subtotal_productos'], $liq['subtotal_cargos'], $liq['descuentos'], $liq['redondeo'], $liq['total'], $idOperacion]);
+    } catch (PDOException $e) {
+        if (isset($e->errorInfo[1]) && intval($e->errorInfo[1]) === 1062) {
+            throw new ErrorOperacion('Esta venta ya se registró. No se cobró de nuevo.', 'venta_duplicada');
+        }
+        throw $e;
+    }
     $idVenta = $pdo->lastInsertId();
 
     $stmt = $pdo->prepare("INSERT INTO pagos_venta (id_venta, metodo_pago, monto_pagado) VALUES (?, ?, ?)");
@@ -197,6 +195,44 @@ function registrarVenta($pdo, $idJornada, $idSesion, array $liq, array $pagos) {
         $stmt->execute([$idVenta, $pago['metodo'], $pago['centavos'] / 100]);
     }
     return $idVenta;
+}
+
+// Guarda cargos ya validados por el motor (montos en centavos) en una venta o en una mesa en curso.
+function guardarCargos($pdo, array $cargos, $idVenta, $idSesion, $ahora) {
+    $stmt = $pdo->prepare("INSERT INTO cargos_venta (id_venta, id_sesion, tipo, id_concepto, id_promocion, descripcion, monto, fecha_hora) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    foreach ($cargos as $c) {
+        $stmt->execute([$idVenta, $idSesion, $c['tipo'], $c['id_concepto'], $c['id_promocion'], $c['descripcion'], $c['monto'] / 100, $ahora]);
+    }
+}
+
+// Guarda las líneas de productos y descuenta stock. Los preparados (cócteles, vasos) no llevan stock.
+function guardarLineas($pdo, array $lineas, $idVenta, $idSesion, $ahora) {
+    $ids = array_values(array_unique(array_map(function ($l) { return $l['id_producto']; }, $lineas)));
+    $tipos = [];
+    if ($ids) {
+        $stmt = $pdo->prepare("SELECT id_producto, tipo FROM productos WHERE id_producto IN (" . implode(',', array_fill(0, count($ids), '?')) . ")");
+        $stmt->execute($ids);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $f) $tipos[intval($f['id_producto'])] = $f['tipo'];
+    }
+    $stmt = $pdo->prepare("INSERT INTO detalle_venta_productos (id_venta, id_sesion, id_producto, cantidad, precio_unitario_aplicado, fecha_hora, id_promocion) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    foreach ($lineas as $l) {
+        // Primero el stock (bloqueo de escritura del producto) y después la línea: si fuera al revés, dos cajas
+        // vendiendo el mismo producto a la vez se bloquearían mutuamente y la base cancelaría una venta.
+        if ((isset($tipos[$l['id_producto']]) ? $tipos[$l['id_producto']] : 'inventario') === 'inventario') {
+            descontarStock($pdo, $l['id_producto'], $l['cantidad'], $l['nombre']);
+        }
+        $stmt->execute([$idVenta, $idSesion, $l['id_producto'], $l['cantidad'], $l['precio'] / 100, $ahora, isset($l['id_promocion']) ? $l['id_promocion'] : null]);
+    }
+}
+
+// Lo que pide la pantalla para cotizar o cobrar un carrito de barra.
+function leerPedido(array $data) {
+    return [
+        'productos' => isset($data['productos']) && is_array($data['productos']) ? $data['productos'] : [],
+        'combos' => isset($data['combos']) && is_array($data['combos']) ? $data['combos'] : [],
+        'cargos' => isset($data['cargos']) && is_array($data['cargos']) ? $data['cargos'] : [],
+        'hora_gratis' => !empty($data['hora_gratis']),
+    ];
 }
 
 function pagosPublicos(array $pagos) {
@@ -373,20 +409,21 @@ if ($method === 'GET') {
 
     // 1.5. OBTENER PROMOCIONES ACTIVAS VIGENTES
     if ($accion === 'get_promociones_activas') {
-        $promos = obtenerPromocionesActivas($pdo);
-        $idProdPromo = obtenerIdProductoPromoIncentivo($pdo);
-        echo json_encode([
-            'status' => 'success',
-            'data' => $promos,
-            'id_producto_hora_promo' => $idProdPromo
-        ]);
+        echo json_encode(['status' => 'success', 'data' => obtenerPromocionesActivas($pdo)]);
+        exit;
+    }
+
+    // CONCEPTOS DE CARGO (rotura de vaso, etc.) con su monto sugerido
+    if ($accion === 'get_conceptos_cargo') {
+        $stmt = $pdo->query("SELECT id_concepto, nombre, monto_sugerido FROM conceptos_cargo WHERE activo = 1 ORDER BY nombre");
+        echo json_encode(['status' => 'success', 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
         exit;
     }
     // 2. OBTENER PRODUCTOS PARA EL DATALIST
     if ($accion === 'get_productos_datalist') {
         try {
             $promosActivas = obtenerPromocionesActivas($pdo);
-            $query = "SELECT id_producto, nombre_producto, stock_actual, precio_venta FROM productos WHERE nombre_producto NOT LIKE 'Hora Promo%'";
+            $query = "SELECT id_producto, nombre_producto, stock_actual, precio_venta, tipo FROM productos WHERE activo = 1";
             $stmt = $pdo->prepare($query);
             $stmt->execute();
 
@@ -407,7 +444,8 @@ if ($method === 'GET') {
                         if (empty($nombrePromo)) $nombrePromo = $p['nombre_promo'];
                     }
                 }
-                $displayLabel = $row['nombre_producto'] . " - " . $row['stock_actual'] . " uds - ";
+                $esPreparado = $row['tipo'] === 'preparado';
+                $displayLabel = $row['nombre_producto'] . " - " . ($esPreparado ? "preparado" : $row['stock_actual'] . " uds") . " - ";
                 if ($tienePromoDesc) {
                     $displayLabel .= "Promo: " . number_format($precioEfectivo, 2, '.', '') . " Bs (Antes " . number_format($precioOriginal, 2, '.', '') . " Bs)";
                 } else {
@@ -421,11 +459,26 @@ if ($method === 'GET') {
                     'nombre_producto' => $row['nombre_producto'],
                     'display_nombre' => $displayLabel,
                     'stock' => intval($row['stock_actual']),
+                    'tipo' => $row['tipo'],
                     'precio' => $precioEfectivo,
                     'precio_original' => $precioOriginal,
                     'tiene_descuento' => $tienePromoDesc,
                     'es_2x1' => $es2x1,
                     'nombre_promo' => $nombrePromo
+                ];
+            }
+
+            // Combos vigentes: el cajero los elige en el mismo buscador. Al escribir "promo" aparecen los
+            // combos y también cualquier producto cuyo nombre contenga "promo"; cada opción es distinta.
+            foreach (Liquidacion::combosVigentes($pdo, Liquidacion::cargarPromos($pdo), strtotime($ahora)) as $combo) {
+                $contenido = implode(', ', array_map(function ($i) { return $i['cantidad'] . ' ' . $i['nombre']; }, $combo['items']));
+                $productos[] = [
+                    'es_combo' => true,
+                    'id_promocion' => $combo['id_promocion'],
+                    'nombre_producto' => $combo['nombre'],
+                    'display_nombre' => "Promo: " . $combo['nombre'] . " (" . $contenido . ") - " . number_format($combo['precio'], 2, '.', '') . " Bs",
+                    'precio' => $combo['precio'],
+                    'items' => $combo['items']
                 ];
             }
 
@@ -532,7 +585,7 @@ if ($method === 'POST') {
 
         // ACCIÓN B0: COTIZAR CARRITO DE BARRA (no guarda nada: es lo que la pantalla muestra)
         elseif ($accion === 'cotizar_carrito') {
-            $cot = Liquidacion::cotizarCarrito($pdo, isset($data['productos']) ? $data['productos'] : [], strtotime($ahora), Liquidacion::cargarPromos($pdo));
+            $cot = Liquidacion::cotizarCarrito($pdo, leerPedido($data), strtotime($ahora), Liquidacion::cargarPromos($pdo));
             $respuesta = ['status' => 'success', 'cotizacion' => $cot['cotizacion']];
         }
 
@@ -549,8 +602,9 @@ if ($method === 'POST') {
                 Mesa::exigirLibre($pdo, $mesaPromo, '%s ya no está libre para la hora gratis. No se cobró nada: elija otra mesa.');
             }
 
-            $cot = Liquidacion::cotizarCarrito($pdo, isset($data['productos']) ? $data['productos'] : [], strtotime($ahora), Liquidacion::cargarPromos($pdo));
-            if (!$cot['lineas']) {
+            $pedido = leerPedido($data);
+            $cot = Liquidacion::cotizarCarrito($pdo, $pedido, strtotime($ahora), Liquidacion::cargarPromos($pdo));
+            if (!$cot['lineas'] && !$cot['cargos']) {
                 throw new ErrorOperacion('El carrito está vacío.', 'carrito_vacio');
             }
             if ($cot['promo_hora']) {
@@ -567,13 +621,9 @@ if ($method === 'POST') {
             $liq = $cot['cotizacion'];
             exigirTotalMostrado($data, $liq);
             $pagos = validarPagos(leerPagos($data), $liq['total']);
-            $idVenta = registrarVenta($pdo, $id_jornada, null, $liq, $pagos);
-
-            $stmtDetalle = $pdo->prepare("INSERT INTO detalle_venta_productos (id_venta, id_sesion, id_producto, cantidad, precio_unitario_aplicado, fecha_hora) VALUES (?, NULL, ?, ?, ?, ?)");
-            foreach ($cot['lineas'] as $linea) {
-                $stmtDetalle->execute([$idVenta, $linea['id_producto'], $linea['cantidad'], $linea['precio'] / 100, $ahora]);
-                descontarStock($pdo, $linea['id_producto'], $linea['cantidad'], $linea['nombre']);
-            }
+            $idVenta = registrarVenta($pdo, $id_jornada, null, $liq, $pagos, leerIdOperacion($data));
+            guardarLineas($pdo, $cot['lineas'], $idVenta, null, $ahora);
+            guardarCargos($pdo, $cot['cargos'], $idVenta, null, $ahora);
 
             if ($mesaPromo) {
                 abrirSesion($pdo, $id_jornada, $idMesaPromo, true, $ahora);
@@ -582,68 +632,72 @@ if ($method === 'POST') {
             $respuesta = ['status' => 'success', 'message' => 'Venta en barra registrada', 'id_venta' => $idVenta, 'liquidacion' => $liq, 'pagos' => pagosPublicos($pagos)];
         }
 
-        // ACCIÓN B2: AGREGAR PRODUCTOS A UNA MESA OCUPADA (el precio lo fija el backend)
+        // ACCIÓN B2: AGREGAR PRODUCTOS O COMBOS A UNA MESA OCUPADA (el precio lo fija el backend).
+        // aplicar_hora_gratis: el cliente aceptó la hora gratis del incentivo en producto.
         elseif ($accion === 'agregar_productos_mesa') {
             list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
             $id_sesion = $tramo['id_sesion'];
             $ts = strtotime($ahora);
             $promos = Liquidacion::cargarPromos($pdo);
-            $idHoraPromo = Liquidacion::idHoraPromo($pdo);
 
-            $cantidades = [];
-            foreach ((isset($data['productos']) ? $data['productos'] : []) as $prod) {
-                $idProd = intval(isset($prod['id_producto']) ? $prod['id_producto'] : 0);
-                $cant = intval(isset($prod['cantidad']) ? $prod['cantidad'] : 0);
-                if ($idProd <= 0 || $cant <= 0) {
-                    throw new ErrorOperacion('Producto o cantidad no válida.', 'producto_invalido');
-                }
-                $cantidades[$idProd] = (isset($cantidades[$idProd]) ? $cantidades[$idProd] : 0) + $cant;
-            }
-            if (!$cantidades) {
+            $cantidades = Liquidacion::sumarCantidades(isset($data['productos']) ? $data['productos'] : []);
+            $combos = isset($data['combos']) && is_array($data['combos']) ? $data['combos'] : [];
+            $horaGratis = !empty($data['aplicar_hora_gratis']);
+            if (!$cantidades && !$combos && !$horaGratis) {
                 throw new ErrorOperacion('No hay productos para agregar.', 'carrito_vacio');
             }
+            $lineas = Liquidacion::lineasPedido($pdo, $cantidades, $combos, $ts, $promos);
 
-            $marcas = implode(',', array_fill(0, count($cantidades), '?'));
-            $stmtCat = $pdo->prepare("SELECT id_producto, nombre_producto, precio_venta FROM productos WHERE id_producto IN ($marcas)");
-            $stmtCat->execute(array_keys($cantidades));
-            $catalogo = [];
-            foreach ($stmtCat->fetchAll(PDO::FETCH_ASSOC) as $fila) $catalogo[intval($fila['id_producto'])] = $fila;
-
-            $precioHora = null;
-            if ($idHoraPromo && isset($cantidades[$idHoraPromo])) {
+            $cargos = [];
+            if ($horaGratis) {
                 $stmtSes = $pdo->prepare("SELECT primera_hora_gratis FROM sesiones_juego WHERE id_sesion = ?");
                 $stmtSes->execute([$id_sesion]);
                 if (intval($stmtSes->fetchColumn()) === 1) {
                     throw new ErrorOperacion('Esta mesa ya tiene la hora gratis.', 'promo_no_vigente');
                 }
-                // Cuenta lo que la mesa ya pidió más lo que se agrega ahora.
+                // Cuenta lo que la mesa ya pidió (fuera de combos) más lo que se agrega ahora.
                 $unidades = $cantidades;
-                unset($unidades[$idHoraPromo]);
-                $stmtPrev = $pdo->prepare("SELECT id_producto, SUM(cantidad) c FROM detalle_venta_productos WHERE id_sesion = ? AND id_venta IS NULL GROUP BY id_producto");
+                $stmtPrev = $pdo->prepare("SELECT id_producto, SUM(cantidad) c FROM detalle_venta_productos WHERE id_sesion = ? AND id_venta IS NULL AND id_promocion IS NULL GROUP BY id_producto");
                 $stmtPrev->execute([$id_sesion]);
                 foreach ($stmtPrev->fetchAll(PDO::FETCH_ASSOC) as $fila) {
                     $idP = intval($fila['id_producto']);
                     $unidades[$idP] = (isset($unidades[$idP]) ? $unidades[$idP] : 0) + intval($fila['c']);
                 }
                 $promoHora = Liquidacion::promoHoraGratis($promos, $ts, $unidades, $mesa['id_tipo_mesa']);
-                if (!$promoHora || $cantidades[$idHoraPromo] !== 1) {
+                if (!$promoHora) {
                     throw new ErrorOperacion('La promoción de hora gratis ya no está vigente para esta mesa.', 'promo_no_vigente');
                 }
-                $precioHora = Liquidacion::centavos($promoHora['valor_descuento']);
+                $cargos[] = Liquidacion::cargoHoraGratis($promoHora);
                 $pdo->prepare("UPDATE sesiones_juego SET primera_hora_gratis = 1 WHERE id_sesion = ?")->execute([$id_sesion]);
             }
 
-            $stmtDetalle = $pdo->prepare("INSERT INTO detalle_venta_productos (id_sesion, id_venta, id_producto, cantidad, precio_unitario_aplicado, fecha_hora) VALUES (?, NULL, ?, ?, ?, ?)");
-            foreach ($cantidades as $idProd => $cant) {
-                if (!isset($catalogo[$idProd])) {
-                    throw new ErrorOperacion('Uno de los productos ya no existe. Actualice la pantalla.', 'producto_invalido');
-                }
-                $precio = $idProd === $idHoraPromo ? $precioHora : Liquidacion::precioVigente($idProd, $catalogo[$idProd]['precio_venta'], $ts, $promos);
-                $stmtDetalle->execute([$id_sesion, $idProd, $cant, $precio / 100, $ahora]);
-                descontarStock($pdo, $idProd, $cant, $catalogo[$idProd]['nombre_producto']);
-            }
-
+            guardarLineas($pdo, $lineas, null, $id_sesion, $ahora);
+            guardarCargos($pdo, $cargos, null, $id_sesion, $ahora);
             $respuesta = ['status' => 'success', 'message' => 'Productos agregados a la mesa'];
+        }
+
+        // ACCIÓN B2b: AGREGAR UN CARGO A UNA MESA (rotura de vaso, una ventana...). El monto lo decide el cajero.
+        elseif ($accion === 'agregar_cargo_mesa') {
+            list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
+            $cargo = Liquidacion::validarCargo($pdo, isset($data['cargo']) && is_array($data['cargo']) ? $data['cargo'] : []);
+            guardarCargos($pdo, [$cargo], null, $tramo['id_sesion'], $ahora);
+            $respuesta = ['status' => 'success', 'message' => 'Cargo agregado a la mesa'];
+        }
+
+        // ACCIÓN B2c: QUITAR UN CARGO DE UNA MESA. Quitar la hora gratis devuelve la mesa a tarifa normal.
+        elseif ($accion === 'eliminar_cargo_mesa') {
+            list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
+            $stmt = $pdo->prepare("SELECT tipo FROM cargos_venta WHERE id_cargo = ? AND id_sesion = ? AND id_venta IS NULL FOR UPDATE");
+            $stmt->execute([intval($data['id_cargo']), $tramo['id_sesion']]);
+            $tipo = $stmt->fetchColumn();
+            if ($tipo === false) {
+                throw new ErrorOperacion('El cargo ya no está en la mesa.', 'cargo_invalido');
+            }
+            if ($tipo === 'hora_gratis') {
+                $pdo->prepare("UPDATE sesiones_juego SET primera_hora_gratis = 0 WHERE id_sesion = ?")->execute([$tramo['id_sesion']]);
+            }
+            $pdo->prepare("DELETE FROM cargos_venta WHERE id_cargo = ?")->execute([intval($data['id_cargo'])]);
+            $respuesta = ['status' => 'success', 'message' => 'Cargo quitado de la mesa'];
         }
 
         // ACCIÓN B3: ELIMINAR UN PRODUCTO DE LA MESA (Restaura Inventario)
@@ -651,20 +705,19 @@ if ($method === 'POST') {
             if (!empty($data['id_mesa'])) {
                 Mesa::bloquear($pdo, [$data['id_mesa']]);
             }
-            $stmtCheck = $pdo->prepare("SELECT id_producto, cantidad, id_sesion, id_venta FROM detalle_venta_productos WHERE id_detalle_prod = ? FOR UPDATE");
+            $stmtCheck = $pdo->prepare("
+                SELECT d.id_producto, d.cantidad, d.id_sesion, d.id_venta, p.tipo
+                FROM detalle_venta_productos d JOIN productos p ON p.id_producto = d.id_producto
+                WHERE d.id_detalle_prod = ? FOR UPDATE
+            ");
             $stmtCheck->execute([$data['id_detalle_prod']]);
             $detalle = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
             if ($detalle && $detalle['id_venta'] === null) {
-                $stmtStock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?");
-                $stmtStock->execute([$detalle['cantidad'], $detalle['id_producto']]);
-
-                // Si se elimina el item hora con descuento de la mesa, revertir primera_hora_gratis a 0
-                $idPromoProd = Liquidacion::idHoraPromo($pdo);
-                if ($idPromoProd && intval($detalle['id_producto']) === $idPromoProd && $detalle['id_sesion']) {
-                    $pdo->prepare("UPDATE sesiones_juego SET primera_hora_gratis = 0 WHERE id_sesion = ?")->execute([$detalle['id_sesion']]);
+                if ($detalle['tipo'] === 'inventario') {
+                    $stmtStock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?");
+                    $stmtStock->execute([$detalle['cantidad'], $detalle['id_producto']]);
                 }
-
                 $stmtDel = $pdo->prepare("DELETE FROM detalle_venta_productos WHERE id_detalle_prod = ? AND id_venta IS NULL");
                 $stmtDel->execute([$data['id_detalle_prod']]);
 
@@ -674,20 +727,25 @@ if ($method === 'POST') {
             }
         }
 
-        // ACCIÓN B4: LIMPIAR TODO EL CONSUMO DE LA MESA (Restaura Inventario)
+        // ACCIÓN B4: LIMPIAR TODO EL CONSUMO DE LA MESA: productos (devuelve el stock) y cargos
         elseif ($accion === 'limpiar_consumo_mesa') {
             list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
             $id_sesion = $tramo['id_sesion'];
             $pdo->prepare("UPDATE sesiones_juego SET primera_hora_gratis = 0 WHERE id_sesion = ?")->execute([$id_sesion]);
 
-            $stmtCheck = $pdo->prepare("SELECT id_producto, cantidad FROM detalle_venta_productos WHERE id_sesion = ? AND id_venta IS NULL");
+            $stmtCheck = $pdo->prepare("
+                SELECT d.id_producto, d.cantidad, p.tipo
+                FROM detalle_venta_productos d JOIN productos p ON p.id_producto = d.id_producto
+                WHERE d.id_sesion = ? AND d.id_venta IS NULL
+            ");
             $stmtCheck->execute([$id_sesion]);
             $stmtStock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?");
             foreach ($stmtCheck->fetchAll(PDO::FETCH_ASSOC) as $det) {
-                $stmtStock->execute([$det['cantidad'], $det['id_producto']]);
+                if ($det['tipo'] === 'inventario') $stmtStock->execute([$det['cantidad'], $det['id_producto']]);
             }
 
             $pdo->prepare("DELETE FROM detalle_venta_productos WHERE id_sesion = ? AND id_venta IS NULL")->execute([$id_sesion]);
+            $pdo->prepare("DELETE FROM cargos_venta WHERE id_sesion = ? AND id_venta IS NULL")->execute([$id_sesion]);
             $respuesta = ['status' => 'success', 'message' => 'Consumo limpiado y stock restaurado completamente'];
         }
 
@@ -714,7 +772,7 @@ if ($method === 'POST') {
             $liq = Liquidacion::liquidarSesion($pdo, $id_sesion, $corte);
             exigirTotalMostrado($data, $liq);
             $pagos = validarPagos(leerPagos($data), $liq['total']);
-            $idVenta = registrarVenta($pdo, $id_jornada, $id_sesion, $liq, $pagos);
+            $idVenta = registrarVenta($pdo, $id_jornada, $id_sesion, $liq, $pagos, leerIdOperacion($data));
 
             // Cierra la partida en la hora de corte y guarda lo que el motor cobró por cada tramo.
             $fechaCorte = date('Y-m-d H:i:s', $corte);
@@ -724,6 +782,7 @@ if ($method === 'POST') {
                 $stmtImporte->execute([$t['importe'], $t['id_tramo']]);
             }
             $pdo->prepare("UPDATE detalle_venta_productos SET id_venta = ? WHERE id_sesion = ? AND id_venta IS NULL")->execute([$idVenta, $id_sesion]);
+            $pdo->prepare("UPDATE cargos_venta SET id_venta = ? WHERE id_sesion = ? AND id_venta IS NULL")->execute([$idVenta, $id_sesion]);
             $pdo->prepare("UPDATE sesiones_juego SET estado = 'finalizada' WHERE id_sesion = ?")->execute([$id_sesion]);
             $pdo->prepare("UPDATE mesas SET estado_actual = 'libre' WHERE id_mesa = ?")->execute([$mesa['id_mesa']]);
 

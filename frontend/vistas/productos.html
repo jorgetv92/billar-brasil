@@ -22,6 +22,7 @@
                 <th data-sort="nombre_producto" data-tipo="texto">Nombre del Producto</th>
                 <th data-sort="precio_venta" data-tipo="num">Precio Venta (Bs.)</th>
                 <th data-sort="stock_actual" data-tipo="num">Stock Actual</th>
+                <th>Tipo / Estado</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -52,6 +53,20 @@
                     <div class="input-group full-width">
                         <label for="precio_venta">Precio de Venta (Bs.)</label>
                         <input type="number" id="precio_venta" step="0.50" min="0" required placeholder="Ej: 18.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="tipo_producto">Tipo</label>
+                        <select id="tipo_producto">
+                            <option value="inventario">Con stock (se compra para revender)</option>
+                            <option value="preparado">Preparado en barra, sin stock (vasos, cócteles)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="activo_producto">Estado</label>
+                        <select id="activo_producto">
+                            <option value="1">Activo (se vende)</option>
+                            <option value="0">Retirado (no aparece para vender)</option>
+                        </select>
                     </div>
                 </div>
             </form>

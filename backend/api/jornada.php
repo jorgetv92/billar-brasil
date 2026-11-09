@@ -43,10 +43,12 @@ function datosPrecierre($pdo, array $jornada) {
         // Lo cobrado repartido entre mesas y productos: suma lo mismo que los ingresos totales
         "ingresos" => [
             "mesas" => $ingresos['mesas'],
-            "productos" => $ingresos['productos']
+            "productos" => $ingresos['productos'],
+            "cargos" => $ingresos['cargos']
         ],
         "egresos_detalle" => $stmtDetEgresos->fetchAll(PDO::FETCH_ASSOC),
-        "inventario" => ResumenJornada::inventario($pdo, $id_jornada, $jornada['fecha_hora_apertura'])
+        "inventario" => ResumenJornada::inventario($pdo, $id_jornada, $jornada['fecha_hora_apertura']),
+        "preparados" => ResumenJornada::preparados($pdo, $id_jornada)
     ];
 }
 
@@ -83,7 +85,7 @@ if ($method === 'GET') {
 
             // Bs cobrados por tiempo de mesa y por productos (el mismo reparto que usan los reportes)
             $resumenIngresos = ResumenJornada::ingresos($pdo, $id_jornada);
-            $ingresos = ['mesas' => $resumenIngresos['mesas']['total'], 'productos' => $resumenIngresos['productos']['total']];
+            $ingresos = ['mesas' => $resumenIngresos['mesas']['total'], 'productos' => $resumenIngresos['productos']['total'], 'cargos' => $resumenIngresos['cargos']['total']];
 
             echo json_encode([
                 "status" => "success",
@@ -97,7 +99,8 @@ if ($method === 'GET') {
                     "segundos_jugados" => $segundos_jugados,
                     "productos_vendidos" => $productos_vendidos,
                     "ingresos_mesas" => (float)$ingresos['mesas'],
-                    "ingresos_productos" => (float)$ingresos['productos']
+                    "ingresos_productos" => (float)$ingresos['productos'],
+                    "ingresos_cargos" => (float)$ingresos['cargos']
                 ]
             ]);
             exit;
@@ -371,7 +374,7 @@ if ($method === 'POST') {
 function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("SELECT id_venta, id_producto, cantidad FROM detalle_venta_productos WHERE id_detalle_prod = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT d.id_venta, d.id_producto, d.cantidad, d.id_promocion, p.tipo FROM detalle_venta_productos d JOIN productos p ON p.id_producto = d.id_producto WHERE d.id_detalle_prod = ? FOR UPDATE");
         $stmt->execute([$idDetalle]);
         $detalle = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$detalle || !$detalle['id_venta']) {
@@ -388,13 +391,16 @@ function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
         if ($stmt->fetchColumn() !== 'abierta') {
             throw new ErrorOperacion('Solo se pueden corregir ventas de la jornada abierta.', 'jornada_cerrada');
         }
-        if (intval($detalle['id_producto']) === Liquidacion::idHoraPromo($pdo)) {
-            throw new ErrorOperacion('La hora gratis no se puede corregir desde aquí.', 'no_editable');
+        // Los productos de un combo tienen el precio del combo repartido: corregir uno solo rompería el combo.
+        if ($detalle['id_promocion']) {
+            throw new ErrorOperacion('Los productos de un combo no se corrigen por separado.', 'no_editable');
         }
 
         $anterior = intval($detalle['cantidad']);
         $diferencia = $nuevaCantidad - $anterior;
-        if ($diferencia > 0) {
+        // Los preparados (cócteles, vasos) no llevan stock.
+        $conStock = $detalle['tipo'] === 'inventario';
+        if ($conStock && $diferencia > 0) {
             $stmt = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - ? WHERE id_producto = ? AND stock_actual >= ?");
             $stmt->execute([$diferencia, $detalle['id_producto'], $diferencia]);
             if ($stmt->rowCount() === 0) {
@@ -402,7 +408,7 @@ function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
                 $stmtStock->execute([$detalle['id_producto']]);
                 throw new ErrorOperacion("Stock insuficiente. Stock disponible: {$stmtStock->fetchColumn()} unidades.", 'stock_insuficiente');
             }
-        } elseif ($diferencia < 0) {
+        } elseif ($conStock && $diferencia < 0) {
             $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?")->execute([-$diferencia, $detalle['id_producto']]);
         }
 

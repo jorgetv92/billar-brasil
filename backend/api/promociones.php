@@ -26,7 +26,18 @@ switch ($method) {
             $stmt = $db->prepare($query);
             $stmt->execute();
             $promos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
+            // Productos de cada combo específico
+            $stmtItems = $db->prepare("SELECT id_producto, cantidad FROM promocion_items WHERE id_promocion = ? ORDER BY id_producto");
+            foreach ($promos as &$promo) {
+                $promo['items'] = [];
+                if ($promo['tipo_promo'] === 'combo_especifico') {
+                    $stmtItems->execute([$promo['id_promocion']]);
+                    $promo['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+                }
+            }
+            unset($promo);
+
             http_response_code(200);
             echo json_encode(["status" => "success", "data" => $promos]);
         } catch (PDOException $e) {
@@ -77,7 +88,25 @@ switch ($method) {
             $valor_desc = $data->valor_descuento; // Monto a aumentar / Tarifa especial para 1 hora
         }
 
+        // Combo específico: lista de productos con cantidad y el precio del combo.
+        $itemsCombo = [];
+        if ($data->tipo_promo === 'combo_especifico') {
+            $valor_desc = isset($data->valor_descuento) ? floatval($data->valor_descuento) : 0;
+            foreach ((isset($data->items) && is_array($data->items) ? $data->items : []) as $item) {
+                $idProd = intval(isset($item->id_producto) ? $item->id_producto : 0);
+                $cant = intval(isset($item->cantidad) ? $item->cantidad : 0);
+                if ($idProd <= 0 || $cant <= 0) continue;
+                $itemsCombo[$idProd] = (isset($itemsCombo[$idProd]) ? $itemsCombo[$idProd] : 0) + $cant;
+            }
+            if (!$itemsCombo || $valor_desc <= 0) {
+                http_response_code(400);
+                echo json_encode(["status" => "error", "message" => "El combo necesita al menos un producto con cantidad y un precio mayor a cero."]);
+                exit();
+            }
+        }
+
         try {
+            $db->beginTransaction();
             if ($method === 'POST') {
                 $query = "INSERT INTO promociones (nombre_promo, tipo_promo, fecha_inicio, fecha_fin, hora_inicio, hora_fin, dias_semana, valor_descuento, id_item_condicion, id_item_secundario, cantidad_condicion) 
                           VALUES (:nombre, :tipo, :f_ini, :f_fin, :h_ini, :h_fin, :dias, :val, :item, :item_sec, :cant)";
@@ -101,11 +130,21 @@ switch ($method) {
             $stmt->bindParam(':item_sec', $id_item_secundario);
             $stmt->bindParam(':cant', $cant_cond);
 
-            if ($stmt->execute()) {
-                http_response_code($method === 'POST' ? 201 : 200);
-                echo json_encode(["status" => "success", "message" => "Promoción guardada con éxito."]);
+            $stmt->execute();
+            $idPromocion = $method === 'POST' ? $db->lastInsertId() : intval($data->id_promocion);
+
+            // La lista de productos del combo se reemplaza completa (si cambió de tipo, queda vacía).
+            $db->prepare("DELETE FROM promocion_items WHERE id_promocion = ?")->execute([$idPromocion]);
+            $stmtItem = $db->prepare("INSERT INTO promocion_items (id_promocion, id_producto, cantidad) VALUES (?, ?, ?)");
+            foreach ($itemsCombo as $idProd => $cant) {
+                $stmtItem->execute([$idPromocion, $idProd, $cant]);
             }
+
+            $db->commit();
+            http_response_code($method === 'POST' ? 201 : 200);
+            echo json_encode(["status" => "success", "message" => "Promoción guardada con éxito."]);
         } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
             http_response_code(500);
             echo json_encode(["status" => "error", "message" => "Error transaccional: " . $e->getMessage()]);
         }

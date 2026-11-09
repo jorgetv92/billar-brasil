@@ -650,8 +650,26 @@ function abrirReporteFinal(precierre, kpiBase) {
         `;
     });
 
-    // Lo cobrado repartido por el backend entre mesas y productos: suma exactamente los ingresos totales.
+    // Preparados (cócteles, vasos): venta de productos sin stock.
+    (precierre.preparados || []).forEach(p => {
+        const importe = parseFloat(p.importe_vendido) || 0;
+        totalVendidoProductos += importe;
+        htmlInventarioFilas += `
+            <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+                <td style="padding: 4px 8px; font-weight: 500;">${p.nombre_producto} <small style="color:#64748b;">(preparado)</small></td>
+                <td style="padding: 4px 8px; text-align: center;">—</td>
+                <td style="padding: 4px 8px; text-align: center;">—</td>
+                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${p.vendido}</td>
+                <td style="padding: 4px 8px; text-align: right;">${(p.vendido ? importe / p.vendido : 0).toFixed(2)}</td>
+                <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${importe.toFixed(2)}</td>
+                <td style="padding: 4px 8px; text-align: center; background: #f8fafc;">—</td>
+            </tr>
+        `;
+    });
+
+    // Lo cobrado repartido por el backend entre mesas, productos y otros cargos: suma exactamente los ingresos totales.
     const ingresosProductos = precierre.ingresos ? precierre.ingresos.productos.total : totalVendidoProductos;
+    const ingresosCargos = precierre.ingresos && precierre.ingresos.cargos ? precierre.ingresos.cargos.total : 0;
     const totalHorasImporte = precierre.ingresos ? precierre.ingresos.mesas.total : ingresosTotales - totalVendidoProductos;
     const promosYRedondeo = ingresosProductos - totalVendidoProductos;
     if (Math.abs(promosYRedondeo) >= 0.005) {
@@ -754,6 +772,11 @@ function abrirReporteFinal(precierre, kpiBase) {
                     </div>
                 </div>
             </div>
+            ${ingresosCargos > 0 ? `
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="font-size: 0.75rem; color: #64748b; font-weight: 500;">Otros Cargos <small>(roturas, daños)</small></span>
+                <span style="font-size: 1.1rem; font-weight: 600; color: #8b5cf6;">${ingresosCargos.toFixed(2)} Bs</span>
+            </div>` : ''}
 
             <!-- Total Recaudado (Limpio) -->
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; border-radius: 6px; padding: 15px; text-align: center; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.3);">
@@ -781,6 +804,7 @@ function abrirReporteFinal(precierre, kpiBase) {
             ingresos_qr: c.ingresos_qr,
             total_tiempo_mesas: totalHorasImporte,
             total_productos: ingresosProductos,
+            total_cargos: ingresosCargos,
             total_caja: totalCajaEfectivo
         };
         gestorImpresion.imprimirTicketJornada(datosJornadaImpresion);

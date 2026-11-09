@@ -10,11 +10,19 @@ const CLAVE_ADMIN_SIM = 'sim-admin';
 // Migraciones que el código actual necesita y que la BD de origen puede no tener todavía, en orden.
 // Cada una trae la consulta que dice si ya está aplicada.
 const MIGRACIONES = [
+  { archivo: path.join('backend', 'config', 'db_migration.sql'), aplicada: "SHOW COLUMNS FROM sesiones_juego LIKE 'primera_hora_gratis'" },
   { archivo: path.join('backend', 'config', 'migracion_motor_cobro.sql'), aplicada: "SHOW COLUMNS FROM ventas LIKE 'redondeo'" },
   { archivo: path.join('backend', 'config', 'migracion_ajustes_venta.sql'), aplicada: "SHOW TABLES LIKE 'ajustes_venta'" },
+  { archivo: path.join('backend', 'config', 'migracion_productos_cargos_combos.sql'), aplicada: "SHOW TABLES LIKE 'cargos_venta'" },
 ];
 
+// Por defecto se clona la base de database.php. BILLAR_BD_ORIGEN permite probar con otra copia,
+// por ejemplo la de producción, sin tocar la configuración del sitio.
 function leerBdOrigen() {
+  if (process.env.BILLAR_BD_ORIGEN) {
+    if (process.env.BILLAR_BD_ORIGEN === BD_SIM) throw new Error(`BILLAR_BD_ORIGEN no puede ser ${BD_SIM}`);
+    return process.env.BILLAR_BD_ORIGEN;
+  }
   const php = fs.readFileSync(path.join(RAIZ_REPO, ARCHIVO_DB), 'utf8');
   const hallado = php.match(/\$db_name\s*=\s*"([^"]+)"/);
   if (!hallado) throw new Error(`No se encontró $db_name en ${ARCHIVO_DB}`);

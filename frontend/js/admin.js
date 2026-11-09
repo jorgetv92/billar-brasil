@@ -119,6 +119,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (nombreArchivo === "promociones.html") {
                         inicializarModuloPromociones();
                     }
+                    if (nombreArchivo === "cargos.html") {
+                        inicializarModuloCargos();
+                    }
                     if (nombreArchivo === "usuarios.html") {
                         inicializarModuloUsuarios();
                     }
@@ -892,7 +895,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 kpi.horas.innerHTML = `${h}<small>h</small> ${m.toString().padStart(2, '0')}<small>min</small>`;
                 kpi.productos.innerHTML = `${parseInt(k.productos_vendidos) || 0}<small>uds</small>`;
                 kpi.bsMesas.innerHTML = `${(parseFloat(k.ingresos_mesas) || 0).toFixed(2)}<small>Bs</small>`;
-                kpi.bsProductos.innerHTML = `${(parseFloat(k.ingresos_productos) || 0).toFixed(2)}<small>Bs</small>`;
+                // Los otros cargos (roturas, daños) se muestran junto a productos para que todo sume lo cobrado.
+                const cargos = parseFloat(k.ingresos_cargos) || 0;
+                kpi.bsProductos.innerHTML = `${(parseFloat(k.ingresos_productos) || 0).toFixed(2)}<small>Bs</small>`
+                    + (cargos > 0 ? ` <small title="Otros cargos: roturas, daños">+ ${cargos.toFixed(2)} cargos</small>` : '');
             }
 
             // ---- Grilla de tarjetas ----
@@ -1138,7 +1144,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     const idProducto = document.getElementById("productoId").value;
                     const datos = {
                         nombre_producto: document.getElementById("nombre_producto").value,
-                        precio_venta: document.getElementById("precio_venta").value
+                        precio_venta: document.getElementById("precio_venta").value,
+                        tipo: document.getElementById("tipo_producto").value,
+                        activo: document.getElementById("activo_producto").value === "1"
                     };
 
                     let metodoHTTP = idProducto ? "PUT" : "POST";
@@ -1190,26 +1198,31 @@ document.addEventListener("DOMContentLoaded", () => {
                 tbody.innerHTML = "";
 
                 if (listaProductosGlobal.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay productos en el inventario</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center">No hay productos en el inventario</td></tr>`;
                     return;
                 }
 
                 let filasHTML = "";
                 ordenarLista(listaProductosGlobal, ordenProductos, tiposOrdenProductos).forEach(p => {
                     // UX: Lógica de colores para el Stock
+                    const esPreparado = p.tipo === "preparado";
+                    const retirado = String(p.activo) === "0";
                     let stockUI = `<b>${p.stock_actual}</b>`;
-                    if (parseInt(p.stock_actual) === 0) {
+                    if (esPreparado) {
+                        stockUI = `<span style="color:#64748b;">Sin stock</span>`;
+                    } else if (parseInt(p.stock_actual) === 0) {
                         stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
                     } else if (parseInt(p.stock_actual) <= 5) {
                         stockUI = `<span style="color: var(--warning); font-weight: bold;">${p.stock_actual} (Bajo)</span>`;
                     }
 
                     filasHTML += `
-            <tr>
+            <tr style="${retirado ? 'opacity:0.55;' : ''}">
                 <td>${bolaBillar(p.id_producto)}</td>
                 <td style="font-weight: 500;">${p.nombre_producto}</td>
                 <td style="color: var(--primary); font-weight: bold;">${parseFloat(p.precio_venta).toFixed(2)} Bs.</td>
                 <td>${stockUI}</td>
+                <td style="font-size:0.85rem;">${esPreparado ? 'Preparado' : 'Con stock'}${retirado ? ' · <b>Retirado</b>' : ''}</td>
                 <td>
                     <button class="icon-btn text-primary btn-editar-producto" data-id="${p.id_producto}"><i class="material-icons">edit</i></button>
                     <button class="icon-btn text-danger btn-eliminar-producto" data-id="${p.id_producto}"><i class="material-icons">delete</i></button>
@@ -1232,6 +1245,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (producto) {
                         document.getElementById("nombre_producto").value = producto.nombre_producto;
                         document.getElementById("precio_venta").value = parseFloat(producto.precio_venta).toFixed(2);
+                        document.getElementById("tipo_producto").value = producto.tipo || "inventario";
+                        document.getElementById("activo_producto").value = String(producto.activo) === "0" ? "0" : "1";
                     }
                 }
                 document.getElementById("modalProducto").classList.add("show");
@@ -1438,6 +1453,27 @@ document.addEventListener("DOMContentLoaded", () => {
             // MÓDULO 1.5: GESTIÓN DE PROMOCIONES (CONSTRUCTOR VISUAL ASISTENTE)
             // -------------------------------------------------------------------
             let listaPromosGlobal = [];
+            let productosAsistente = [];
+
+            // Una fila del combo específico: producto y cantidad.
+            function agregarFilaItemCombo(idProducto = "", cantidad = 1) {
+                const cont = document.getElementById("itemsComboEspecifico");
+                const fila = document.createElement("div");
+                fila.className = "form-grid fila-item-combo";
+                fila.style.cssText = "align-items:end; margin-bottom:6px;";
+                fila.innerHTML = `
+                    <div class="input-group">
+                        <label>Producto</label>
+                        <select class="item-combo-producto">${productosAsistente.map(p => `<option value="${p.id_producto}">${p.nombre_producto} (${p.precio_venta} Bs)</option>`).join("")}</select>
+                    </div>
+                    <div class="input-group" style="display:flex; gap:6px; align-items:end;">
+                        <div style="flex:1;"><label>Cantidad</label><input type="number" class="item-combo-cantidad" min="1" step="1" value="${cantidad}"></div>
+                        <button type="button" class="icon-btn text-danger btn-quitar-item-combo" title="Quitar"><i class="material-icons">delete</i></button>
+                    </div>`;
+                if (idProducto) fila.querySelector(".item-combo-producto").value = idProducto;
+                fila.querySelector(".btn-quitar-item-combo").addEventListener("click", () => fila.remove());
+                cont.appendChild(fila);
+            }
 
             // Normaliza "HH:MM:SS" (BD) a "HH:MM" (formato 24 h del formulario)
             function horaCorta(valor) {
@@ -1463,6 +1499,76 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             }
 
+            // -------------------------------------------------------------------
+            // CONCEPTOS DE CARGO (rotura de vaso o botella, daños)
+            // -------------------------------------------------------------------
+            let listaConceptosCargo = [];
+
+            function inicializarModuloCargos() {
+                const tbody = document.getElementById("tablaConceptosBody");
+                const abrir = (concepto) => {
+                    document.getElementById("formConcepto").reset();
+                    document.getElementById("modalConceptoTitulo").innerText = concepto ? "Editar Concepto" : "Registrar Concepto";
+                    document.getElementById("conceptoId").value = concepto ? concepto.id_concepto : "";
+                    if (concepto) {
+                        document.getElementById("nombre_concepto").value = concepto.nombre;
+                        document.getElementById("monto_concepto").value = parseFloat(concepto.monto_sugerido).toFixed(2);
+                        document.getElementById("activo_concepto").value = String(concepto.activo) === "0" ? "0" : "1";
+                    }
+                    document.getElementById("modalConcepto").classList.add("show");
+                };
+                const consultar = async () => {
+                    try {
+                        const result = await (await fetch("../backend/api/conceptos_cargo.php")).json();
+                        listaConceptosCargo = result.status === "success" ? result.data : [];
+                    } catch (e) {
+                        mostrarToast("No se pudieron cargar los conceptos", "error");
+                        return;
+                    }
+                    tbody.innerHTML = listaConceptosCargo.length ? listaConceptosCargo.map(c => `
+                        <tr style="${String(c.activo) === "0" ? "opacity:0.55;" : ""}">
+                            <td style="font-weight:500;">${escaparHTML(c.nombre)}</td>
+                            <td style="color: var(--primary); font-weight: bold;">${parseFloat(c.monto_sugerido).toFixed(2)} Bs.</td>
+                            <td>${String(c.activo) === "0" ? "Retirado" : "Activo"}</td>
+                            <td><button class="icon-btn text-primary btn-editar-concepto" data-id="${c.id_concepto}"><i class="material-icons">edit</i></button></td>
+                        </tr>`).join("") : `<tr><td colspan="4" class="text-center">No hay conceptos registrados</td></tr>`;
+                };
+
+                document.getElementById("btnNuevoConcepto").addEventListener("click", () => abrir(null));
+                tbody.addEventListener("click", (e) => {
+                    const btn = e.target.closest(".btn-editar-concepto");
+                    if (btn) abrir(listaConceptosCargo.find(c => String(c.id_concepto) === btn.dataset.id));
+                });
+                document.getElementById("formConcepto").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const id = document.getElementById("conceptoId").value;
+                    const datos = {
+                        nombre: document.getElementById("nombre_concepto").value,
+                        monto_sugerido: document.getElementById("monto_concepto").value,
+                        activo: document.getElementById("activo_concepto").value === "1"
+                    };
+                    if (id) datos.id_concepto = id;
+                    try {
+                        const response = await fetch("../backend/api/conceptos_cargo.php", {
+                            method: id ? "PUT" : "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(datos)
+                        });
+                        const result = await response.json();
+                        if (response.ok && result.status === "success") {
+                            document.getElementById("modalConcepto").classList.remove("show");
+                            mostrarToast(result.message, "success");
+                            consultar();
+                        } else {
+                            mostrarToast(result.message || "Error al guardar", "error");
+                        }
+                    } catch (err) {
+                        mostrarToast("Error de comunicación", "error");
+                    }
+                });
+                consultar();
+            }
+
             async function inicializarModuloPromociones() {
                 activarInputsHora24();
                 consultarPromocionesAPI();
@@ -1475,6 +1581,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         fila.style.display = fila.innerText.toLowerCase().includes(termino) ? "" : "none";
                     });
                 });
+
+                document.getElementById("btnAgregarItemCombo").addEventListener("click", () => agregarFilaItemCombo());
 
                 // Evento del botón Nueva Promoción
                 document.getElementById("btnNuevaPromo").addEventListener("click", async() => {
@@ -1553,6 +1661,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         datos.id_item_secundario = document.getElementById("id_item_secundario_inc_prod").value;
                         datos.valor_descuento = document.getElementById("valor_descuento_inc_prod").value;
                         datos.cantidad_condicion = document.getElementById("cantidad_condicion_inc_prod").value;
+                    } else if (tipo === "combo_especifico") {
+                        datos.valor_descuento = document.getElementById("valor_descuento_combo").value;
+                        datos.items = Array.from(document.querySelectorAll(".fila-item-combo")).map(fila => ({
+                            id_producto: fila.querySelector(".item-combo-producto").value,
+                            cantidad: parseInt(fila.querySelector(".item-combo-cantidad").value) || 0
+                        })).filter(i => i.id_producto && i.cantidad > 0);
                     }
 
                     try {
@@ -1657,7 +1771,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     const selectIncProd = document.getElementById("id_item_condicion_inc_prod");
                     selectProd.innerHTML = select2x1.innerHTML = selectCruzProd.innerHTML = selectIncProd.innerHTML = "";
 
-                    pData.data.forEach(p => {
+                    // Solo productos que se venden: los retirados no entran en promociones nuevas.
+                    productosAsistente = pData.data.filter(p => String(p.activo) !== "0");
+                    productosAsistente.forEach(p => {
                         let opt = `<option value="${p.id_producto}">${p.nombre_producto} (${p.precio_venta} Bs)</option>`;
                         selectProd.innerHTML += opt;
                         select2x1.innerHTML += opt;
@@ -1678,6 +1794,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 // Forzamos la ocultación de bloques dinámicos por defecto
                 document.querySelectorAll(".step-block").forEach(block => block.style.display = "none");
+                document.getElementById("itemsComboEspecifico").innerHTML = "";
+                if (!esEdicion) agregarFilaItemCombo();
 
                 if (esEdicion) {
                     const promo = listaPromosGlobal.find(p => p.id_promocion == id);
@@ -1718,6 +1836,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             document.getElementById("id_item_secundario_inc_prod").value = promo.id_item_secundario;
                             document.getElementById("valor_descuento_inc_prod").value = promo.valor_descuento;
                             document.getElementById("cantidad_condicion_inc_prod").value = promo.cantidad_condicion;
+                        } else if (tipo === "combo_especifico") {
+                            document.getElementById("valor_descuento_combo").value = promo.valor_descuento;
+                            (promo.items || []).forEach(i => agregarFilaItemCombo(i.id_producto, i.cantidad));
                         }
                     }
                 }
@@ -2198,7 +2319,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     listaProductosGlobal = result.data;
                     if (datalistProductos) {
                         datalistProductos.innerHTML = '';
-                        listaProductosGlobal.forEach(prod => {
+                        // Solo se cargan productos con stock que se siguen vendiendo (no preparados ni retirados).
+                        listaProductosGlobal.filter(p => p.tipo !== 'preparado' && String(p.activo) !== '0').forEach(prod => {
                             const option = document.createElement('option');
                             option.value = prod.nombre_producto; // Lo que ve y filtra el usuario
                             datalistProductos.appendChild(option);
@@ -2782,6 +2904,26 @@ document.addEventListener("DOMContentLoaded", () => {
                             <td class="text-center"><strong>$${totalPd.toFixed(2)}</strong></td>
                         </tr></tbody>
                      </table>`;
+
+            // Otros cargos (rotura de vaso, daños). La hora gratis se cuenta en mesas.
+            if (d.cargos && d.cargos.filas.length) {
+                const totalCg = parseFloat(d.cargos.resumen.efectivo) + parseFloat(d.cargos.resumen.qr);
+                html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #8b5cf6;">Otros Cargos</h3>`;
+                html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
+                            <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
+                d.cargos.filas.forEach(f => {
+                    html += `<tr><td>${f.modo}</td><td>${f.fecha_hora}</td><td>${f.descripcion}</td><td class="text-right">$${parseFloat(f.monto).toFixed(2)}</td></tr>`;
+                });
+                html += `</tbody></table>
+                         <table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid #8b5cf6;">
+                            <thead style="background: #ede9fe;"><tr><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL CARGOS</th></tr></thead>
+                            <tbody><tr>
+                                <td class="text-center text-success">$${d.cargos.resumen.efectivo}</td>
+                                <td class="text-center text-info">$${d.cargos.resumen.qr}</td>
+                                <td class="text-center"><strong>$${totalCg.toFixed(2)}</strong></td>
+                            </tr></tbody>
+                         </table>`;
+            }
         }
 
         if (d.filtros.egresos) {

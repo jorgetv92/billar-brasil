@@ -15,3 +15,14 @@ INSERT INTO promociones (id_promocion,nombre_promo,tipo_promo,hora_inicio,hora_f
 (106,'SIM Privada a 25 tras 2h','incentivo_mesa',NULL,NULL,'sábado',25,1,NULL,2),
 (107,'SIM 4 Corona: 1a hora gratis','incentivo_producto',NULL,NULL,'sábado',5,6,2,4),
 (108,'SIM Cachos a 5','tarifa_mesa','15:00:00','21:00:00','jueves',5,3,NULL,NULL);
+-- Combos específicos: el cajero los elige en el buscador. El 110 solo vale los viernes de 20:00 a 23:00.
+INSERT INTO promociones (id_promocion,nombre_promo,tipo_promo,hora_inicio,hora_fin,dias_semana,valor_descuento) VALUES
+(109,'SIM Combo 2 Amstel','combo_especifico',NULL,NULL,NULL,30),
+(110,'SIM Combo nocturno','combo_especifico','20:00:00','23:00:00','viernes',40);
+INSERT INTO promocion_items (id_promocion,id_producto,cantidad) VALUES (109,46,2),(110,1,1),(110,6,1);
+-- Cargos y catálogo de prueba: un preparado sin stock, un producto retirado y uno con "promo" en el nombre.
+INSERT INTO conceptos_cargo (nombre,monto_sugerido) VALUES ('SIM Vaso roto',8.00);
+INSERT INTO productos (nombre_producto,precio_venta,stock_actual,tipo,activo) VALUES
+('SIM Vaso de Fernet',30.00,0,'preparado',1),
+('SIM Producto retirado',5.00,10,'inventario',0),
+('Promoras',3.00,50,'inventario',1);

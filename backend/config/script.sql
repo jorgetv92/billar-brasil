@@ -51,7 +51,9 @@ CREATE TABLE productos (
     id_producto INT AUTO_INCREMENT PRIMARY KEY,
     nombre_producto VARCHAR(100) NOT NULL,
     precio_venta DECIMAL(10,2) NOT NULL,
-    stock_actual INT NOT NULL DEFAULT 0
+    stock_actual INT NOT NULL DEFAULT 0,
+    tipo ENUM('inventario', 'preparado') NOT NULL DEFAULT 'inventario', -- preparado: se arma en la barra, sin stock
+    activo TINYINT(1) NOT NULL DEFAULT 1 -- 0: retirado, se conserva por las ventas antiguas
 ) ENGINE=InnoDB;
 
 CREATE TABLE insumos (
@@ -156,10 +158,13 @@ CREATE TABLE ventas (
     id_sesion INT NULL, -- Es NULL si fue venta rápida de barra
     subtotal_mesas DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     subtotal_productos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    subtotal_cargos DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Hora gratis y cargos por daños
     descuentos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     redondeo DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Ajuste hacia arriba a .00 o .50
     total_pagar DECIMAL(10,2) NOT NULL,
     fecha_hora_venta DATETIME NOT NULL,
+    id_operacion VARCHAR(40) NULL, -- Código único del intento de cobro: evita registrar dos veces la misma venta
+    UNIQUE KEY uq_ventas_operacion (id_operacion),
     CONSTRAINT fk_venta_jornada FOREIGN KEY (id_jornada) REFERENCES jornadas(id_jornada),
     CONSTRAINT fk_venta_sesion FOREIGN KEY (id_sesion) REFERENCES sesiones_juego(id_sesion)
 ) ENGINE=InnoDB;
@@ -172,6 +177,7 @@ CREATE TABLE detalle_venta_productos (
     cantidad INT NOT NULL,
     precio_unitario_aplicado DECIMAL(10,2) NOT NULL,
     fecha_hora DATETIME NULL, -- Momento del pedido: define qué promos le corresponden
+    id_promocion INT NULL, -- Combo en el que se vendió (el precio ya es el del combo)
     CONSTRAINT fk_detalle_vp_venta FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE,
     CONSTRAINT fk_detalle_vp_sesion FOREIGN KEY (id_sesion) REFERENCES sesiones_juego(id_sesion),
     CONSTRAINT fk_detalle_vp_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
@@ -208,7 +214,7 @@ CREATE TABLE pagos_venta (
 CREATE TABLE promociones (
     id_promocion INT AUTO_INCREMENT PRIMARY KEY,
     nombre_promo VARCHAR(100) NOT NULL,
-    tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto') NOT NULL,
+    tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto', 'combo_especifico') NOT NULL,
     fecha_inicio DATE NULL,
     fecha_fin DATE NULL,
     hora_inicio TIME NULL,
@@ -218,6 +224,39 @@ CREATE TABLE promociones (
     id_item_condicion INT NULL, -- ID del producto o tipo de mesa necesario para activar
     id_item_secundario INT NULL, -- ID secundario (ej. tipo de mesa en incentivo_producto)
     cantidad_condicion DECIMAL(10,2) NULL -- Cantidad mínima requerida (ej. 2 horas, 3 cervezas)
+) ENGINE=InnoDB;
+
+-- Productos de un combo específico; el precio del combo va en promociones.valor_descuento
+CREATE TABLE promocion_items (
+    id_promocion INT NOT NULL,
+    id_producto INT NOT NULL,
+    cantidad INT NOT NULL,
+    PRIMARY KEY (id_promocion, id_producto),
+    CONSTRAINT fk_item_promocion FOREIGN KEY (id_promocion) REFERENCES promociones(id_promocion) ON DELETE CASCADE,
+    CONSTRAINT fk_item_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
+) ENGINE=InnoDB;
+
+-- Cargos que no son productos: la hora gratis del incentivo y los daños (vaso roto, ventana...)
+CREATE TABLE conceptos_cargo (
+    id_concepto INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    monto_sugerido DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    activo TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
+
+CREATE TABLE cargos_venta (
+    id_cargo INT AUTO_INCREMENT PRIMARY KEY,
+    id_venta INT NULL, -- NULL mientras la mesa no se cobra
+    id_sesion INT NULL,
+    tipo ENUM('hora_gratis', 'cargo') NOT NULL,
+    id_concepto INT NULL,
+    id_promocion INT NULL,
+    descripcion VARCHAR(150) NOT NULL,
+    monto DECIMAL(10,2) NOT NULL,
+    fecha_hora DATETIME NOT NULL,
+    CONSTRAINT fk_cargo_venta FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE,
+    CONSTRAINT fk_cargo_sesion FOREIGN KEY (id_sesion) REFERENCES sesiones_juego(id_sesion),
+    CONSTRAINT fk_cargo_concepto FOREIGN KEY (id_concepto) REFERENCES conceptos_cargo(id_concepto)
 ) ENGINE=InnoDB;
 
 -- =======================================================================

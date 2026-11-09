@@ -7,7 +7,7 @@ const { Sim, abrirNavegador, q } = require('./lib');
 
 const API = '/backend/api/atencion_barra.php';
 const MESA = { Billar2: 3, Billar3: 8, Billar4: 9, Billar5: 15, Billar6: 16, Cachos1: 4 };
-const P = { Macanuda: 1, Corona: 6, Chocosoda: 27, HoraPromo: 47 };
+const P = { Macanuda: 1, Corona: 6, Chocosoda: 27 };
 const VUELTAS = 10;
 
 const resultados = [];
@@ -36,7 +36,7 @@ const ultimaVenta = () =>
 const ventaCuadra = (v) =>
   Math.abs(+v.pagos - +v.total_pagar) < 0.005 &&
   Math.abs(+v.det - +v.subtotal_productos) < 0.005 &&
-  Math.abs(+v.subtotal_mesas + +v.subtotal_productos - +v.descuentos + +v.redondeo - +v.total_pagar) < 0.005;
+  Math.abs(+v.subtotal_mesas + +v.subtotal_productos - +v.descuentos + +v.subtotal_cargos + +v.redondeo - +v.total_pagar) < 0.005;
 
 async function probarBarra() {
   console.log('\n--- Barra');
@@ -78,22 +78,57 @@ async function probarBarra() {
   });
   comprobar('Vender más que el stock se rechaza', sobreventa.codigo === 'stock_insuficiente' && stock(P.Chocosoda) === 1, sobreventa.message);
 
-  const cuatroCorona = [{ id_producto: P.Corona, cantidad: 4 }, { id_producto: P.HoraPromo, cantidad: 1 }];
-  const otraMesa = await post(BASE, { accion: 'registrar_venta_barra', total_mostrado: 101, metodo_pago: 'efectivo', productos: cuatroCorona, id_mesa_ocupar_promo: MESA.Cachos1 });
+  const cuatroCorona = [{ id_producto: P.Corona, cantidad: 4 }];
+  const otraMesa = await post(BASE, { accion: 'registrar_venta_barra', total_mostrado: 101, metodo_pago: 'efectivo', productos: cuatroCorona, hora_gratis: true, id_mesa_ocupar_promo: MESA.Cachos1 });
   comprobar('Hora gratis en una mesa de otro tipo se rechaza', otraMesa.codigo === 'promo_no_vigente' && estado(MESA.Cachos1) === 'libre', otraMesa.message);
 
   const sinCondicion = await post(BASE, {
     accion: 'registrar_venta_barra',
     total_mostrado: 77,
     metodo_pago: 'efectivo',
-    productos: [{ id_producto: P.Corona, cantidad: 3 }, { id_producto: P.HoraPromo, cantidad: 1 }],
+    productos: [{ id_producto: P.Corona, cantidad: 3 }],
+    hora_gratis: true,
     id_mesa_ocupar_promo: MESA.Billar2,
   });
   comprobar('Hora gratis sin la cantidad requerida se rechaza', sinCondicion.codigo === 'promo_no_vigente' && estado(MESA.Billar2) === 'libre', sinCondicion.message);
 
-  const valida = await post(BASE, { accion: 'registrar_venta_barra', total_mostrado: 101, metodo_pago: 'efectivo', productos: cuatroCorona, id_mesa_ocupar_promo: MESA.Billar2 });
+  const valida = await post(BASE, { accion: 'registrar_venta_barra', total_mostrado: 101, metodo_pago: 'efectivo', productos: cuatroCorona, hora_gratis: true, id_mesa_ocupar_promo: MESA.Billar2 });
   const gratis = q(`SELECT s.primera_hora_gratis g FROM sesiones_juego s JOIN tramos_mesas t USING(id_sesion) WHERE t.id_mesa=${MESA.Billar2} AND s.estado='activa'`)[0];
   comprobar('Hora gratis válida: cobra 101 y abre la mesa con la hora gratis', valida.status === 'success' && estado(MESA.Billar2) === 'ocupada' && gratis && gratis.g === '1', JSON.stringify(valida).slice(0, 120));
+
+  console.log('\n--- Venta de barra enviada dos veces (en producción hubo 5 casos por doble clic)');
+  const venta = (idOperacion) => ({
+    accion: 'registrar_venta_barra',
+    total_mostrado: 22,
+    pagos: [{ metodo: 'efectivo', monto: 22 }],
+    productos: [{ id_producto: P.Macanuda, cantidad: 1 }],
+    id_operacion: idOperacion,
+  });
+  let ventas = nVentas();
+  let macanudas = stock(P.Macanuda);
+  const primera = await post(BASE, venta('prueba-repetida-0001'));
+  const repetida = await post(BASE, venta('prueba-repetida-0001'));
+  comprobar('El mismo envío repetido no se registra dos veces', primera.status === 'success' && repetida.codigo === 'venta_duplicada' && nVentas() === ventas + 1 && stock(P.Macanuda) === macanudas - 1, repetida.message);
+  let malas = 0;
+  for (let i = 0; i < VUELTAS; i++) {
+    ventas = nVentas();
+    macanudas = stock(P.Macanuda);
+    const r = await Promise.all([post(BASE, venta(`prueba-carrera-${i}-x`)), post(BASE2, venta(`prueba-carrera-${i}-x`))]);
+    if (r.filter((x) => x.status === 'success').length !== 1 || !r.some((x) => x.codigo === 'venta_duplicada') || nVentas() !== ventas + 1 || stock(P.Macanuda) !== macanudas - 1) malas++;
+  }
+  comprobar('Dos envíos simultáneos de la misma venta: se registra una sola', malas === 0, `vueltas con error: ${malas}`);
+  // Dos cajas venden el mismo producto a la vez: ninguna puede quedar cancelada por un bloqueo cruzado.
+  malas = 0;
+  let detalleError = '';
+  for (let i = 0; i < VUELTAS; i++) {
+    ventas = nVentas();
+    const r = await Promise.all([post(BASE, venta(`prueba-distinta-${i}-a`)), post(BASE2, venta(`prueba-distinta-${i}-b`))]);
+    if (nVentas() !== ventas + 2) {
+      malas++;
+      detalleError = JSON.stringify(r.filter((x) => x.status !== 'success'));
+    }
+  }
+  comprobar('Dos ventas iguales de clientes distintos, a la vez: se registran las dos', malas === 0, `vueltas con error: ${malas} ${detalleError}`);
 }
 
 async function probarMesa(s) {

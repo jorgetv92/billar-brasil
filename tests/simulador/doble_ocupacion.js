@@ -8,7 +8,6 @@ const { Sim, abrirNavegador, q } = require('./lib');
 const API = '/backend/api/atencion_barra.php';
 const MESA = { Billar2: 3, Billar3: 8, Billar4: 9, Billar5: 15, Billar6: 16, Cachos1: 4, Privada2: 7 };
 const CORONA = 6;
-const HORA_PROMO = 47;
 const VUELTAS_CARRERA = 25;
 
 const resultados = [];
@@ -54,10 +53,8 @@ const ventaBarra = (accion, idMesa) => ({
   monto_efectivo: 101,
   monto_qr: 0,
   id_mesa_ocupar_promo: idMesa,
-  productos: [
-    { id_producto: CORONA, cantidad: 4, precio_unitario: 24, nombre: 'Corona' },
-    { id_producto: HORA_PROMO, cantidad: 1, precio_unitario: 5, nombre: 'Hora Promo' },
-  ],
+  productos: [{ id_producto: CORONA, cantidad: 4, precio_unitario: 24, nombre: 'Corona' }],
+  hora_gratis: true,
 });
 
 async function probarApi() {

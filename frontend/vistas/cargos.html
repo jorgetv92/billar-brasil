@@ -1,0 +1,61 @@
+<div class="view-header">
+    <div>
+        <h2>Conceptos de Cargo</h2>
+        <p class="view-subtitle">Cobros que no son productos: rotura de vaso o botella, daños. El cajero puede cambiar el monto al cobrar.</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn-primary" id="btnNuevoConcepto">
+            <i class="material-icons">add</i> Nuevo Concepto
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Concepto</th>
+                <th>Monto sugerido (Bs.)</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaConceptosBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalConcepto" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalConceptoTitulo">Registrar Concepto</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formConcepto">
+                <input type="hidden" id="conceptoId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="nombre_concepto">Concepto</label>
+                        <input type="text" id="nombre_concepto" required maxlength="100" placeholder="Ej: Vaso roto" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="monto_concepto">Monto sugerido (Bs.)</label>
+                        <input type="number" id="monto_concepto" step="0.50" min="0" required placeholder="Ej: 8.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="activo_concepto">Estado</label>
+                        <select id="activo_concepto">
+                            <option value="1">Activo</option>
+                            <option value="0">Retirado</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formConcepto" class="btn-primary">Guardar</button>
+        </div>
+    </div>
+</div>

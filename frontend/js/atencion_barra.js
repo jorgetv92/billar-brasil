@@ -28,7 +28,7 @@ window.gestorUI = {
     productosLocal: [], // Guarda la lista del backend [id, nombre completo, stock, precio]
     itemsCarrito: [], // Elementos actualmente añadidos al carrito de compras
     promocionesActivas: [], // Promociones vigentes obtenidas de la API
-    idProductoHoraPromo: null, // ID del producto especial para item hora promo
+    conceptosCargo: [], // Conceptos para cobrar roturas o daños
     mesaIncentivoAsignada: null, // ID de mesa asignada en modal_apply_incentivoproducto en modo barra
     flujoIncentivoPendiente: null, // Configuración activa del modal de incentivo
     cotizacion: null, // Barra: lo que el backend calculó para el carrito actual
@@ -55,7 +55,8 @@ window.gestorUI = {
         await Promise.all([
             this.cargarGrillaMesas(),
             this.cargarDatalistProductos(),
-            this.cargarPromocionesActivas()
+            this.cargarPromocionesActivas(),
+            this.cargarConceptosCargo()
         ]);
         this.limpiarCarrito();
         this.iniciarMotorReloj();
@@ -64,14 +65,19 @@ window.gestorUI = {
         try {
             const response = await fetch(`${this.apiURL}?accion=get_promociones_activas`);
             const result = await response.json();
-            if (result.status === 'success') {
-                this.promocionesActivas = result.data || [];
-                if (result.id_producto_hora_promo) {
-                    this.idProductoHoraPromo = parseInt(result.id_producto_hora_promo);
-                }
-            }
+            if (result.status === 'success') this.promocionesActivas = result.data || [];
         } catch (error) {
             console.error("Error al cargar promociones activas:", error);
+        }
+    },
+    // Conceptos para cobrar roturas o daños, con su monto sugerido.
+    cargarConceptosCargo: async function () {
+        try {
+            const response = await fetch(`${this.apiURL}?accion=get_conceptos_cargo`);
+            const result = await response.json();
+            if (result.status === 'success') this.conceptosCargo = result.data || [];
+        } catch (error) {
+            console.error("Error al cargar conceptos de cargo:", error);
         }
     },
     // === 1. CARGA DE DATOS DESDE BACKEND (API) ===
@@ -188,6 +194,8 @@ window.gestorUI = {
     },
 
     // === 2. GESTIÓN Y MECÁNICAS DEL CARRITO DE COMPRAS ===
+    // El buscador tiene productos y combos (las opciones "Promo: ..."). Cada opción es un texto distinto,
+    // así que un producto con "promo" en el nombre no se confunde con un combo.
     agregarProductoAlCarrito: async function () {
         const inputBusqueda = document.querySelector('.formulario-venta input[type="text"]');
         const inputCantidad = document.querySelector('.formulario-venta input[type="number"]');
@@ -202,31 +210,33 @@ window.gestorUI = {
 
         const cantidad = parseInt(inputCantidad.value) || 1;
         if (cantidad <= 0) return;
-        if (cantidad > producto.stock) {
+        const conStock = !producto.es_combo && producto.tipo !== 'preparado';
+        if (conStock && cantidad > producto.stock) {
             alert(`Stock insuficiente. Solo quedan ${producto.stock} unidades.`);
             return;
         }
 
         const precioUnitario = parseFloat(producto.precio);
-        const nombreLimpio = producto.display_nombre.split(" - ")[0];
+        const nombreLimpio = producto.es_combo ? `Promo: ${producto.nombre_producto}` : producto.display_nombre.split(" - ")[0];
 
         if (modoActual === "mesa") {
             // == MODO MESA: GUARDAR DIRECTO EN BD ==
             const mesaCard = document.querySelector(`.mesa-card[data-nombre="${mesaSeleccionadaActual}"]`);
             if (!mesaCard) return;
             const id_mesa_actual = mesaCard.getAttribute("data-id");
-            const idTipoMesaActual = parseInt(mesaCard.getAttribute("data-id-tipo-mesa"));
-            const tieneGratisActual = mesaCard.getAttribute("data-primera-hora-gratis") === "1";
 
-            // Verificar si la mesa ya tiene asignada la promo hora
-            const yaTienePromoItem = this.itemsCarrito.some(item => 
-                (this.idProductoHoraPromo && parseInt(item.id_producto) === parseInt(this.idProductoHoraPromo)) || 
-                (item.nombre && item.nombre.includes("Hora Promo"))
-            );
+            if (producto.es_combo) {
+                await this.agregarAMesa(id_mesa_actual, { combos: [{ id_promocion: producto.id_promocion, cantidad }] }, "Combo agregado a la mesa.");
+                return;
+            }
+
+            const idTipoMesaActual = parseInt(mesaCard.getAttribute("data-id-tipo-mesa"));
+            const tieneGratisActual = mesaCard.getAttribute("data-primera-hora-gratis") === "1"
+                || !!(this.liquidacionMesa && this.liquidacionMesa.hora_gratis);
 
             // Buscar si existe promoción incentivo_producto aplicable a este producto y tipo de mesa
-            const promoIncentivo = (!tieneGratisActual && !yaTienePromoItem) ? this.promocionesActivas.find(p => {
-                return p.tipo_promo === 'incentivo_producto' && 
+            const promoIncentivo = !tieneGratisActual ? this.promocionesActivas.find(p => {
+                return p.tipo_promo === 'incentivo_producto' &&
                        parseInt(p.id_item_condicion) === parseInt(producto.id_producto) &&
                        parseInt(p.id_item_secundario) === idTipoMesaActual;
             }) : null;
@@ -234,11 +244,10 @@ window.gestorUI = {
             if (promoIncentivo) {
                 const cantRequerida = parseFloat(promoIncentivo.cantidad_condicion);
                 const cantPrevia = this.itemsCarrito
-                    .filter(i => parseInt(i.id_producto) === parseInt(producto.id_producto))
+                    .filter(i => i.tipo === 'producto' && !i.combo && parseInt(i.id_producto) === parseInt(producto.id_producto))
                     .reduce((sum, i) => sum + parseInt(i.cantidad), 0);
-                const cantTotal = cantPrevia + cantidad;
 
-                if (cantTotal >= cantRequerida) {
+                if (cantPrevia + cantidad >= cantRequerida) {
                     // Cumple la condición de la promoción: preguntar vía modal_apply_incentivoproducto
                     this.abrirModalIncentivoProducto({
                         modo: 'mesa',
@@ -256,9 +265,12 @@ window.gestorUI = {
             await this.ejecutarAgregarProductoMesaDirecto(id_mesa_actual, producto, cantidad, precioUnitario, false);
         } else {
             // == MODO BARRA: GUARDAR EN MEMORIA LOCAL ==
-            const itemExistente = this.itemsCarrito.find(item => item.id_producto === producto.id_producto);
+            const tipo = producto.es_combo ? 'combo' : 'producto';
+            const itemExistente = this.itemsCarrito.find(item => item.tipo === tipo && (producto.es_combo
+                ? item.id_promocion === producto.id_promocion
+                : item.id_producto === producto.id_producto));
             if (itemExistente) {
-                if ((itemExistente.cantidad + cantidad) > producto.stock) {
+                if (conStock && (itemExistente.cantidad + cantidad) > producto.stock) {
                     alert(`No puedes añadir esa cantidad. Supera el stock total disponible.`);
                     return;
                 }
@@ -266,7 +278,9 @@ window.gestorUI = {
                 itemExistente.total = itemExistente.cantidad * precioUnitario;
             } else {
                 this.itemsCarrito.push({
+                    tipo,
                     id_producto: producto.id_producto,
+                    id_promocion: producto.id_promocion,
                     nombre: nombreLimpio,
                     precio: precioUnitario,
                     cantidad: cantidad,
@@ -280,21 +294,16 @@ window.gestorUI = {
     eliminarDelCarrito: async function (index) {
         if (modoActual === "mesa") {
             const item = this.itemsCarrito[index];
-            if (!item.id_detalle_prod) return;
             const mesaCard = this.tarjetaSeleccionada();
+            if (!item || !mesaCard) return;
+            const idMesa = mesaCard.getAttribute("data-id");
+            const cuerpo = item.tipo === 'cargo'
+                ? { accion: "eliminar_cargo_mesa", id_mesa: idMesa, id_cargo: item.id_cargo }
+                : { accion: "eliminar_producto_mesa", id_mesa: idMesa, id_detalle_prod: item.id_detalle_prod };
             try {
-                const response = await fetch(this.apiURL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        accion: "eliminar_producto_mesa",
-                        id_mesa: mesaCard ? mesaCard.getAttribute("data-id") : null,
-                        id_detalle_prod: item.id_detalle_prod
-                    })
-                });
-                const data = await response.json();
+                const data = await this.api(cuerpo);
                 if (data.status === "success") {
-                    if (mesaCard) await this.cargarConsumoMesaActual(mesaCard.getAttribute("data-id"));
+                    await this.cargarConsumoMesaActual(idMesa);
                     await this.cargarGrillaMesas();
                     await this.cargarDatalistProductos(); // Actualizar stock de buscador
                     this.pintarRelojes();
@@ -305,11 +314,11 @@ window.gestorUI = {
                 console.error(error);
                 window.mostrarToast("Error de conexión", "error");
             }
+        } else if (index === -1) {
+            // La fila de la hora gratis: se quita la hora y quedan los productos.
+            this.quitarHoraPromoDelCarrito();
+            await this.cotizarCarrito();
         } else {
-            const itemEliminado = this.itemsCarrito[index];
-            if (itemEliminado && (itemEliminado.es_promo_hora || itemEliminado.id_producto == this.idProductoHoraPromo)) {
-                this.mesaIncentivoAsignada = null;
-            }
             this.itemsCarrito.splice(index, 1);
             await this.cotizarCarrito();
         }
@@ -366,20 +375,32 @@ window.gestorUI = {
         }
     },
     // Consumo y total de la mesa tal como se cobrarían ahora, según el backend.
+    // Consumo, cargos y total de la mesa tal como se cobrarían ahora, según el backend.
     cargarConsumoMesaActual: async function (id_mesa) {
         try {
             const response = await fetch(`${this.apiURL}?accion=get_liquidacion_mesa&id_mesa=${id_mesa}`);
             const data = await response.json();
             if (data.status === "success") {
-                this.liquidacionMesa = data.liquidacion;
-                this.itemsCarrito = data.liquidacion.productos.map(prod => ({
+                const liq = data.liquidacion;
+                this.liquidacionMesa = liq;
+                this.itemsCarrito = liq.productos.map(prod => ({
+                    tipo: 'producto',
                     id_detalle_prod: prod.id_detalle_prod,
                     id_producto: prod.id_producto,
-                    nombre: prod.nombre,
+                    nombre: prod.combo ? `${prod.nombre} (Promo: ${prod.combo})` : prod.nombre,
+                    combo: prod.combo,
                     precio: Number(prod.precio),
                     cantidad: parseInt(prod.cantidad),
                     total: Number(prod.subtotal)
-                }));
+                })).concat((liq.cargos || []).map(c => ({
+                    tipo: 'cargo',
+                    id_cargo: c.id_cargo,
+                    nombre: c.descripcion,
+                    es_hora_gratis: c.tipo === 'hora_gratis',
+                    precio: Number(c.monto),
+                    cantidad: 1,
+                    total: Number(c.monto)
+                })));
             } else {
                 this.liquidacionMesa = null;
                 this.itemsCarrito = [];
@@ -461,29 +482,37 @@ window.gestorUI = {
     renderizarCarrito: function () {
         const tbody = document.querySelector('#tablaCarritoVenta tbody');
         if (!tbody) return;
-        if (this.itemsCarrito.length === 0) {
+        const fuente = modoActual === "mesa" ? this.liquidacionMesa : this.cotizacion;
+        // En barra la hora gratis no es una línea del carrito: la agrega el backend como cargo.
+        const horaGratisBarra = modoActual !== "mesa" && this.mesaIncentivoAsignada && fuente
+            ? (fuente.cargos || []).find(c => c.tipo === 'hora_gratis')
+            : null;
+        if (this.itemsCarrito.length === 0 && !horaGratisBarra) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color: #94a3b8; padding: 20px;">Carrito vacío</td></tr>`;
             this.actualizarTotalesVista();
             return;
         }
-        let html = "";
-        this.itemsCarrito.forEach((item, index) => {
-            html += `
-                <tr>
-                    <td>${item.nombre}</td>
-                    <td class="text-center">${item.cantidad}</td>
-                    <td class="text-center">${Number(item.precio).toFixed(2)}</td>
-                    <td class="text-right">${Number(item.total).toFixed(2)}</td>
+        const fila = (nombre, cantidad, precio, total, index, estilo = '') => `
+                <tr style="${estilo}">
+                    <td>${nombre}</td>
+                    <td class="text-center">${cantidad}</td>
+                    <td class="text-center">${Number(precio).toFixed(2)}</td>
+                    <td class="text-right">${Number(total).toFixed(2)}</td>
                     <td class="text-center">
                         <button class="btn-icon" style="color: var(--danger); cursor: pointer; border: none; background: none;" onclick="gestorUI.eliminarDelCarrito(${index})">
                             <i class="material-icons" style="font-size: 18px;">delete</i>
                         </button>
                     </td>
-                </tr>
-            `;
+                </tr>`;
+        const estiloCargo = 'background: #f5f3ff; color: #6d28d9;';
+        let html = "";
+        this.itemsCarrito.forEach((item, index) => {
+            html += fila(item.nombre, item.cantidad, item.precio, item.total, index, item.tipo === 'cargo' ? estiloCargo : '');
         });
+        if (horaGratisBarra) {
+            html += fila(horaGratisBarra.descripcion, 1, horaGratisBarra.monto, horaGratisBarra.monto, -1, estiloCargo);
+        }
 
-        const fuente = modoActual === "mesa" ? this.liquidacionMesa : this.cotizacion;
         ((fuente && fuente.detalles) || []).forEach(d => {
             html += `
                 <tr style="background: #edfdf6; color: #047857; font-weight: bold;">
@@ -496,6 +525,16 @@ window.gestorUI = {
 
         tbody.innerHTML = html;
         this.actualizarTotalesVista();
+    },
+    // Lo que se manda al backend para cotizar o cobrar el carrito de barra.
+    pedidoCarrito: function () {
+        const de = tipo => this.itemsCarrito.filter(i => i.tipo === tipo);
+        return {
+            productos: de('producto').map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
+            combos: de('combo').map(i => ({ id_promocion: i.id_promocion, cantidad: i.cantidad })),
+            cargos: de('cargo').map(i => ({ id_concepto: i.id_concepto || null, descripcion: i.nombre, monto: i.precio })),
+            hora_gratis: !!this.mesaIncentivoAsignada
+        };
     },
     // Barra: el backend fija precios y promos del carrito. Si llegan dos respuestas, vale la del último pedido.
     cotizarCarrito: function () {
@@ -511,10 +550,7 @@ window.gestorUI = {
         }
         let data;
         try {
-            data = await this.api({
-                accion: "cotizar_carrito",
-                productos: this.itemsCarrito.map(item => ({ id_producto: item.id_producto, cantidad: item.cantidad }))
-            });
+            data = await this.api(Object.assign({ accion: "cotizar_carrito" }, this.pedidoCarrito()));
         } catch (error) {
             console.error("Error al cotizar el carrito:", error);
             window.mostrarToast("Error de conexión al calcular el total", "error");
@@ -525,19 +561,33 @@ window.gestorUI = {
         if (data.status === "success") {
             this.cotizacion = data.cotizacion;
             // Se muestran los precios que fijó el backend: pueden diferir de la lista si empezó o terminó una promo.
+            const totalCombo = {};
             data.cotizacion.productos.forEach(linea => {
-                const item = this.itemsCarrito.find(i => parseInt(i.id_producto) === parseInt(linea.id_producto));
+                if (linea.id_promocion) {
+                    totalCombo[linea.id_promocion] = (totalCombo[linea.id_promocion] || 0) + Number(linea.subtotal);
+                    return;
+                }
+                const item = this.itemsCarrito.find(i => i.tipo === 'producto' && parseInt(i.id_producto) === parseInt(linea.id_producto));
                 if (item) {
                     item.precio = Number(linea.precio);
                     item.total = Number(linea.subtotal);
+                }
+            });
+            this.itemsCarrito.filter(i => i.tipo === 'combo').forEach(item => {
+                if (totalCombo[item.id_promocion] !== undefined) {
+                    item.total = totalCombo[item.id_promocion];
+                    item.precio = item.total / item.cantidad;
                 }
             });
             this.renderizarCarrito();
             return this.cotizacion;
         }
         if (data.codigo === "promo_no_vigente") {
-            this.quitarHoraPromoDelCarrito();
+            // Terminó la hora gratis o un combo: se quitan y se vuelve a cotizar.
+            if (this.mesaIncentivoAsignada) this.quitarHoraPromoDelCarrito();
+            else this.itemsCarrito = this.itemsCarrito.filter(i => i.tipo !== 'combo');
             window.mostrarToast(data.message, "warning");
+            await this.cargarDatalistProductos();
             return this.cotizarCarrito();
         }
         this.cotizacion = null;
@@ -546,8 +596,49 @@ window.gestorUI = {
         return null;
     },
     quitarHoraPromoDelCarrito: function () {
-        this.itemsCarrito = this.itemsCarrito.filter(i => !i.es_promo_hora && parseInt(i.id_producto) !== parseInt(this.idProductoHoraPromo));
         this.mesaIncentivoAsignada = null;
+    },
+    // === Cargos: roturas, daños. El concepto sugiere el monto; el cajero puede cambiarlo. ===
+    abrirModalCargo: async function () {
+        if (!this.conceptosCargo.length) await this.cargarConceptosCargo();
+        const select = document.getElementById("selectConceptoCargo");
+        select.innerHTML = this.conceptosCargo.map(c => `<option value="${c.id_concepto}">${c.nombre} (${Number(c.monto_sugerido).toFixed(2)} Bs)</option>`).join('')
+            + '<option value="">Otro (escribir)</option>';
+        this.onConceptoCargo();
+        document.getElementById("modalAgregarCargo").classList.remove("hidden");
+    },
+    onConceptoCargo: function () {
+        const id = document.getElementById("selectConceptoCargo").value;
+        const concepto = this.conceptosCargo.find(c => String(c.id_concepto) === id);
+        document.getElementById("inputDescripcionCargo").value = concepto ? concepto.nombre : "";
+        document.getElementById("inputMontoCargo").value = concepto ? Number(concepto.monto_sugerido).toFixed(2) : "";
+    },
+    confirmarCargo: async function () {
+        const idConcepto = document.getElementById("selectConceptoCargo").value || null;
+        const descripcion = document.getElementById("inputDescripcionCargo").value.trim();
+        const monto = parseFloat(document.getElementById("inputMontoCargo").value);
+        if (!descripcion || !(monto > 0)) {
+            window.mostrarToast("Escriba la descripción y un monto mayor a cero.", "warning");
+            return;
+        }
+        const cargo = { id_concepto: idConcepto, descripcion, monto };
+        if (modoActual === "mesa") {
+            const mesaCard = this.tarjetaSeleccionada();
+            if (!mesaCard) return;
+            const data = await this.api({ accion: "agregar_cargo_mesa", id_mesa: mesaCard.getAttribute("data-id"), cargo });
+            if (data.status !== "success") {
+                window.mostrarToast(data.message || "No se pudo agregar el cargo", "error");
+                return;
+            }
+            await this.cargarConsumoMesaActual(mesaCard.getAttribute("data-id"));
+            await this.cargarGrillaMesas();
+            this.pintarRelojes();
+        } else {
+            this.itemsCarrito.push({ tipo: 'cargo', id_concepto: idConcepto, nombre: descripcion, precio: monto, cantidad: 1, total: monto });
+            await this.cotizarCarrito();
+        }
+        document.getElementById("modalAgregarCargo").classList.add("hidden");
+        window.mostrarToast("Cargo agregado.", "success");
     },
     // === 3. CENTRALIZADOR DE TRANSICIONES Y NAVEGACIÓN (MÓVIL / SPA) ===
     cambiarEstadoLayout: function (nuevaClaseEstado) {
@@ -1061,11 +1152,6 @@ window.gestorUI = {
     },
     detectarPromoIncentivoBarra: function () {
         if (this.mesaIncentivoAsignada) return null;
-        const yaTienePromoItem = this.itemsCarrito.some(item => 
-            (this.idProductoHoraPromo && parseInt(item.id_producto) === parseInt(this.idProductoHoraPromo)) || 
-            (item.nombre && item.nombre.includes("Hora Promo"))
-        );
-        if (yaTienePromoItem) return null;
 
         const promos = this.promocionesActivas.filter(p => p.tipo_promo === 'incentivo_producto');
         for (const p of promos) {
@@ -1074,7 +1160,7 @@ window.gestorUI = {
             const idTipoMesa = parseInt(p.id_item_secundario);
 
             const cantEnCarrito = this.itemsCarrito
-                .filter(item => parseInt(item.id_producto) === idProd)
+                .filter(item => item.tipo === 'producto' && parseInt(item.id_producto) === idProd)
                 .reduce((sum, item) => sum + parseInt(item.cantidad), 0);
 
             if (cantEnCarrito >= cantReq) {
@@ -1238,17 +1324,8 @@ window.gestorUI = {
                 return;
             }
 
+            // La hora gratis no es un producto: el backend agrega su monto como cargo al cotizar.
             this.mesaIncentivoAsignada = idMesaSeleccionada;
-
-            // Agregar el item hora al carrito. El monto definitivo lo fija el backend al cotizar.
-            this.itemsCarrito.push({
-                id_producto: this.idProductoHoraPromo || 47,
-                nombre: `Hora Promo (Incentivo)`,
-                precio: montoAumento,
-                cantidad: 1,
-                total: montoAumento,
-                es_promo_hora: true
-            });
 
             this.cerrarModal('modal_apply_incentivoproducto');
             this.flujoIncentivoPendiente = null;
@@ -1276,29 +1353,28 @@ window.gestorUI = {
     },
     // El precio lo fija el backend con las promos vigentes; no se envía desde la pantalla.
     ejecutarAgregarProductoMesaDirecto: async function (idMesa, producto, cantidad, precioUnitario, aplicarPromo, promo) {
-        const productosPayload = [{ id_producto: producto.id_producto, cantidad: cantidad }];
-        if (aplicarPromo && promo) {
-            productosPayload.push({ id_producto: this.idProductoHoraPromo || 47, cantidad: 1 });
-        }
-
+        const pedido = { productos: [{ id_producto: producto.id_producto, cantidad: cantidad }] };
+        if (aplicarPromo && promo) pedido.aplicar_hora_gratis = 1;
+        await this.agregarAMesa(idMesa, pedido, aplicarPromo
+            ? "¡Promoción aplicada! 1 hora gratis en mesa y el monto adicional quedó como cargo."
+            : "Producto agregado a la mesa.");
+    },
+    // Agrega productos, combos o la hora gratis a una mesa. El precio lo fija el backend.
+    agregarAMesa: async function (idMesa, pedido, mensajeExito) {
         try {
-            const data = await this.api({ accion: "agregar_productos_mesa", id_mesa: idMesa, productos: productosPayload });
-
+            const data = await this.api(Object.assign({ accion: "agregar_productos_mesa", id_mesa: idMesa }, pedido));
             if (data.status === "success") {
                 this.limpiarFormularioVenta();
                 await this.cargarConsumoMesaActual(idMesa);
                 await this.cargarGrillaMesas();
                 await this.cargarDatalistProductos();
                 this.pintarRelojes();
-                if (aplicarPromo) {
-                    window.mostrarToast("¡Promoción aplicada! 1 hora gratis en mesa y aumento añadido al carrito.", "success");
-                } else {
-                    window.mostrarToast("Producto agregado a la mesa.", "success");
-                }
+                window.mostrarToast(mensajeExito, "success");
             } else if (data.codigo === "mesa_sin_partida") {
                 await this.manejarErrorCobro(data, null);
             } else {
                 window.mostrarToast(data.message || "Error al agregar a mesa", data.codigo ? "warning" : "error");
+                if (data.codigo === "promo_no_vigente") await this.cargarDatalistProductos();
             }
         } catch (error) {
             console.error("Error al agregar a mesa:", error);
@@ -1636,6 +1712,8 @@ window.gestorUI = {
         fijar("lblDetalleConsumoModal", `${Number(liq.subtotal_productos).toFixed(2)} Bs`);
         mostrar("rowDescuentoModal", liq.descuentos > 0);
         fijar("lblDetalleDescuentoModal", `-${Number(liq.descuentos).toFixed(2)} Bs`);
+        mostrar("rowCargosModal", liq.subtotal_cargos > 0);
+        fijar("lblDetalleCargosModal", `+${Number(liq.subtotal_cargos || 0).toFixed(2)} Bs`);
         mostrar("rowRedondeoModal", liq.redondeo > 0);
         fijar("lblDetalleRedondeoModal", `+${Number(liq.redondeo).toFixed(2)} Bs`);
         fijar("lblTotalCobrarModal", `${Number(liq.total).toFixed(2)} Bs`);
@@ -1661,17 +1739,27 @@ window.gestorUI = {
             setBtnLoading(btn, false, originalHTML);
         }
     },
+    // Código único del cobro abierto: si la misma venta se envía dos veces, el backend registra solo una.
+    idOperacion: function (cobro) {
+        if (!cobro.id_operacion) {
+            cobro.id_operacion = (window.crypto && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+        }
+        return cobro.id_operacion;
+    },
     enviarCobro: function (cobro, pagos) {
         const total_mostrado = Number(cobro.liquidacion.total);
+        const id_operacion = this.idOperacion(cobro);
         if (cobro.modo === "mesa") {
-            return this.api({ accion: "cobrar_mesa", id_mesa: cobro.id_mesa, pagos, total_mostrado });
+            return this.api({ accion: "cobrar_mesa", id_mesa: cobro.id_mesa, pagos, total_mostrado, id_operacion });
         }
-        const cuerpo = {
+        const cuerpo = Object.assign({
             accion: "registrar_venta_barra",
             pagos,
             total_mostrado,
-            productos: this.itemsCarrito.map(item => ({ id_producto: item.id_producto, cantidad: item.cantidad }))
-        };
+            id_operacion
+        }, this.pedidoCarrito());
         if (this.mesaIncentivoAsignada) cuerpo.id_mesa_ocupar_promo = this.mesaIncentivoAsignada;
         return this.api(cuerpo);
     },
@@ -1706,6 +1794,18 @@ window.gestorUI = {
             await this.avisarMesaNoDisponible(data, idModal);
             return;
         }
+        if (data.codigo === "venta_duplicada") {
+            // La venta ya quedó registrada con el primer envío: se cierra el cobro sin cobrar de nuevo.
+            window.mesaAutoPausada = false;
+            this.mesaIncentivoAsignada = null;
+            this.cobroEnCurso = null;
+            if (idModal) await this.cerrarModal(idModal);
+            this.limpiarCarrito();
+            window.mostrarToast(data.message, "warning");
+            await Promise.all([this.cargarGrillaMesas(), this.cargarDatalistProductos()]);
+            this.pintarRelojes();
+            return;
+        }
         if (data.codigo === "mesa_sin_partida") {
             window.mesaAutoPausada = false;
             this.cobroEnCurso = null;
@@ -1738,7 +1838,8 @@ window.gestorUI = {
             productos: liq.productos.map(p => ({ cantidad: p.cantidad, nombre: p.nombre, precio_unitario: p.precio })),
             tiempoMesa: liq.tiempo,
             descuentos: liq.descuentos,
-            redondeo: liq.redondeo
+            redondeo: liq.redondeo,
+            cargos: liq.cargos || []
         });
     },
 };

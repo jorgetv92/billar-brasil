@@ -98,6 +98,9 @@
                         <button class="btn-icon" title="Añadir" onclick="gestorUI.agregarProductoAlCarrito()">
                             <i class="material-icons">add_shopping_cart</i>
                         </button>
+                        <button class="btn-icon" title="Agregar cargo (rotura, daño)" onclick="gestorUI.abrirModalCargo()">
+                            <i class="material-icons">report_problem</i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -178,6 +181,7 @@
                     <p id="rowTiempoModal">Tiempo de mesa: <span id="lblDetalleTiempoModal">0.00 Bs</span></p>
                     <p>Productos: <span id="lblDetalleConsumoModal">0.00 Bs</span></p>
                     <p id="rowDescuentoModal" style="display:none; color: #166534; font-weight: bold;">Descuento Promocional: <span id="lblDetalleDescuentoModal">-0.00 Bs</span></p>
+                    <p id="rowCargosModal" style="display:none; color: #6d28d9;">Cargos: <span id="lblDetalleCargosModal">+0.00 Bs</span></p>
                     <p id="rowRedondeoModal" style="display:none; color: #64748b;">Redondeo a .50: <span id="lblDetalleRedondeoModal">+0.00 Bs</span></p>
                 </div>
 
@@ -253,6 +257,31 @@
                 <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalConfirmarLimpieza')">Cancelar</button>
                 <button class="btn-primary btn-danger" onclick="gestorUI.ejecutarLimpiarConsumoMesa()">Sí, Limpiar
                     Todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CARGO (rotura de vaso o botella, daños): el concepto sugiere el monto y se puede cambiar -->
+    <div id="modalAgregarCargo" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Agregar Cargo</h3>
+            </div>
+            <div class="modal-body">
+                <label for="selectConceptoCargo">Concepto:</label>
+                <select id="selectConceptoCargo" class="input-text mt-10" style="width: 100%;" onchange="gestorUI.onConceptoCargo()"></select>
+                <div class="form-group mt-10">
+                    <label for="inputDescripcionCargo">Descripción:</label>
+                    <input type="text" id="inputDescripcionCargo" class="input-text" maxlength="150" placeholder="Ej: Ventana del baño">
+                </div>
+                <div class="form-group mt-10">
+                    <label for="inputMontoCargo">Monto (Bs):</label>
+                    <input type="number" id="inputMontoCargo" class="input-text" step="0.50" min="0.50">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('modalAgregarCargo').classList.add('hidden')">Cancelar</button>
+                <button class="btn-primary" onclick="gestorUI.confirmarCargo()">Agregar</button>
             </div>
         </div>
     </div>

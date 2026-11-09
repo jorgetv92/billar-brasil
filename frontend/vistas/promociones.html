@@ -55,6 +55,7 @@
                             <option value="incentivo_cruzado">Incentivo Cruzado (Mesa + Barra)</option>
                             <option value="incentivo_mesa">Incentivo en Mesa (Descuento por horas jugadas)</option>
                             <option value="incentivo_producto">Incentivo en Producto (Compra + Mesa)</option>
+                            <option value="combo_especifico">Combo Específico (varios productos por un precio)</option>
                         </select>
                     </div>
                 </div>
@@ -122,6 +123,23 @@
                             <label for="id_item_condicion_2x1">Selecciona el Producto para aplicar 2x1</label>
                             <select id="id_item_condicion_2x1">
                                 </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="block-combo_especifico" class="step-block" style="display:none; margin-top:15px; padding:15px; background:#f8fafc; border-radius:6px; border-left:4px solid #0ea5e9;">
+                    <h4 style="margin-bottom:10px; color:#0369a1;">Configuración de Combo Específico</h4>
+                    <div style="font-size:0.9rem; margin-bottom:12px; color:#475569;">
+                        Regla: "Estos productos juntos cuestan el precio del combo". El cajero lo elige en el buscador escribiendo "promo"; se descuenta el stock de cada producto.
+                    </div>
+                    <div id="itemsComboEspecifico"></div>
+                    <button type="button" class="btn-secondary" id="btnAgregarItemCombo" style="margin: 8px 0 12px;">
+                        <i class="material-icons" style="font-size:1rem; vertical-align:middle;">add</i> Agregar producto
+                    </button>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="valor_descuento_combo">Precio del combo (Bs.)</label>
+                            <input type="number" id="valor_descuento_combo" step="0.50" min="0.50" placeholder="Ej: 30.00">
                         </div>
                     </div>
                 </div>

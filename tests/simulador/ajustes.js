@@ -5,7 +5,7 @@ const path = require('path');
 const { BASE, DIR_RESULTADOS } = require('./config');
 const { Sim, abrirNavegador, q } = require('./lib');
 
-const P = { Macanuda: 1, Corona: 6, SodaPop: 12, HoraPromo: 47 };
+const P = { Macanuda: 1, Corona: 6, SodaPop: 12 };
 
 const resultados = [];
 function comprobar(nombre, ok, detalle = '') {
@@ -40,7 +40,7 @@ const stock = (id) => +q(`SELECT stock_actual s FROM productos WHERE id_producto
 const cuadra = (v) =>
   Math.abs(+v.pagos - +v.total_pagar) < 0.005 &&
   Math.abs(+v.det - +v.subtotal_productos) < 0.005 &&
-  Math.abs(+v.subtotal_mesas + +v.subtotal_productos - +v.descuentos + +v.redondeo - +v.total_pagar) < 0.005 &&
+  Math.abs(+v.subtotal_mesas + +v.subtotal_productos - +v.descuentos + +v.subtotal_cargos + +v.redondeo - +v.total_pagar) < 0.005 &&
   Math.round(+v.total_pagar * 100) % 50 === 0;
 const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subtotal_productos} d ${v.descuentos} r ${v.redondeo}) | ef ${v.ef} qr ${v.qr}`;
 
@@ -155,8 +155,9 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await s.cargarPortal();
   await s.abrirJornada(100);
   const vHora = (await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #2', caso: 'hora gratis' })).id_venta;
-  const hora = await borrar(detalleDe(vHora, P.HoraPromo));
-  comprobar('La hora gratis no se corrige desde "Mis ventas"', hora.codigo === 'no_editable' && +venta(vHora).total_pagar === 101, hora.message);
+  const hora = await editar(detalleDe(vHora, P.Corona), 3);
+  const conHora = venta(vHora);
+  comprobar('Corregir una venta con hora gratis conserva el cargo de la hora (3 Corona + 5 = 77)', hora.status === 'success' && +conHora.total_pagar === 77 && +conHora.subtotal_cargos === 5 && cuadra(conHora), `${resumen(conHora)} | ${hora.mensaje_caja}`);
 
   comprobar('Sin errores de JavaScript', errores.length === 0, errores.join(' / '));
   await navegador.close();

@@ -6,6 +6,12 @@
 ALTER TABLE ventas
 ADD COLUMN redondeo DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER descuentos;
 
+-- Código único de cada intento de cobro: si la misma venta llega dos veces (doble clic, reintento de red),
+-- la segunda se rechaza en vez de registrarse otra vez.
+ALTER TABLE ventas
+ADD COLUMN id_operacion VARCHAR(40) NULL AFTER fecha_hora_venta,
+ADD UNIQUE KEY uq_ventas_operacion (id_operacion);
+
 -- Momento en que se pidió cada producto: conserva las promos de ese momento (por ejemplo el 2x1)
 -- aunque la mesa se cobre después de que terminó la promo.
 ALTER TABLE detalle_venta_productos

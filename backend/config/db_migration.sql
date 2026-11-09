@@ -12,7 +12,5 @@ ADD COLUMN id_item_secundario INT NULL AFTER id_item_condicion;
 ALTER TABLE sesiones_juego 
 ADD COLUMN primera_hora_gratis TINYINT(1) NOT NULL DEFAULT 0;
 
--- 4. Producto especial para item de hora promo con descuento en el carrito
-INSERT INTO productos (nombre_producto, precio_venta, stock_actual) 
-VALUES ('Hora Promo (Incentivo)', 0.00, 999999);
-
+-- 4. (Retirado) Antes se creaba aquí el producto "Hora Promo (Incentivo)" con precio 0 y stock 999999.
+--    La hora gratis ahora es un cargo de la venta (ver migracion_productos_cargos_combos.sql).

@@ -8,6 +8,10 @@ const { liquidar, promoActiva, r2, ts, fmt } = require('./oraculo');
 
 const RELOJ = path.join(DIR_SITIO, 'backend', 'config', 'sim_clock.txt');
 
+// La hora gratis no es un producto: para el oráculo es una línea más con el monto adicional, y en la base
+// queda como cargo de la venta. Este id no coincide con ningún producto ni promoción.
+const CARGO_HORA_GRATIS = 'cargo_hora_gratis';
+
 // Devuelve filas como objetos. Solo puede hablar con el clon.
 function q(sql) {
   const salida = execFileSync(MYSQL, ['-uroot', '--default-character-set=utf8mb4', '--batch', BD_SIM, '-e', sql], {
@@ -48,7 +52,7 @@ function fallasDeVenta(x) {
   if (difieren(x.pantalla, x.bd.total)) fallas.push('PANTALLA≠TOTAL');
   if (difieren(x.bd.pagos, x.bd.total)) fallas.push('PAGOS≠TOTAL');
   if (difieren(x.bd.total, x.oraculo.total)) fallas.push('TOTAL≠REGLAS');
-  if (difieren(x.bd.total, Math.max(0, x.bd.mesas + x.bd.prod - x.bd.desc + x.bd.redondeo))) fallas.push('TOTAL≠DESGLOSE');
+  if (difieren(x.bd.total, Math.max(0, x.bd.mesas + x.bd.prod - x.bd.desc + (x.bd.cargos || 0) + x.bd.redondeo))) fallas.push('TOTAL≠DESGLOSE');
   if (difieren(x.bd.det, x.bd.prod)) fallas.push('DETALLE≠SUBTOTAL');
   if (Math.round(x.bd.total * 100) % 50 !== 0) fallas.push('TOTAL SIN REDONDEAR');
   return fallas;
@@ -106,7 +110,7 @@ class Sim {
   }
   async atencion() {
     await this.vista('atencion.html', '.tipos-mesa-contenedor .mesa-card');
-    await this.page.waitForFunction(() => gestorUI.productosLocal.length > 0 && gestorUI.idProductoHoraPromo);
+    await this.page.waitForFunction(() => gestorUI.productosLocal.length > 0);
     await this.page.waitForTimeout(100);
     await this.page.evaluate(() => gestorUI.actualizarRelojes());
   }
@@ -216,9 +220,25 @@ class Sim {
     if (hubo && incentivo === 'si') {
       s.gratis = true;
       const promo = PROMOS.find((p) => p.t === 'incentivo_producto' && promoActiva(p, this.now));
-      s.prods.push({ id: 47, qty: 1, precio: promo.v, ef: promo.v, t: this.now });
+      s.prods.push({ id: CARGO_HORA_GRATIS, qty: 1, precio: promo.v, ef: promo.v, t: this.now });
     }
     this.say(`${n}: consumo prod ${id} x${qty} @${precio}${hubo ? ` (modal incentivo: ${incentivo})` : ''}`);
+  }
+  // Quita la hora gratis de una mesa (el cargo): la mesa vuelve a tarifa normal.
+  async quitarHoraGratis(n) {
+    await this.sel(n);
+    const r = await this.page.evaluate(async (n) => {
+      const c = document.querySelector(`.mesa-card[data-nombre="${n}"]`);
+      const idMesa = c.getAttribute('data-id');
+      const liq = await (await fetch(`${gestorUI.apiURL}?accion=get_liquidacion_mesa&id_mesa=${idMesa}`)).json();
+      const cargo = (liq.liquidacion.cargos || []).find((x) => x.tipo === 'hora_gratis');
+      if (!cargo) return null;
+      return gestorUI.api({ accion: 'eliminar_cargo_mesa', id_mesa: idMesa, id_cargo: cargo.id_cargo });
+    }, n);
+    const s = this.ses[n];
+    s.prods = s.prods.filter((p) => p.id !== CARGO_HORA_GRATIS);
+    s.gratis = false;
+    this.say(`${n}: quita la hora gratis: ${r && r.status}`);
   }
   async quitarConsumo(n, id) {
     await this.sel(n);
@@ -287,7 +307,7 @@ class Sim {
   registrar(rec) {
     const redondeo = this.tieneRedondeo ? 'v.redondeo' : '0 AS redondeo';
     const v = q(
-      `SELECT v.id_venta,v.subtotal_mesas,v.subtotal_productos,v.descuentos,${redondeo},v.total_pagar,
+      `SELECT v.id_venta,v.subtotal_mesas,v.subtotal_productos,v.subtotal_cargos,v.descuentos,${redondeo},v.total_pagar,
         (SELECT COALESCE(SUM(monto_pagado),0) FROM pagos_venta p WHERE p.id_venta=v.id_venta) pagos,
         (SELECT COALESCE(SUM(cantidad*precio_unitario_aplicado),0) FROM detalle_venta_productos d WHERE d.id_venta=v.id_venta) det
        FROM ventas v WHERE v.id_jornada=${this.j.id} ORDER BY id_venta DESC LIMIT 1`,
@@ -300,6 +320,7 @@ class Sim {
       bd: {
         mesas: +v.subtotal_mesas,
         prod: +v.subtotal_productos,
+        cargos: +v.subtotal_cargos,
         desc: +v.descuentos,
         redondeo: +v.redondeo,
         total: +v.total_pagar,
@@ -313,7 +334,8 @@ class Sim {
     return r;
   }
   tally(items) {
-    for (const it of items) this.j.vendido[it.id] = (this.j.vendido[it.id] || 0) + it.qty;
+    // La hora gratis es un cargo: no mueve inventario.
+    for (const it of items.filter((x) => x.id !== CARGO_HORA_GRATIS)) this.j.vendido[it.id] = (this.j.vendido[it.id] || 0) + it.qty;
   }
   nVentas() {
     return q('SELECT COUNT(*) c FROM ventas')[0].c;
@@ -397,7 +419,7 @@ class Sim {
       await this.page.waitForTimeout(50);
       if (incentivo === 'si') {
         const promo = PROMOS.find((p) => p.t === 'incentivo_producto' && promoActiva(p, this.now));
-        items.push({ id: 47, qty: 1, ef: promo.v, t: this.now });
+        items.push({ id: CARGO_HORA_GRATIS, qty: 1, ef: promo.v, t: this.now });
       }
     }
     const oraculo = liquidar({ prods: items }, CTX);
@@ -515,4 +537,4 @@ async function abrirNavegador() {
   return { navegador, page };
 }
 
-module.exports = { Sim, q, r2, ts, fmt, abrirNavegador, fallasDeVenta, difieren, PROMOS };
+module.exports = { Sim, q, CARGO_HORA_GRATIS, r2, ts, fmt, abrirNavegador, fallasDeVenta, difieren, PROMOS };

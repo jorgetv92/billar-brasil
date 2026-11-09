@@ -105,18 +105,21 @@ for (const j of R.jornadas) {
   const real = +d0.apertura.ingreso_efectivo + +d0.apertura.ingreso_qr;
   const me = +d0.mesas.resumen.efectivo + +d0.mesas.resumen.qr;
   const pr = +d0.productos.resumen.efectivo + +d0.productos.resumen.qr;
+  const cg = d0.cargos ? +d0.cargos.resumen.efectivo + +d0.cargos.resumen.qr : 0;
   const filasMesas = d0.mesas.filas.reduce((s, f) => s + +f.total, 0);
   const filasProductos = d0.productos.filas.reduce((s, f) => s + +f.total, 0);
   // Lo cobrado por tiempo: el tiempo de cada venta más su redondeo (las ventas nuevas cuadran al centavo).
-  const tiempoCobrado = +q(`SELECT COALESCE(SUM(subtotal_mesas + IF(subtotal_mesas > 0, redondeo, 0)), 0) t FROM ventas WHERE id_jornada=${j.id}`)[0].t;
+  // Lo pagado por la hora gratis también es tiempo de mesa.
+  const tiempoCobrado = +q(`SELECT COALESCE(SUM(x.m + x.h + IF(x.m + x.h > 0, x.r, 0)), 0) t FROM (SELECT v.subtotal_mesas m, v.redondeo r, COALESCE((SELECT SUM(c.monto) FROM cargos_venta c WHERE c.id_venta = v.id_venta AND c.tipo = 'hora_gratis'), 0) h FROM ventas v WHERE v.id_jornada=${j.id}) x`)[0].t;
   const t = j.textoFinal.replace(/\s+/g, ' ');
-  const cierre = t.match(/Rendimiento de Mesas ([\d:]+) hrs jugadas (-?[\d.]+) Bs Rendimiento de Productos (\d+) uds vendidas (-?[\d.]+) Bs Total Recaudado \(Limpio de Egresos\) (-?[\d.]+)/i);
+  const cierre = t.match(/Rendimiento de Mesas ([\d:]+) hrs jugadas (-?[\d.]+) Bs Rendimiento de Productos (\d+) uds vendidas (-?[\d.]+) Bs (?:Otros Cargos \(roturas, daños\) (-?[\d.]+) Bs )?Total Recaudado \(Limpio de Egresos\) (-?[\d.]+)/i);
+  const cargosCierre = cierre && cierre[5] ? +cierre[5] : 0;
   const mesasCierre = cierre ? +cierre[2] : NaN;
   const prodCierre = cierre ? +cierre[4] : NaN;
   const fallas = [];
-  if (difieren(me + pr, real)) fallas.push('ADMIN≠COBRADO');
-  if (difieren(mesasCierre + prodCierre, real)) fallas.push('CIERRE≠COBRADO');
-  if (difieren(me, mesasCierre) || difieren(pr, prodCierre)) fallas.push('ADMIN≠CIERRE');
+  if (difieren(me + pr + cg, real)) fallas.push('ADMIN≠COBRADO');
+  if (difieren(mesasCierre + prodCierre + cargosCierre, real)) fallas.push('CIERRE≠COBRADO');
+  if (difieren(me, mesasCierre) || difieren(pr, prodCierre) || difieren(cg, cargosCierre)) fallas.push('ADMIN≠CIERRE');
   if (difieren(me, tiempoCobrado)) fallas.push('MESAS≠TIEMPO_COBRADO');
   if (difieren(filasMesas, me) || difieren(filasProductos, pr)) fallas.push('FILAS≠RESUMEN');
   if (fallas.length) fallasTotales++;

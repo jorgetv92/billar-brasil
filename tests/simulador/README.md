@@ -25,12 +25,15 @@ npm run doble      # doble ocupación de mesas, incluidas dos cajas a la vez
 npm run motor      # el backend fija precios, valida pagos y no cobra dos veces la misma mesa
 npm run ajustes    # corregir ventas ya cobradas ajusta pagos, stock y bitácora
 npm run reportes   # mesas + productos = cobrado en pre-cierre, cierre, admin y dashboard
+npm run combos     # combos que elige el cajero, preparados sin stock, productos retirados y cargos
 npm run limpieza   # el script de sesiones huérfanas sobre el clon
 npm run turnos     # 4 turnos completos y el análisis de caja, inventario y reportes (~5 min)
 npm run todo
 ```
 
 Los resultados detallados quedan en `%TEMP%\billar-sim\resultados`.
+
+Para probar con otra base, por ejemplo una copia de producción, sin cambiar `database.php`: `BILLAR_BD_ORIGEN=billarbrasil_produccion npm run todo` (en PowerShell: `$env:BILLAR_BD_ORIGEN='billarbrasil_produccion'; npm run todo`). Antes de probar, al clon se le aplican las migraciones que le falten.
 
 ## Archivos
 
@@ -43,6 +46,7 @@ Los resultados detallados quedan en `%TEMP%\billar-sim\resultados`.
 | `motor.js` | Validaciones del cobro en el backend y carreras entre dos cajas. |
 | `ajustes.js` | Correcciones de ventas ya cobradas: total, pagos, stock y bitácora. |
 | `reportes.js` | Cifras de pre-cierre, cierre, reporte del admin y dashboard. |
+| `combos_cargos.js` | Combos, preparados, productos retirados, cargos y hora gratis como cargo. |
 | `doble_ocupacion.js`, `limpieza.js` | Doble ocupación de mesas y el script de sesiones huérfanas. |
 | `turnos.js`, `dirigidas.js`, `analizar.js` | Turnos completos, casos aislados y el análisis. |
 | `reset.sql` | Promociones de prueba. Debe coincidir con `PROMOS` en `lib.js`. |

@@ -9,6 +9,7 @@
     "motor": "node correr.js motor",
     "ajustes": "node correr.js ajustes",
     "reportes": "node correr.js reportes",
+    "combos": "node correr.js combos",
     "limpieza": "node correr.js limpieza",
     "reglas": "node correr.js reglas",
     "turnos": "node correr.js turnos",

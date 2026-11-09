@@ -11,6 +11,7 @@ const GRUPOS = {
   motor: { archivos: ['motor.js'] },
   ajustes: { archivos: ['ajustes.js'] },
   reportes: { archivos: ['reportes.js'] },
+  combos: { archivos: ['combos_cargos.js'] },
   limpieza: { archivos: ['limpieza.js'], reset: false },
   reglas: { archivos: ['reglas_negocio.js'] },
   turnos: { archivos: ['turnos.js', 'dirigidas.js', 'analizar.js'] },

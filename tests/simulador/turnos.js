@@ -4,7 +4,7 @@ const path = require('path');
 const { DIR_RESULTADOS } = require('./config');
 const { Sim, abrirNavegador, q, ts } = require('./lib');
 
-const P = { Macanuda: 1, Corona: 6, Gordita: 7, Palito: 9, SodaPop: 12, CigBohem: 20, Soda1L: 25, Galleta: 26, AmstelBot: 46, HoraPromo: 47 };
+const P = { Macanuda: 1, Corona: 6, Gordita: 7, Palito: 9, SodaPop: 12, CigBohem: 20, Soda1L: 25, Galleta: 26, AmstelBot: 46 };
 
 (async () => {
   const { navegador, page: p } = await abrirNavegador();
@@ -148,7 +148,7 @@ const P = { Macanuda: 1, Corona: 6, Gordita: 7, Palito: 9, SodaPop: 12, CigBohem
   res.huerfanas = q(`SELECT s.id_sesion,s.estado,t.id_mesa,t.fecha_hora_inicio,t.fecha_hora_fin FROM sesiones_juego s JOIN tramos_mesas t USING(id_sesion) WHERE s.estado='activa'`);
   await s.at('2026-11-21 20:30:00'); await s.cobrarMixto('Privada #1', { caso: 'T3 incentivo mesa 2h30 pago mixto' });
   await s.at('2026-11-21 20:40:00'); await s.abrirMesa('Billar #1'); await s.consumo('Billar #1', P.Corona, 4, { incentivo: 'si' });
-  await s.at('2026-11-21 20:50:00'); await s.quitarConsumo('Billar #1', P.HoraPromo); s.ses['Billar #1'].gratis = false;
+  await s.at('2026-11-21 20:50:00'); await s.quitarHoraGratis('Billar #1');
   await s.at('2026-11-21 21:10:00'); await s.cobrarMesa('Billar #1', { caso: 'T3 quita Hora Promo: se revierte la hora gratis' });
   await s.at('2026-11-21 22:00:00'); await s.cerrarJornada();
 

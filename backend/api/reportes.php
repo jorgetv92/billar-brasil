@@ -122,6 +122,27 @@ try {
                         "id_venta" => $f['id_venta']
                     ];
                 }
+                // La hora gratis vendida en barra se cobra antes de jugar: cuenta como mesas, en su propia fila.
+                $stmtHoraBarra = $pdo->prepare("
+                    SELECT v.id_venta, v.fecha_hora_venta,
+                           (SELECT GROUP_CONCAT(metodo_pago SEPARATOR ' + ') FROM pagos_venta pv WHERE pv.id_venta = v.id_venta) AS metodo
+                    FROM ventas v
+                    WHERE v.id_jornada = ? AND v.id_sesion IS NULL
+                      AND EXISTS (SELECT 1 FROM cargos_venta c WHERE c.id_venta = v.id_venta AND c.tipo = 'hora_gratis')
+                    ORDER BY v.fecha_hora_venta
+                ");
+                $stmtHoraBarra->execute([$id]);
+                foreach ($stmtHoraBarra->fetchAll(PDO::FETCH_ASSOC) as $f) {
+                    $reparto = isset($ingresosJornada['ventas'][intval($f['id_venta'])]) ? $ingresosJornada['ventas'][intval($f['id_venta'])] : null;
+                    $filasMesas[] = [
+                        "mesa" => "Hora gratis (vendida en barra)",
+                        "fecha_hora" => $f['fecha_hora_venta'],
+                        "tiempo_uso" => "00:00:00",
+                        "metodo" => $f['metodo'],
+                        "total" => number_format($reparto ? ($reparto['mesas_efectivo'] + $reparto['mesas_qr']) / 100 : 0, 2, '.', ''),
+                        "id_venta" => $f['id_venta']
+                    ];
+                }
                 $data["mesas"]["filas"] = $filasMesas;
                 $data["mesas"]["resumen"] = [
                     "horas" => $formatoTiempo($totalSegundos),
@@ -161,6 +182,23 @@ try {
                     "cantidad" => $totalProductos,
                     "efectivo" => number_format($ingresosJornada['productos']['efectivo'], 2, '.', ''),
                     "qr" => number_format($ingresosJornada['productos']['qr'], 2, '.', '')
+                ];
+
+                // Otros cargos (rotura de vaso, daños): no son productos ni tiempo de mesa.
+                // La hora gratis se cuenta como tiempo de mesa, por eso no aparece aquí.
+                $stmtC = $pdo->prepare("
+                    SELECT c.fecha_hora, c.descripcion, c.monto, IF(v.id_sesion IS NULL, 'Barra', 'Mesa') AS modo
+                    FROM cargos_venta c JOIN ventas v ON v.id_venta = c.id_venta
+                    WHERE v.id_jornada = ? AND c.tipo <> 'hora_gratis'
+                    ORDER BY c.fecha_hora
+                ");
+                $stmtC->execute([$id]);
+                $data["cargos"] = [
+                    "filas" => $stmtC->fetchAll(PDO::FETCH_ASSOC),
+                    "resumen" => [
+                        "efectivo" => number_format($ingresosJornada['cargos']['efectivo'], 2, '.', ''),
+                        "qr" => number_format($ingresosJornada['cargos']['qr'], 2, '.', '')
+                    ]
                 ];
             }
 
