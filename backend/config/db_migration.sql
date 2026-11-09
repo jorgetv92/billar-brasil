@@ -2,7 +2,7 @@
 
 -- 1. Modificar el tipo_promo para incluir 'incentivo_producto'
 ALTER TABLE promociones 
-MODIFY tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto') NOT NULL;
+MODIFY tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto', 'combo_especifico') NOT NULL;
 
 -- 2. Agregar la nueva columna requerida para almacenar el tipo de mesa secundario
 ALTER TABLE promociones 

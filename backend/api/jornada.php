@@ -47,7 +47,7 @@ function datosPrecierre($pdo, array $jornada) {
             "cargos" => $ingresos['cargos']
         ],
         "egresos_detalle" => $stmtDetEgresos->fetchAll(PDO::FETCH_ASSOC),
-        "inventario" => ResumenJornada::inventario($pdo, $id_jornada, $jornada['fecha_hora_apertura']),
+        "inventario" => ResumenJornada::inventario($pdo, $id_jornada),
         "preparados" => ResumenJornada::preparados($pdo, $id_jornada)
     ];
 }
@@ -327,7 +327,17 @@ if ($method === 'POST') {
     }
 
     try {
+        // Candado con nombre: si dos cajas abren a la vez, la segunda espera y luego ve la jornada de la primera.
+        // (Se libera solo al terminar la petición.)
+        if ((int)$pdo->query("SELECT GET_LOCK('billar_apertura_jornada', 10)")->fetchColumn() !== 1) {
+            echo json_encode(["status" => "error", "message" => "Otra caja está abriendo la jornada. Intente de nuevo."]);
+            exit;
+        }
         $pdo->beginTransaction();
+
+        // 0. Bloquear el stock antes de crear la jornada: espera a las cargas en curso (quedan en la foto
+        // de apertura) y frena las nuevas hasta terminar (quedan como cargas de esta jornada).
+        $pdo->query("SELECT id_producto FROM productos LOCK IN SHARE MODE")->fetchAll();
 
         // 1. Doble verificación: Asegurar que no se abrió otra jornada en simultáneo
         $stmtCheck = $pdo->prepare("SELECT id_jornada FROM jornadas WHERE estado = 'abierta'");

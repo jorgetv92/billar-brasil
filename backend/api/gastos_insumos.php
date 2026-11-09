@@ -1,252 +1,158 @@
 <?php
-// api/gastos_insumos.php
+// api/gastos_insumos.php — insumos que se usan en el turno (detergente, papel...). Descuentan stock.
+// Solo se registran, corrigen o borran gastos de la jornada abierta: lo de un turno cerrado ya está en su reporte.
 date_default_timezone_set('America/La_Paz');
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST");
-header("Access-Control-Allow-Origin: *");
 
 include_once '../config/database.php';
 
-try {
-    $database = new Database();
-    $pdo = $database->getConnection();
-    
-    // Crear tabla gastos_insumos si no existe
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS gastos_insumos (
-            id_gasto INT AUTO_INCREMENT PRIMARY KEY,
-            id_jornada INT NOT NULL,
-            id_insumo INT NOT NULL,
-            cantidad DECIMAL(10,2) NOT NULL,
-            fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (id_jornada) REFERENCES jornadas(id_jornada),
-            FOREIGN KEY (id_insumo) REFERENCES insumos(id_insumo)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    ");
-} catch (Exception $e) {
-    echo json_encode(["status" => "error", "message" => "Error de BD: " . $e->getMessage()]);
+class ErrorGasto extends Exception {}
+
+$database = new Database();
+$pdo = $database->getConnection();
+if (!$pdo) {
+    echo json_encode(["status" => "error", "message" => "Error de conexión a la base de datos."]);
     exit;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-// ============================================================
-// GET: listar gastos de jornada activa | catálogo de insumos
-// ============================================================
+// Cantidad en centésimas: positiva y con dos decimales como máximo.
+function centesimasGasto($valor) {
+    $num = is_numeric($valor) ? floatval($valor) : 0;
+    $cent = intval(round($num * 100));
+    if ($num <= 0 || abs($num * 100 - $cent) > 0.001) {
+        throw new ErrorGasto('Ingresa una cantidad mayor a cero, con dos decimales como máximo.');
+    }
+    return $cent;
+}
+
+// Suma $cent (centésimas, puede ser negativo) al stock del insumo, que ya debe estar bloqueado.
+function moverStockInsumo($pdo, $idInsumo, $cent) {
+    $stmt = $pdo->prepare("SELECT nombre_insumo, stock_actual FROM insumos WHERE id_insumo = ? FOR UPDATE");
+    $stmt->execute([$idInsumo]);
+    $insumo = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$insumo) {
+        throw new ErrorGasto('Insumo no encontrado.');
+    }
+    $stock = intval(round(floatval($insumo['stock_actual']) * 100));
+    if ($stock + $cent < 0) {
+        throw new ErrorGasto(sprintf('Stock insuficiente. Disponible: %s de %s.', number_format($stock / 100, 2, '.', ''), $insumo['nombre_insumo']));
+    }
+    $pdo->prepare("UPDATE insumos SET stock_actual = stock_actual + ? WHERE id_insumo = ?")
+        ->execute([number_format($cent / 100, 2, '.', ''), $idInsumo]);
+}
+
 if ($method === 'GET') {
     $accion = isset($_GET['accion']) ? $_GET['accion'] : 'listar';
-
-    // Catálogo de insumos disponibles (para el select del modal)
-    if ($accion === 'get_insumos') {
-        try {
-            $stmt = $pdo->query(
-                "SELECT id_insumo, nombre_insumo, unidad_medida, stock_actual
-                 FROM insumos
-                 ORDER BY nombre_insumo ASC"
-            );
+    try {
+        if ($accion === 'get_insumos') {
+            $stmt = $pdo->query("SELECT id_insumo, nombre_insumo, unidad_medida, stock_actual FROM insumos ORDER BY nombre_insumo ASC");
             echo json_encode(["status" => "success", "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
             exit;
-        } catch (PDOException $e) {
-            echo json_encode(["status" => "error", "message" => "Error al obtener insumos: " . $e->getMessage()]);
-            exit;
         }
-    }
 
-    // Listar gastos de la jornada activa
-    try {
-        $stmtJ = $pdo->query("SELECT id_jornada FROM jornadas WHERE estado = 'abierta' ORDER BY id_jornada DESC LIMIT 1");
-        $jornada = $stmtJ->fetch(PDO::FETCH_ASSOC);
-
+        $jornada = $pdo->query("SELECT id_jornada FROM jornadas WHERE estado = 'abierta' ORDER BY id_jornada DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         if (!$jornada) {
             echo json_encode(["status" => "sin_jornada", "data" => [], "message" => "No hay jornada activa."]);
             exit;
         }
-
-        $id_jornada = $jornada['id_jornada'];
         $stmt = $pdo->prepare(
             "SELECT gi.id_gasto_insumo, gi.id_insumo, i.nombre_insumo, i.unidad_medida, gi.cantidad, gi.fecha_hora
              FROM gastos_insumos gi
              JOIN insumos i ON gi.id_insumo = i.id_insumo
              WHERE gi.id_jornada = ?
-             ORDER BY gi.fecha_hora DESC"
+             ORDER BY gi.fecha_hora DESC, gi.id_gasto_insumo DESC"
         );
-        $stmt->execute([$id_jornada]);
-        $gastos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode(["status" => "success", "data" => $gastos, "id_jornada" => $id_jornada]);
-        exit;
+        $stmt->execute([$jornada['id_jornada']]);
+        echo json_encode(["status" => "success", "data" => $stmt->fetchAll(PDO::FETCH_ASSOC), "id_jornada" => $jornada['id_jornada']]);
     } catch (PDOException $e) {
         echo json_encode(["status" => "error", "message" => "Error al obtener gastos: " . $e->getMessage()]);
-        exit;
     }
+    exit;
 }
 
-// ============================================================
-// POST: crear | editar | eliminar
-// ============================================================
 if ($method === 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
+    $data = is_array($data) ? $data : [];
     $accion = isset($data['accion']) ? $data['accion'] : '';
-
-    // Obtener jornada activa
-    $stmtJ = $pdo->query("SELECT id_jornada FROM jornadas WHERE estado = 'abierta' ORDER BY id_jornada DESC LIMIT 1");
-    $jornada = $stmtJ->fetch(PDO::FETCH_ASSOC);
-
-    if (!$jornada && $accion !== 'eliminar') {
-        echo json_encode(["status" => "error", "message" => "No hay una jornada activa."]);
-        exit;
-    }
-    $id_jornada = $jornada ? $jornada['id_jornada'] : null;
 
     try {
         $pdo->beginTransaction();
 
-        // ---- CREAR ----
+        // Bloqueo compartido: el cierre de la jornada espera a que termine este gasto y viceversa.
+        $jornada = $pdo->query("SELECT id_jornada FROM jornadas WHERE estado = 'abierta' ORDER BY id_jornada DESC LIMIT 1 LOCK IN SHARE MODE")->fetch(PDO::FETCH_ASSOC);
+        if (!$jornada) {
+            throw new ErrorGasto('No hay una jornada activa.');
+        }
+        $id_jornada = intval($jornada['id_jornada']);
+
+        // Gasto existente de la jornada abierta, bloqueado.
+        $gastoDeJornada = function ($idGasto) use ($pdo, $id_jornada) {
+            $stmt = $pdo->prepare("SELECT id_insumo, cantidad FROM gastos_insumos WHERE id_gasto_insumo = ? AND id_jornada = ? FOR UPDATE");
+            $stmt->execute([$idGasto, $id_jornada]);
+            $gasto = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$gasto) {
+                throw new ErrorGasto('Solo se pueden modificar gastos de la jornada activa.');
+            }
+            return ['id_insumo' => intval($gasto['id_insumo']), 'cent' => intval(round(floatval($gasto['cantidad']) * 100))];
+        };
+
         if ($accion === 'crear') {
-            $id_insumo = isset($data['id_insumo']) ? intval($data['id_insumo']) : 0;
-            $cantidad  = isset($data['cantidad']) ? floatval($data['cantidad']) : 0;
-
-            if (!$id_insumo || $cantidad <= 0) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Insumo y cantidad válida son requeridos."]);
-                exit;
-            }
-
-            // Verificar stock disponible
-            $stmtStock = $pdo->prepare("SELECT stock_actual, nombre_insumo FROM insumos WHERE id_insumo = ?");
-            $stmtStock->execute([$id_insumo]);
-            $insumo = $stmtStock->fetch(PDO::FETCH_ASSOC);
-
-            if (!$insumo) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Insumo no encontrado."]);
-                exit;
-            }
-
-            if (floatval($insumo['stock_actual']) < $cantidad) {
-                $pdo->rollBack();
-                echo json_encode([
-                    "status"  => "error",
-                    "message" => "Stock insuficiente. Disponible: {$insumo['stock_actual']} uds de {$insumo['nombre_insumo']}."
-                ]);
-                exit;
-            }
-
-            // Insertar el gasto
-            $stmtInsert = $pdo->prepare(
-                "INSERT INTO gastos_insumos (id_jornada, id_insumo, cantidad, fecha_hora)
-                 VALUES (?, ?, ?, NOW())"
-            );
-            $stmtInsert->execute([$id_jornada, $id_insumo, $cantidad]);
-            $id_gasto = $pdo->lastInsertId();
-
-            // Descontar del stock del insumo
-            $stmtDescontar = $pdo->prepare("UPDATE insumos SET stock_actual = stock_actual - ? WHERE id_insumo = ?");
-            $stmtDescontar->execute([$cantidad, $id_insumo]);
-
+            $id_insumo = intval($data['id_insumo'] ?? 0);
+            if (!$id_insumo) throw new ErrorGasto('Elige un insumo.');
+            $cent = centesimasGasto($data['cantidad'] ?? null);
+            moverStockInsumo($pdo, $id_insumo, -$cent);
+            $pdo->prepare("INSERT INTO gastos_insumos (id_jornada, id_insumo, cantidad, fecha_hora) VALUES (?, ?, ?, NOW())")
+                ->execute([$id_jornada, $id_insumo, number_format($cent / 100, 2, '.', '')]);
+            $id = $pdo->lastInsertId();
             $pdo->commit();
-            echo json_encode(["status" => "success", "message" => "Gasto de insumo registrado y stock actualizado.", "id_gasto" => $id_gasto]);
+            echo json_encode(["status" => "success", "message" => "Gasto de insumo registrado y stock actualizado.", "id_gasto" => $id]);
             exit;
         }
 
-        // ---- EDITAR ----
         if ($accion === 'editar') {
-            $id_gasto    = isset($data['id_gasto']) ? intval($data['id_gasto']) : 0;
-            $id_insumo   = isset($data['id_insumo']) ? intval($data['id_insumo']) : 0;
-            $nueva_cant  = isset($data['cantidad']) ? floatval($data['cantidad']) : 0;
+            $id_gasto = intval($data['id_gasto'] ?? 0);
+            $id_insumo = intval($data['id_insumo'] ?? 0);
+            if (!$id_gasto || !$id_insumo) throw new ErrorGasto('Datos incompletos para editar.');
+            $cent = centesimasGasto($data['cantidad'] ?? null);
+            $viejo = $gastoDeJornada($id_gasto);
 
-            if (!$id_gasto || !$id_insumo || $nueva_cant <= 0) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Datos incompletos para editar."]);
-                exit;
+            // Movimientos por insumo, aplicados en orden de id para no cruzarse con otro gasto.
+            $mov = [$viejo['id_insumo'] => $viejo['cent']];
+            $mov[$id_insumo] = (isset($mov[$id_insumo]) ? $mov[$id_insumo] : 0) - $cent;
+            ksort($mov);
+            foreach ($mov as $id => $c) {
+                moverStockInsumo($pdo, $id, $c);
             }
-
-            // Obtener registro anterior
-            $stmtViejo = $pdo->prepare("SELECT id_insumo, cantidad FROM gastos_insumos WHERE id_gasto_insumo = ? AND id_jornada = ?");
-            $stmtViejo->execute([$id_gasto, $id_jornada]);
-            $viejo = $stmtViejo->fetch(PDO::FETCH_ASSOC);
-
-            if (!$viejo) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Registro no encontrado en la jornada activa."]);
-                exit;
-            }
-
-            $id_insumo_viejo = intval($viejo['id_insumo']);
-            $cantidad_vieja  = floatval($viejo['cantidad']);
-
-            // Devolver stock del insumo anterior (o la cantidad anterior si el mismo insumo)
-            $stmtDevolver = $pdo->prepare("UPDATE insumos SET stock_actual = stock_actual + ? WHERE id_insumo = ?");
-            $stmtDevolver->execute([$cantidad_vieja, $id_insumo_viejo]);
-
-            // Verificar stock del nuevo insumo
-            $stmtStock = $pdo->prepare("SELECT stock_actual, nombre_insumo FROM insumos WHERE id_insumo = ?");
-            $stmtStock->execute([$id_insumo]);
-            $insumoNuevo = $stmtStock->fetch(PDO::FETCH_ASSOC);
-
-            if (!$insumoNuevo || floatval($insumoNuevo['stock_actual']) < $nueva_cant) {
-                $pdo->rollBack();
-                $disponible = $insumoNuevo ? $insumoNuevo['stock_actual'] : 0;
-                echo json_encode(["status" => "error", "message" => "Stock insuficiente. Disponible: $disponible uds."]);
-                exit;
-            }
-
-            // Actualizar el gasto
-            $stmtUpdate = $pdo->prepare("UPDATE gastos_insumos SET id_insumo = ?, cantidad = ? WHERE id_gasto_insumo = ?");
-            $stmtUpdate->execute([$id_insumo, $nueva_cant, $id_gasto]);
-
-            // Descontar nuevo stock
-            $stmtDescontar = $pdo->prepare("UPDATE insumos SET stock_actual = stock_actual - ? WHERE id_insumo = ?");
-            $stmtDescontar->execute([$nueva_cant, $id_insumo]);
-
+            $pdo->prepare("UPDATE gastos_insumos SET id_insumo = ?, cantidad = ? WHERE id_gasto_insumo = ?")
+                ->execute([$id_insumo, number_format($cent / 100, 2, '.', ''), $id_gasto]);
             $pdo->commit();
             echo json_encode(["status" => "success", "message" => "Gasto actualizado y stock ajustado."]);
             exit;
         }
 
-        // ---- ELIMINAR ----
         if ($accion === 'eliminar') {
-            $id_gasto = isset($data['id_gasto']) ? intval($data['id_gasto']) : 0;
-
-            if (!$id_gasto) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "ID de gasto requerido."]);
-                exit;
-            }
-
-            // Obtener datos antes de eliminar
-            $stmtViejo = $pdo->prepare("SELECT id_insumo, cantidad FROM gastos_insumos WHERE id_gasto_insumo = ?");
-            $stmtViejo->execute([$id_gasto]);
-            $viejo = $stmtViejo->fetch(PDO::FETCH_ASSOC);
-
-            if (!$viejo) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Registro de gasto no encontrado."]);
-                exit;
-            }
-
-            // Devolver el stock al inventario
-            $stmtDevolver = $pdo->prepare("UPDATE insumos SET stock_actual = stock_actual + ? WHERE id_insumo = ?");
-            $stmtDevolver->execute([$viejo['cantidad'], $viejo['id_insumo']]);
-
-            // Eliminar el registro
-            $stmtDel = $pdo->prepare("DELETE FROM gastos_insumos WHERE id_gasto_insumo = ?");
-            $stmtDel->execute([$id_gasto]);
-
+            $id_gasto = intval($data['id_gasto'] ?? 0);
+            if (!$id_gasto) throw new ErrorGasto('ID de gasto requerido.');
+            $viejo = $gastoDeJornada($id_gasto);
+            moverStockInsumo($pdo, $viejo['id_insumo'], $viejo['cent']);
+            $pdo->prepare("DELETE FROM gastos_insumos WHERE id_gasto_insumo = ?")->execute([$id_gasto]);
             $pdo->commit();
             echo json_encode(["status" => "success", "message" => "Gasto eliminado y stock del insumo restaurado."]);
             exit;
         }
 
-        $pdo->rollBack();
-        echo json_encode(["status" => "error", "message" => "Acción no reconocida: $accion"]);
-        exit;
-
+        throw new ErrorGasto("Acción no reconocida: $accion");
+    } catch (ErrorGasto $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(["status" => "error", "message" => "Error transaccional: " . $e->getMessage()]);
-        exit;
     }
+    exit;
 }
 
 echo json_encode(["status" => "error", "message" => "Método HTTP no permitido."]);

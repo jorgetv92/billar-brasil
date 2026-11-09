@@ -12,6 +12,7 @@ const GRUPOS = {
   ajustes: { archivos: ['ajustes.js'] },
   reportes: { archivos: ['reportes.js'] },
   combos: { archivos: ['combos_cargos.js'] },
+  insumos: { archivos: ['insumos_caja.js'] },
   limpieza: { archivos: ['limpieza.js'], reset: false },
   reglas: { archivos: ['reglas_negocio.js'] },
   turnos: { archivos: ['turnos.js', 'dirigidas.js', 'analizar.js'] },

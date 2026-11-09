@@ -138,8 +138,9 @@ class ResumenJornada {
     // Inventario del turno por producto: inicial, cargas, vendido (cobrado y aún en mesas abiertas) y final.
     // Solo productos con stock: los preparados no se cuentan, y los retirados solo si se movieron en el turno.
     // "ajuste" es lo que no explican las ventas ni las cargas (por ejemplo, un cambio manual de stock).
-    // Necesita la foto de apertura, que se borra al cerrar la jornada.
-    public static function inventario($pdo, $idJornada, $apertura, $cierre = null) {
+    // Necesita la foto de apertura, que se borra al cerrar la jornada. Las cargas del turno son las que
+    // quedaron registradas con esta jornada (ver Cargas::crear), no las que caen en su horario.
+    public static function inventario($pdo, $idJornada) {
         $stmt = $pdo->prepare("
             SELECT p.id_producto, p.nombre_producto,
                    jia.stock_apertura AS stock_inicial,
@@ -169,15 +170,14 @@ class ResumenJornada {
                 SELECT dc.id_producto, SUM(dc.cantidad) AS cantidad
                 FROM detalle_cargas dc
                 INNER JOIN cargas cg ON cg.id_carga = dc.id_carga
-                WHERE cg.tipo_carga = 'producto' AND cg.estado = 'activo'
-                  AND cg.fecha_hora >= ? AND cg.fecha_hora <= COALESCE(?, NOW())
+                WHERE cg.tipo_carga = 'producto' AND cg.estado = 'activo' AND cg.id_jornada = ?
                 GROUP BY dc.id_producto
             ) c ON c.id_producto = p.id_producto
             WHERE jia.id_jornada = ? AND p.tipo = 'inventario'
               AND (p.activo = 1 OR COALESCE(v.cantidad, 0) > 0 OR COALESCE(c.cantidad, 0) > 0 OR COALESCE(m.cantidad, 0) > 0)
             ORDER BY p.nombre_producto
         ");
-        $stmt->execute([$idJornada, $idJornada, $apertura, $cierre, $idJornada]);
+        $stmt->execute([$idJornada, $idJornada, $idJornada, $idJornada]);
 
         return array_map(function ($fila) {
             $inicial = intval($fila['stock_inicial']);

@@ -10,6 +10,7 @@
     "ajustes": "node correr.js ajustes",
     "reportes": "node correr.js reportes",
     "combos": "node correr.js combos",
+    "insumos": "node correr.js insumos",
     "limpieza": "node correr.js limpieza",
     "reglas": "node correr.js reglas",
     "turnos": "node correr.js turnos",

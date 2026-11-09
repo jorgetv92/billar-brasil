@@ -5,6 +5,7 @@ const path = require('path');
 const { chromium } = require('playwright-core');
 const { BASE, BD_SIM, DIR_SITIO, MYSQL } = require('./config');
 const { liquidar, promoActiva, r2, ts, fmt } = require('./oraculo');
+const { CLAVE_ADMIN_SIM } = require('./preparar');
 
 const RELOJ = path.join(DIR_SITIO, 'backend', 'config', 'sim_clock.txt');
 
@@ -469,18 +470,9 @@ class Sim {
     }
     return this.registrar({ caso: caso || 'barra', tipo: mixto ? 'barra_mixto' : 'barra', metodo: mixto ? 'mixto' : metodo, pantalla, oraculo });
   }
+  // Llama a la API con la sesión del admin de prueba (las cargas son solo del administrador).
   async api(metodo, ruta, cuerpo) {
-    const r = await fetch(BASE + '/backend/api/' + ruta, {
-      method: metodo,
-      headers: { 'Content-Type': 'application/json' },
-      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
-    });
-    const texto = await r.text();
-    try {
-      return JSON.parse(texto);
-    } catch (e) {
-      return { raw: texto.slice(0, 400) };
-    }
+    return apiAdmin(metodo, ruta, cuerpo);
   }
   async carga(items) {
     this.say(`carga mercaderia ${JSON.stringify(items)}`);
@@ -522,6 +514,35 @@ class Sim {
   }
 }
 
+// Sesión PHP del admin de prueba que crea preparar.js. Se inicia una vez por servidor.
+const cookiesAdmin = {};
+async function cookieAdmin(base = BASE) {
+  if (!cookiesAdmin[base]) {
+    const r = await fetch(`${base}/backend/api/login.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario: 'sim_admin', password: CLAVE_ADMIN_SIM }),
+    });
+    const cookie = (r.headers.get('set-cookie') || '').split(';')[0];
+    if (!r.ok || !cookie) throw new Error('No se pudo iniciar la sesión del admin de prueba');
+    cookiesAdmin[base] = cookie;
+  }
+  return cookiesAdmin[base];
+}
+
+// Petición a la API. Con {sesion: false} va sin sesión, como lo haría alguien que no inició sesión.
+async function apiAdmin(metodo, ruta, cuerpo, { base = BASE, sesion = true } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (sesion) headers.Cookie = await cookieAdmin(base);
+  const r = await fetch(`${base}/backend/api/${ruta}`, { method: metodo, headers, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+  const texto = await r.text();
+  try {
+    return { http: r.status, ...JSON.parse(texto) };
+  } catch (e) {
+    return { http: r.status, raw: texto.slice(0, 400) };
+  }
+}
+
 // Abre el navegador con el mismo huso horario del negocio y sin impresora térmica.
 async function abrirNavegador() {
   const navegador = await chromium.launch({ channel: 'chrome', headless: true });
@@ -537,4 +558,4 @@ async function abrirNavegador() {
   return { navegador, page };
 }
 
-module.exports = { Sim, q, CARGO_HORA_GRATIS, r2, ts, fmt, abrirNavegador, fallasDeVenta, difieren, PROMOS };
+module.exports = { Sim, q, CARGO_HORA_GRATIS, r2, ts, fmt, abrirNavegador, apiAdmin, fallasDeVenta, difieren, PROMOS };

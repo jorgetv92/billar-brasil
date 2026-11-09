@@ -1,0 +1,7 @@
+# La configuración (credenciales, scripts SQL) nunca se sirve por web. PHP la sigue leyendo con require.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>

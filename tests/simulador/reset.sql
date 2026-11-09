@@ -26,3 +26,8 @@ INSERT INTO productos (nombre_producto,precio_venta,stock_actual,tipo,activo) VA
 ('SIM Vaso de Fernet',30.00,0,'preparado',1),
 ('SIM Producto retirado',5.00,10,'inventario',0),
 ('Promoras',3.00,50,'inventario',1);
+-- Insumos de prueba: SIM Hielo tiene poco stock para probar gastos simultáneos.
+INSERT INTO insumos (nombre_insumo,unidad_medida,stock_actual) VALUES
+('SIM Detergente','Kilos',4.00),
+('SIM Papel','Rollos',20.00),
+('SIM Hielo','Bolsas',5.00);

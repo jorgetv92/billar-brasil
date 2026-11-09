@@ -6,6 +6,7 @@ const path = require('path');
 const { BD_SIM, DIR_RESULTADOS, DIR_SIM, DIR_SITIO, MYSQL, MYSQLDUMP, PHP, RAIZ_REPO } = require('./config');
 
 const ARCHIVO_DB = path.join('backend', 'config', 'database.php');
+const DIR_ENTORNOS = path.join('backend', 'config', 'entornos');
 const CLAVE_ADMIN_SIM = 'sim-admin';
 // Migraciones que el código actual necesita y que la BD de origen puede no tener todavía, en orden.
 // Cada una trae la consulta que dice si ya está aplicada.
@@ -14,19 +15,21 @@ const MIGRACIONES = [
   { archivo: path.join('backend', 'config', 'migracion_motor_cobro.sql'), aplicada: "SHOW COLUMNS FROM ventas LIKE 'redondeo'" },
   { archivo: path.join('backend', 'config', 'migracion_ajustes_venta.sql'), aplicada: "SHOW TABLES LIKE 'ajustes_venta'" },
   { archivo: path.join('backend', 'config', 'migracion_productos_cargos_combos.sql'), aplicada: "SHOW TABLES LIKE 'cargos_venta'" },
+  { archivo: path.join('backend', 'config', 'migracion_cargas_jornada.sql'), aplicada: "SHOW COLUMNS FROM cargas LIKE 'id_jornada'" },
 ];
 
-// Por defecto se clona la base de database.php. BILLAR_BD_ORIGEN permite probar con otra copia,
-// por ejemplo la de producción, sin tocar la configuración del sitio.
+// Por defecto se clona la base del entorno local (backend/config/entornos/local.php). BILLAR_BD_ORIGEN
+// permite probar con otra copia, por ejemplo la de producción, sin tocar la configuración del sitio.
 function leerBdOrigen() {
   if (process.env.BILLAR_BD_ORIGEN) {
     if (process.env.BILLAR_BD_ORIGEN === BD_SIM) throw new Error(`BILLAR_BD_ORIGEN no puede ser ${BD_SIM}`);
     return process.env.BILLAR_BD_ORIGEN;
   }
-  const php = fs.readFileSync(path.join(RAIZ_REPO, ARCHIVO_DB), 'utf8');
-  const hallado = php.match(/\$db_name\s*=\s*"([^"]+)"/);
-  if (!hallado) throw new Error(`No se encontró $db_name en ${ARCHIVO_DB}`);
-  if (hallado[1] === BD_SIM) throw new Error(`${ARCHIVO_DB} ya apunta a ${BD_SIM}: no hay de dónde clonar`);
+  const archivo = path.join(DIR_ENTORNOS, 'local.php');
+  const php = fs.readFileSync(path.join(RAIZ_REPO, archivo), 'utf8');
+  const hallado = php.match(/'db_name'\s*=>\s*'([^']+)'/);
+  if (!hallado) throw new Error(`No se encontró db_name en ${archivo}`);
+  if (hallado[1] === BD_SIM) throw new Error(`${archivo} ya apunta a ${BD_SIM}: no hay de dónde clonar`);
   return hallado[1];
 }
 
@@ -68,16 +71,24 @@ function sim_date($f,$ts=null){ return date($f, $ts===null ? sim_time() : $ts); 
 
 // Apunta la copia al clon y sincroniza NOW() de MySQL. Si no se puede garantizar, aborta:
 // una simulación corriendo contra la BD real sería peor que no tener simulación.
+// La copia usa un entorno propio, "sim", igual al local pero con la base clon.
 function apuntarAlClon(origen) {
+  const dirConfig = path.join(DIR_SITIO, 'backend', 'config');
+  let entornoLocal = fs.readFileSync(path.join(DIR_SITIO, DIR_ENTORNOS, 'local.php'), 'utf8');
+  entornoLocal = entornoLocal
+    .replace(/('nombre'\s*=>\s*')[^']+(')/, '$1sim$2')
+    .replace(/('db_name'\s*=>\s*')[^']+(')/, `$1${BD_SIM}$2`);
+  fs.writeFileSync(path.join(DIR_SITIO, DIR_ENTORNOS, 'sim.php'), entornoLocal);
+  fs.writeFileSync(path.join(dirConfig, 'entorno.php'), "<?php\nreturn 'sim';\n");
+
   const ruta = path.join(DIR_SITIO, ARCHIVO_DB);
   const marcaZona = `$this->conn->exec("SET time_zone = '" . $offset . "'");`;
   let php = fs.readFileSync(ruta, 'utf8');
   php = php
     .replace('<?php', "<?php require_once __DIR__.'/sim_clock.php';")
-    .replace(/(\$db_name\s*=\s*")[^"]+(")/, `$1${BD_SIM}$2`)
     .replace(marcaZona, `${marcaZona}\n            $this->conn->exec("SET TIMESTAMP = " . sim_time());`);
-  if (php.includes(`"${origen}"`) || !php.includes(`"${BD_SIM}"`) || !php.includes('SET TIMESTAMP')) {
-    throw new Error(`No se pudo redirigir ${ARCHIVO_DB} al clon: se aborta para no tocar la BD real`);
+  if (entornoLocal.includes(`'${origen}'`) || !entornoLocal.includes(`'${BD_SIM}'`) || !php.includes('SET TIMESTAMP')) {
+    throw new Error(`No se pudo redirigir la copia al clon: se aborta para no tocar la BD real`);
   }
   fs.writeFileSync(ruta, php);
 }

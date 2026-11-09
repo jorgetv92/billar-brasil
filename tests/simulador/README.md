@@ -6,9 +6,9 @@ Es solo para desarrollo. No se despliega al hosting, y `tests/.htaccess` bloquea
 
 ## Qué toca
 
-- **Lee** la base configurada en `backend/config/database.php` con `mysqldump`.
+- **Lee** con `mysqldump` la base del entorno local (`backend/config/entornos/local.php`).
 - **Escribe** solo en la base clon `billar_sim`, que se recrea en cada grupo y recibe las migraciones de `backend/config` que el código necesita.
-- **Copia** el sitio a una carpeta temporal (`%TEMP%\billar-sim`). Allí cambia el reloj de PHP y la conexión al clon. Si no puede apuntar la copia al clon, se detiene sin escribir nada.
+- **Copia** el sitio a una carpeta temporal (`%TEMP%\billar-sim`). Allí cambia el reloj de PHP y usa un entorno propio, `sim`, que apunta al clon. Si no puede apuntar la copia al clon, se detiene sin escribir nada.
 
 ## Requisitos
 
@@ -26,6 +26,7 @@ npm run motor      # el backend fija precios, valida pagos y no cobra dos veces 
 npm run ajustes    # corregir ventas ya cobradas ajusta pagos, stock y bitácora
 npm run reportes   # mesas + productos = cobrado en pre-cierre, cierre, admin y dashboard
 npm run combos     # combos que elige el cajero, preparados sin stock, productos retirados y cargos
+npm run insumos    # cargas, gastos de insumos, egresos y cuadre de caja, también con dos cajas y el cierre cruzados
 npm run limpieza   # el script de sesiones huérfanas sobre el clon
 npm run turnos     # 4 turnos completos y el análisis de caja, inventario y reportes (~5 min)
 npm run todo
@@ -33,7 +34,7 @@ npm run todo
 
 Los resultados detallados quedan en `%TEMP%\billar-sim\resultados`.
 
-Para probar con otra base, por ejemplo una copia de producción, sin cambiar `database.php`: `BILLAR_BD_ORIGEN=billarbrasil_produccion npm run todo` (en PowerShell: `$env:BILLAR_BD_ORIGEN='billarbrasil_produccion'; npm run todo`). Antes de probar, al clon se le aplican las migraciones que le falten.
+Para probar con otra base, por ejemplo una copia de producción, sin cambiar la configuración: `BILLAR_BD_ORIGEN=billarbrasil_produccion npm run todo` (en PowerShell: `$env:BILLAR_BD_ORIGEN='billarbrasil_produccion'; npm run todo`). Antes de probar, al clon se le aplican las migraciones que le falten.
 
 ## Archivos
 
@@ -47,6 +48,7 @@ Para probar con otra base, por ejemplo una copia de producción, sin cambiar `da
 | `ajustes.js` | Correcciones de ventas ya cobradas: total, pagos, stock y bitácora. |
 | `reportes.js` | Cifras de pre-cierre, cierre, reporte del admin y dashboard. |
 | `combos_cargos.js` | Combos, preparados, productos retirados, cargos y hora gratis como cargo. |
+| `insumos_caja.js` | Cargas de mercadería e insumos, gastos de insumos, egresos, cierre y apertura simultáneos. |
 | `doble_ocupacion.js`, `limpieza.js` | Doble ocupación de mesas y el script de sesiones huérfanas. |
 | `turnos.js`, `dirigidas.js`, `analizar.js` | Turnos completos, casos aislados y el análisis. |
-| `reset.sql` | Promociones de prueba. Debe coincidir con `PROMOS` en `lib.js`. |
+| `reset.sql` | Promociones, productos e insumos de prueba. Las promociones deben coincidir con `PROMOS` en `lib.js`. |

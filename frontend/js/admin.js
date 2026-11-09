@@ -2103,9 +2103,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             return;
                         }
 
-                        const indexExistente = itemsCargaTemporal.findIndex(item => item.id_producto === productoValido.id_producto);
+                        const indexExistente = itemsCargaTemporal.findIndex(item => String(item.id_producto) === String(productoValido.id_producto));
                         if (indexExistente > -1) {
-                            itemsCargaTemporal[indexExistente].cantidad += cantidad;
+                            itemsCargaTemporal[indexExistente].cantidad = Number(itemsCargaTemporal[indexExistente].cantidad) + cantidad;
                         } else {
                             // Guardamos también el id_producto para enviarlo limpio a PHP luego
                             itemsCargaTemporal.push({
@@ -2383,9 +2383,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
-                const indexExistente = itemsCargaTemporal.findIndex(item => item.id_insumo === insumoValido.id_insumo);
+                const indexExistente = itemsCargaTemporal.findIndex(item => String(item.id_insumo) === String(insumoValido.id_insumo));
                 if (indexExistente > -1) {
-                    itemsCargaTemporal[indexExistente].cantidad += cantidad;
+                    itemsCargaTemporal[indexExistente].cantidad = Math.round((Number(itemsCargaTemporal[indexExistente].cantidad) + cantidad) * 100) / 100;
                 } else {
                     itemsCargaTemporal.push({
                         id_insumo: insumoValido.id_insumo,
