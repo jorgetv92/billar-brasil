@@ -7,8 +7,12 @@ const { BD_SIM, DIR_RESULTADOS, DIR_SIM, DIR_SITIO, MYSQL, MYSQLDUMP, PHP, RAIZ_
 
 const ARCHIVO_DB = path.join('backend', 'config', 'database.php');
 const CLAVE_ADMIN_SIM = 'sim-admin';
-// Migraciones que el código actual necesita y que la BD de origen puede no tener todavía.
-const MIGRACIONES = [path.join('backend', 'config', 'migracion_motor_cobro.sql')];
+// Migraciones que el código actual necesita y que la BD de origen puede no tener todavía, en orden.
+// Cada una trae la consulta que dice si ya está aplicada.
+const MIGRACIONES = [
+  { archivo: path.join('backend', 'config', 'migracion_motor_cobro.sql'), aplicada: "SHOW COLUMNS FROM ventas LIKE 'redondeo'" },
+  { archivo: path.join('backend', 'config', 'migracion_ajustes_venta.sql'), aplicada: "SHOW TABLES LIKE 'ajustes_venta'" },
+];
 
 function leerBdOrigen() {
   const php = fs.readFileSync(path.join(RAIZ_REPO, ARCHIVO_DB), 'utf8');
@@ -83,13 +87,9 @@ function clonarBd(origen, { reset }) {
     execFileSync(MYSQL, ['-uroot', '--default-character-set=utf8mb4', ...args], { input, maxBuffer: 1 << 26 });
   mysql(['-e', `DROP DATABASE IF EXISTS ${BD_SIM}; CREATE DATABASE ${BD_SIM} CHARACTER SET utf8mb4;`]);
   mysql([BD_SIM], fs.readFileSync(volcado));
-  for (const migracion of MIGRACIONES) {
-    const yaAplicada = execFileSync(
-      MYSQL,
-      ['-uroot', '--batch', '--skip-column-names', BD_SIM, '-e', "SHOW COLUMNS FROM ventas LIKE 'redondeo'"],
-      { encoding: 'utf8' },
-    ).trim();
-    if (!yaAplicada) mysql([BD_SIM], fs.readFileSync(path.join(RAIZ_REPO, migracion)));
+  for (const { archivo, aplicada } of MIGRACIONES) {
+    const yaAplicada = execFileSync(MYSQL, ['-uroot', '--batch', '--skip-column-names', BD_SIM, '-e', aplicada], { encoding: 'utf8' }).trim();
+    if (!yaAplicada) mysql([BD_SIM], fs.readFileSync(path.join(RAIZ_REPO, archivo)));
   }
   if (reset) {
     mysql([BD_SIM], fs.readFileSync(path.join(__dirname, 'reset.sql')));

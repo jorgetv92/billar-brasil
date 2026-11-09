@@ -1260,12 +1260,18 @@ document.addEventListener("click", async (e) => {
             const res = await fetch("../backend/api/jornada.php?action=editar_detalle_venta", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id_detalle: parseInt(idDetalle), nueva_cantidad: nuevaCantidad })
+                body: JSON.stringify({
+                    id_detalle: parseInt(idDetalle),
+                    nueva_cantidad: nuevaCantidad,
+                    id_usuario: localStorage.getItem("id_usuario")
+                })
             });
             const data = await res.json();
 
             if (data.status === "success") {
-                window.mostrarToast("Cantidad actualizada correctamente.", "success");
+                // El total se recalculó con las promos de la venta: el cajero devuelve o cobra la diferencia.
+                const huboAjuste = data.ajuste && (data.ajuste.efectivo || data.ajuste.qr);
+                window.mostrarToast(`Cantidad actualizada. ${data.mensaje_caja}`, huboAjuste ? "warning" : "success");
 
                 // Actualizar celda cantidad
                 const celdaCantidad = document.getElementById(`celda-cantidad-${idDetalle}`);
@@ -1277,8 +1283,8 @@ document.addEventListener("click", async (e) => {
 
                 // Actualizar importe en fila maestra
                 const importeEl = document.getElementById(`importe-venta-${idVenta}`);
-                if (importeEl && data.nuevo_subtotal_prod !== undefined) {
-                    importeEl.innerText = `${parseFloat(data.nuevo_subtotal_prod).toFixed(2)} Bs`;
+                if (importeEl && data.importe !== undefined) {
+                    importeEl.innerText = `${parseFloat(data.importe).toFixed(2)} Bs`;
                 }
 
                 // Restaurar botones con datos actualizados
@@ -1377,7 +1383,7 @@ document.addEventListener("click", async (e) => {
 
         try {
             const res = await fetch(
-                `../backend/api/jornada.php?action=eliminar_detalle_venta&id_detalle=${_idDetalleParaEliminar}`,
+                `../backend/api/jornada.php?action=eliminar_detalle_venta&id_detalle=${_idDetalleParaEliminar}&id_usuario=${encodeURIComponent(localStorage.getItem("id_usuario") || "")}`,
                 { method: "DELETE" }
             );
             const data = await res.json();
@@ -1387,7 +1393,8 @@ document.addEventListener("click", async (e) => {
             btnCE.innerHTML = `<i class="material-icons" style="font-size:1rem;">delete_forever</i> Eliminar`;
 
             if (data.status === "success") {
-                window.mostrarToast("Producto eliminado y stock restaurado.", "success");
+                const huboAjuste = data.ajuste && (data.ajuste.efectivo || data.ajuste.qr);
+                window.mostrarToast(`Producto eliminado y stock restaurado. ${data.mensaje_caja}`, huboAjuste ? "warning" : "success");
 
                 // Quitar fila del DOM
                 const filaEl = document.getElementById(`fila-detalle-${_idDetalleParaEliminar}`);
@@ -1395,8 +1402,8 @@ document.addEventListener("click", async (e) => {
 
                 // Actualizar importe en fila maestra
                 const importeEl = document.getElementById(`importe-venta-${_idVentaParaEliminar}`);
-                if (importeEl && data.nuevo_subtotal_prod !== undefined) {
-                    importeEl.innerText = `${parseFloat(data.nuevo_subtotal_prod).toFixed(2)} Bs`;
+                if (importeEl && data.importe !== undefined) {
+                    importeEl.innerText = `${parseFloat(data.importe).toFixed(2)} Bs`;
                 }
 
                 // Si el tbody quedó vacío, mostrar mensaje

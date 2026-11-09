@@ -23,6 +23,7 @@ npm run unidad     # reglas del negocio sin navegador (segundos)
 npm run reglas     # los ejemplos del negocio jugados en pantalla
 npm run doble      # doble ocupación de mesas, incluidas dos cajas a la vez
 npm run motor      # el backend fija precios, valida pagos y no cobra dos veces la misma mesa
+npm run ajustes    # corregir ventas ya cobradas ajusta pagos, stock y bitácora
 npm run limpieza   # el script de sesiones huérfanas sobre el clon
 npm run turnos     # 4 turnos completos y el análisis de caja, inventario y reportes (~5 min)
 npm run todo

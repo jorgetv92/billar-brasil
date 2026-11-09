@@ -313,6 +313,61 @@ class Liquidacion {
         return self::armar($corte, $tiempo, $horaGratis, $lineas, $productos);
     }
 
+    // Vuelve a calcular una venta ya cobrada con las líneas que tiene ahora (después de corregir un producto).
+    // Lo cobrado por tiempo no cambia; productos, promos y redondeo se recalculan con las mismas reglas.
+    public static function reliquidarVenta($pdo, $idVenta, array $promos = null) {
+        if ($promos === null) $promos = self::cargarPromos($pdo);
+
+        $stmt = $pdo->prepare("SELECT id_venta, id_sesion, subtotal_mesas, fecha_hora_venta FROM ventas WHERE id_venta = ?");
+        $stmt->execute([$idVenta]);
+        $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+        $corte = strtotime($venta['fecha_hora_venta']);
+
+        $tiempo = ['centavos' => 0, 'segundos' => 0, 'seg_por_tipo' => [], 'tramos' => [], 'proximo_cambio' => null];
+        $horaGratis = false;
+        if ($venta['id_sesion']) {
+            $stmt = $pdo->prepare("
+                SELECT t.id_tramo, m.numero_mesa, m.id_tipo_mesa, tm.precio_hora,
+                       t.fecha_hora_inicio, t.fecha_hora_fin, t.fecha_hora_pausa
+                FROM tramos_mesas t
+                JOIN mesas m ON m.id_mesa = t.id_mesa
+                JOIN tipos_mesa tm ON tm.id_tipo_mesa = m.id_tipo_mesa
+                WHERE t.id_sesion = ?
+                ORDER BY t.id_tramo
+            ");
+            $stmt->execute([$venta['id_sesion']]);
+            $stmtGratis = $pdo->prepare("SELECT primera_hora_gratis FROM sesiones_juego WHERE id_sesion = ?");
+            $stmtGratis->execute([$venta['id_sesion']]);
+            $horaGratis = intval($stmtGratis->fetchColumn()) === 1;
+            // Los segundos jugados sirven para el incentivo cruzado; el importe del tiempo es el que se cobró.
+            $tiempo = self::liquidarTiempo($stmt->fetchAll(PDO::FETCH_ASSOC), $horaGratis, $promos, $corte);
+        }
+        $tiempo['centavos'] = self::centavos($venta['subtotal_mesas']);
+        $tiempo['proximo_cambio'] = null;
+
+        $stmt = $pdo->prepare("
+            SELECT d.id_detalle_prod, d.id_producto, p.nombre_producto, d.cantidad, d.precio_unitario_aplicado, d.fecha_hora
+            FROM detalle_venta_productos d
+            JOIN productos p ON p.id_producto = d.id_producto
+            WHERE d.id_venta = ?
+            ORDER BY d.id_detalle_prod
+        ");
+        $stmt->execute([$idVenta]);
+        $lineas = array_map(function ($fila) use ($corte) {
+            return [
+                'id_detalle_prod' => intval($fila['id_detalle_prod']),
+                'id_producto' => intval($fila['id_producto']),
+                'nombre' => $fila['nombre_producto'],
+                'cantidad' => intval($fila['cantidad']),
+                'precio' => Liquidacion::centavos($fila['precio_unitario_aplicado']),
+                'ts' => $fila['fecha_hora'] ? strtotime($fila['fecha_hora']) : $corte,
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+
+        $productos = self::liquidarProductos($lineas, $promos, $tiempo);
+        return self::armar($corte, $tiempo, $horaGratis, $lineas, $productos);
+    }
+
     // ---------------------------------------------------------------- barra
 
     public static function idHoraPromo($pdo) {

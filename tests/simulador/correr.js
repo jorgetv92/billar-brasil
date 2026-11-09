@@ -9,6 +9,7 @@ const GRUPOS = {
   unidad: { nodo: ['--test', 'oraculo.test.js'], sinEntorno: true },
   doble: { archivos: ['doble_ocupacion.js'] },
   motor: { archivos: ['motor.js'] },
+  ajustes: { archivos: ['ajustes.js'] },
   limpieza: { archivos: ['limpieza.js'], reset: false },
   reglas: { archivos: ['reglas_negocio.js'] },
   turnos: { archivos: ['turnos.js', 'dirigidas.js', 'analizar.js'] },

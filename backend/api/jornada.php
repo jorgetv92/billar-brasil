@@ -4,6 +4,7 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
 
 // Inclusión correcta de la clase de base de datos según tu entorno
 include_once '../config/database.php'; 
+include_once '../models/Liquidacion.php';
 $database = new Database();
 $pdo = $database->getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -420,6 +421,152 @@ if ($method === 'POST') {
 }
 
 // =======================================================================
+// CORRECCIÓN DE UNA VENTA YA COBRADA: editar la cantidad o borrar un producto
+// =======================================================================
+// La venta se recalcula con el motor de cobro (2x1, promos, redondeo), los pagos se ajustan para que
+// sigan sumando el total y el cambio queda en ajustes_venta. Solo con la jornada de la venta abierta:
+// una jornada cerrada ya cuadró su caja.
+function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT id_venta, id_producto, cantidad FROM detalle_venta_productos WHERE id_detalle_prod = ? FOR UPDATE");
+        $stmt->execute([$idDetalle]);
+        $detalle = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$detalle || !$detalle['id_venta']) {
+            throw new ErrorOperacion('Registro de detalle no encontrado.', 'no_encontrado');
+        }
+
+        $stmt = $pdo->prepare("SELECT id_venta, id_jornada, id_sesion, total_pagar FROM ventas WHERE id_venta = ? FOR UPDATE");
+        $stmt->execute([$detalle['id_venta']]);
+        $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Bloqueo compartido: el cierre de la jornada espera a que termine esta corrección.
+        $stmt = $pdo->prepare("SELECT estado FROM jornadas WHERE id_jornada = ? LOCK IN SHARE MODE");
+        $stmt->execute([$venta['id_jornada']]);
+        if ($stmt->fetchColumn() !== 'abierta') {
+            throw new ErrorOperacion('Solo se pueden corregir ventas de la jornada abierta.', 'jornada_cerrada');
+        }
+        if (intval($detalle['id_producto']) === Liquidacion::idHoraPromo($pdo)) {
+            throw new ErrorOperacion('La hora gratis no se puede corregir desde aquí.', 'no_editable');
+        }
+
+        $anterior = intval($detalle['cantidad']);
+        $diferencia = $nuevaCantidad - $anterior;
+        if ($diferencia > 0) {
+            $stmt = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - ? WHERE id_producto = ? AND stock_actual >= ?");
+            $stmt->execute([$diferencia, $detalle['id_producto'], $diferencia]);
+            if ($stmt->rowCount() === 0) {
+                $stmtStock = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = ?");
+                $stmtStock->execute([$detalle['id_producto']]);
+                throw new ErrorOperacion("Stock insuficiente. Stock disponible: {$stmtStock->fetchColumn()} unidades.", 'stock_insuficiente');
+            }
+        } elseif ($diferencia < 0) {
+            $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?")->execute([-$diferencia, $detalle['id_producto']]);
+        }
+
+        if ($nuevaCantidad === 0) {
+            $pdo->prepare("DELETE FROM detalle_venta_productos WHERE id_detalle_prod = ?")->execute([$idDetalle]);
+        } else {
+            $pdo->prepare("UPDATE detalle_venta_productos SET cantidad = ? WHERE id_detalle_prod = ?")->execute([$nuevaCantidad, $idDetalle]);
+        }
+
+        $liq = Liquidacion::reliquidarVenta($pdo, $venta['id_venta']);
+        $pdo->prepare("UPDATE ventas SET subtotal_productos = ?, descuentos = ?, redondeo = ?, total_pagar = ? WHERE id_venta = ?")
+            ->execute([$liq['subtotal_productos'], $liq['descuentos'], $liq['redondeo'], $liq['total'], $venta['id_venta']]);
+
+        $cambio = Liquidacion::centavos($liq['total']) - Liquidacion::centavos($venta['total_pagar']);
+        $movimientos = ajustarPagos($pdo, $venta['id_venta'], $cambio);
+
+        $pdo->prepare("
+            INSERT INTO ajustes_venta (id_venta, id_detalle_prod, id_producto, cantidad_anterior, cantidad_nueva,
+                                       total_anterior, total_nuevo, ajuste_efectivo, ajuste_qr, id_usuario, fecha_hora)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ")->execute([
+            $venta['id_venta'], $idDetalle, $detalle['id_producto'], $anterior, $nuevaCantidad,
+            $venta['total_pagar'], $liq['total'], $movimientos['efectivo'] / 100, $movimientos['qr'] / 100, $idUsuario ?: null,
+        ]);
+
+        $pdo->commit();
+        return ['venta' => $venta, 'liquidacion' => $liq, 'movimientos' => $movimientos];
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
+// Cambia los pagos de la venta en $cambio centavos. Si el cliente debe pagar más, lo paga con el mismo medio
+// (en pago mixto, en efectivo). Si hay que devolver, se devuelve primero del efectivo y después del QR.
+// Devuelve lo que se movió por cada medio, en centavos (negativo: se devolvió).
+function ajustarPagos($pdo, $idVenta, $cambio) {
+    $stmt = $pdo->prepare("SELECT id_pago, metodo_pago, monto_pagado FROM pagos_venta WHERE id_venta = ? ORDER BY metodo_pago = 'efectivo' DESC, id_pago FOR UPDATE");
+    $stmt->execute([$idVenta]);
+    $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $movimientos = ['efectivo' => 0, 'qr' => 0];
+
+    if ($cambio > 0) {
+        if ($pagos) {
+            $pago = $pagos[0];
+            $pdo->prepare("UPDATE pagos_venta SET monto_pagado = monto_pagado + ? WHERE id_pago = ?")->execute([$cambio / 100, $pago['id_pago']]);
+            $movimientos[$pago['metodo_pago']] += $cambio;
+        } else {
+            $pdo->prepare("INSERT INTO pagos_venta (id_venta, metodo_pago, monto_pagado) VALUES (?, 'efectivo', ?)")->execute([$idVenta, $cambio / 100]);
+            $movimientos['efectivo'] += $cambio;
+        }
+    } elseif ($cambio < 0) {
+        $devolver = -$cambio;
+        foreach ($pagos as $pago) {
+            if ($devolver === 0) break;
+            $monto = Liquidacion::centavos($pago['monto_pagado']);
+            $quitar = min($monto, $devolver);
+            if ($monto - $quitar > 0) {
+                $pdo->prepare("UPDATE pagos_venta SET monto_pagado = ? WHERE id_pago = ?")->execute([($monto - $quitar) / 100, $pago['id_pago']]);
+            } else {
+                $pdo->prepare("DELETE FROM pagos_venta WHERE id_pago = ?")->execute([$pago['id_pago']]);
+            }
+            $movimientos[$pago['metodo_pago']] -= $quitar;
+            $devolver -= $quitar;
+        }
+    }
+    return $movimientos;
+}
+
+// Lo que el cajero tiene que hacer con el cliente después de la corrección.
+function mensajeCaja(array $movimientos) {
+    $partes = [];
+    foreach (['efectivo' => 'en efectivo', 'qr' => 'por QR'] as $metodo => $texto) {
+        if ($movimientos[$metodo] !== 0) $partes[] = sprintf('%.2f Bs %s', abs($movimientos[$metodo]) / 100, $texto);
+    }
+    if (!$partes) return 'El total de la venta no cambió.';
+    $verbo = ($movimientos['efectivo'] + $movimientos['qr']) < 0 ? 'Devolver al cliente' : 'Cobrar al cliente';
+    return $verbo . ' ' . implode(' y ', $partes) . '.';
+}
+
+function responderCorreccion(array $resultado, $mensaje) {
+    $liq = $resultado['liquidacion'];
+    echo json_encode([
+        "status" => "success",
+        "message" => $mensaje,
+        "mensaje_caja" => mensajeCaja($resultado['movimientos']),
+        "nuevo_subtotal_prod" => $liq['subtotal_productos'],
+        "nuevo_total_pagar" => $liq['total'],
+        // Lo que muestra "Mis ventas": productos en ventas de mesa, total en ventas de barra
+        "importe" => $resultado['venta']['id_sesion'] ? $liq['subtotal_productos'] : $liq['total'],
+        "ajuste" => [
+            "efectivo" => $resultado['movimientos']['efectivo'] / 100,
+            "qr" => $resultado['movimientos']['qr'] / 100,
+        ],
+    ]);
+}
+
+function responderErrorCorreccion(Exception $e, $prefijo) {
+    if ($e instanceof ErrorOperacion) {
+        echo json_encode(["status" => "error", "codigo" => $e->codigo, "message" => $e->getMessage()]);
+    } else {
+        echo json_encode(["status" => "error", "message" => $prefijo . $e->getMessage()]);
+    }
+}
+
+// =======================================================================
 // FLUJO PUT: EDITAR CANTIDAD DE UN DETALLE DE VENTA
 // =======================================================================
 if ($method === 'PUT') {
@@ -435,81 +582,10 @@ if ($method === 'PUT') {
         }
 
         try {
-            $pdo->beginTransaction();
-
-            // Obtener datos actuales del detalle
-            $stmtDetalle = $pdo->prepare("
-                SELECT dvp.id_venta, dvp.id_producto, dvp.cantidad, dvp.precio_unitario_aplicado
-                FROM detalle_venta_productos dvp
-                WHERE dvp.id_detalle_prod = ?
-            ");
-            $stmtDetalle->execute([$id_detalle]);
-            $detalle = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
-
-            if (!$detalle) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Registro de detalle no encontrado."]);
-                exit;
-            }
-
-            $cantidad_anterior = (int)$detalle['cantidad'];
-            $diferencia = $nueva_cantidad - $cantidad_anterior;
-            $id_producto = $detalle['id_producto'];
-            $id_venta = $detalle['id_venta'];
-
-            // Verificar stock disponible si se incrementa la cantidad
-            if ($diferencia > 0) {
-                $stmtStock = $pdo->prepare("SELECT stock_actual FROM productos WHERE id_producto = ?");
-                $stmtStock->execute([$id_producto]);
-                $stock_actual = (int)$stmtStock->fetchColumn();
-                if ($stock_actual < $diferencia) {
-                    $pdo->rollBack();
-                    echo json_encode([
-                        "status" => "error",
-                        "message" => "Stock insuficiente. Stock disponible: {$stock_actual} unidades."
-                    ]);
-                    exit;
-                }
-            }
-
-            // Ajustar el stock del producto (restar si diferencia > 0, sumar si < 0)
-            $stmtStock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual - ? WHERE id_producto = ?");
-            $stmtStock->execute([$diferencia, $id_producto]);
-
-            // Actualizar la cantidad en detalle_venta_productos
-            $stmtUpdate = $pdo->prepare("UPDATE detalle_venta_productos SET cantidad = ? WHERE id_detalle_prod = ?");
-            $stmtUpdate->execute([$nueva_cantidad, $id_detalle]);
-
-            // Recalcular subtotal_productos de la venta
-            $stmtSubtotal = $pdo->prepare("
-                SELECT COALESCE(SUM(cantidad * precio_unitario_aplicado), 0) AS nuevo_subtotal
-                FROM detalle_venta_productos
-                WHERE id_venta = ?
-            ");
-            $stmtSubtotal->execute([$id_venta]);
-            $nuevo_subtotal_productos = (float)$stmtSubtotal->fetchColumn();
-
-            // Obtener subtotal_mesas y descuentos para recalcular total_pagar
-            $stmtVenta = $pdo->prepare("SELECT subtotal_mesas, descuentos FROM ventas WHERE id_venta = ?");
-            $stmtVenta->execute([$id_venta]);
-            $venta = $stmtVenta->fetch(PDO::FETCH_ASSOC);
-            $nuevo_total = (float)$venta['subtotal_mesas'] + $nuevo_subtotal_productos - (float)$venta['descuentos'];
-
-            $stmtUpdateVenta = $pdo->prepare("
-                UPDATE ventas SET subtotal_productos = ?, total_pagar = ? WHERE id_venta = ?
-            ");
-            $stmtUpdateVenta->execute([$nuevo_subtotal_productos, $nuevo_total, $id_venta]);
-
-            $pdo->commit();
-            echo json_encode([
-                "status"              => "success",
-                "message"             => "Cantidad actualizada correctamente.",
-                "nuevo_subtotal_prod" => $nuevo_subtotal_productos,
-                "nuevo_total_pagar"   => $nuevo_total
-            ]);
-        } catch (PDOException $e) {
-            $pdo->rollBack();
-            echo json_encode(["status" => "error", "message" => "Error al editar: " . $e->getMessage()]);
+            $resultado = corregirDetalleVenta($pdo, $id_detalle, $nueva_cantidad, $data['id_usuario'] ?? null);
+            responderCorreccion($resultado, "Cantidad actualizada correctamente.");
+        } catch (Exception $e) {
+            responderErrorCorreccion($e, "Error al editar: ");
         }
     } else {
         echo json_encode(["status" => "error", "message" => "Acción PUT no reconocida."]);
@@ -531,65 +607,10 @@ if ($method === 'DELETE') {
         }
 
         try {
-            $pdo->beginTransaction();
-
-            // Obtener datos del detalle antes de borrar
-            $stmtDetalle = $pdo->prepare("
-                SELECT dvp.id_venta, dvp.id_producto, dvp.cantidad
-                FROM detalle_venta_productos dvp
-                WHERE dvp.id_detalle_prod = ?
-            ");
-            $stmtDetalle->execute([$id_detalle]);
-            $detalle = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
-
-            if (!$detalle) {
-                $pdo->rollBack();
-                echo json_encode(["status" => "error", "message" => "Registro no encontrado."]);
-                exit;
-            }
-
-            $id_venta     = $detalle['id_venta'];
-            $id_producto  = $detalle['id_producto'];
-            $cantidad     = (int)$detalle['cantidad'];
-
-            // Devolver stock al inventario
-            $stmtRestoreStock = $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?");
-            $stmtRestoreStock->execute([$cantidad, $id_producto]);
-
-            // Eliminar el detalle
-            $stmtDelete = $pdo->prepare("DELETE FROM detalle_venta_productos WHERE id_detalle_prod = ?");
-            $stmtDelete->execute([$id_detalle]);
-
-            // Recalcular subtotal_productos
-            $stmtSubtotal = $pdo->prepare("
-                SELECT COALESCE(SUM(cantidad * precio_unitario_aplicado), 0) AS nuevo_subtotal
-                FROM detalle_venta_productos
-                WHERE id_venta = ?
-            ");
-            $stmtSubtotal->execute([$id_venta]);
-            $nuevo_subtotal_productos = (float)$stmtSubtotal->fetchColumn();
-
-            // Recalcular total_pagar
-            $stmtVenta = $pdo->prepare("SELECT subtotal_mesas, descuentos FROM ventas WHERE id_venta = ?");
-            $stmtVenta->execute([$id_venta]);
-            $venta = $stmtVenta->fetch(PDO::FETCH_ASSOC);
-            $nuevo_total = (float)$venta['subtotal_mesas'] + $nuevo_subtotal_productos - (float)$venta['descuentos'];
-
-            $stmtUpdateVenta = $pdo->prepare("
-                UPDATE ventas SET subtotal_productos = ?, total_pagar = ? WHERE id_venta = ?
-            ");
-            $stmtUpdateVenta->execute([$nuevo_subtotal_productos, $nuevo_total, $id_venta]);
-
-            $pdo->commit();
-            echo json_encode([
-                "status"              => "success",
-                "message"             => "Producto eliminado de la venta y stock restaurado.",
-                "nuevo_subtotal_prod" => $nuevo_subtotal_productos,
-                "nuevo_total_pagar"   => $nuevo_total
-            ]);
-        } catch (PDOException $e) {
-            $pdo->rollBack();
-            echo json_encode(["status" => "error", "message" => "Error al eliminar: " . $e->getMessage()]);
+            $resultado = corregirDetalleVenta($pdo, $id_detalle, 0, $_GET['id_usuario'] ?? null);
+            responderCorreccion($resultado, "Producto eliminado de la venta y stock restaurado.");
+        } catch (Exception $e) {
+            responderErrorCorreccion($e, "Error al eliminar: ");
         }
     } else {
         echo json_encode(["status" => "error", "message" => "Acción DELETE no reconocida."]);

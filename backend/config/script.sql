@@ -177,6 +177,22 @@ CREATE TABLE detalle_venta_productos (
     CONSTRAINT fk_detalle_vp_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 ) ENGINE=InnoDB;
 
+CREATE TABLE ajustes_venta (
+    id_ajuste INT AUTO_INCREMENT PRIMARY KEY,
+    id_venta INT NOT NULL,
+    id_detalle_prod INT NULL, -- Sin clave foránea: el detalle puede haberse borrado
+    id_producto INT NOT NULL,
+    cantidad_anterior INT NOT NULL,
+    cantidad_nueva INT NOT NULL, -- 0 cuando se borró el producto
+    total_anterior DECIMAL(10,2) NOT NULL,
+    total_nuevo DECIMAL(10,2) NOT NULL,
+    ajuste_efectivo DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Negativo: se devolvió al cliente
+    ajuste_qr DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    id_usuario INT NULL,
+    fecha_hora DATETIME NOT NULL,
+    CONSTRAINT fk_ajuste_venta FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE pagos_venta (
     id_pago INT AUTO_INCREMENT PRIMARY KEY,
     id_venta INT NOT NULL,

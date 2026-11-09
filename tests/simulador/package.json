@@ -7,6 +7,7 @@
     "unidad": "node correr.js unidad",
     "doble": "node correr.js doble",
     "motor": "node correr.js motor",
+    "ajustes": "node correr.js ajustes",
     "limpieza": "node correr.js limpieza",
     "reglas": "node correr.js reglas",
     "turnos": "node correr.js turnos",
