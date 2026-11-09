@@ -5,6 +5,7 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 
 include_once '../config/database.php';
+include_once '../models/Mesa.php';
 session_start();
 
 if (!isset($_SESSION['rol']) || $_SESSION['rol'] !== 'administrador') {
@@ -67,20 +68,42 @@ switch ($method) {
         $data = json_decode(file_get_contents("php://input"));
         if (!empty($data->id_mesa) && !empty($data->numero_mesa) && !empty($data->id_tipo_mesa) && !empty($data->estado_actual)) {
             try {
-                $query = "UPDATE mesas 
-                          SET id_tipo_mesa = :id_tipo, numero_mesa = :numero, estado_actual = :estado 
+                $db->beginTransaction();
+
+                // El estado lo maneja Atención. Cambiarlo a mano con una partida en curso dejaba la sesión
+                // abierta y la mesa disponible para otra, que es como se duplicaban las sesiones.
+                $actual = Mesa::bloquear($db, [$data->id_mesa]);
+                $estadoActual = isset($actual[intval($data->id_mesa)]) ? $actual[intval($data->id_mesa)]['estado_actual'] : null;
+                if ($estadoActual !== null && $data->estado_actual !== $estadoActual) {
+                    $rechazo = null;
+                    if (Mesa::tieneSesionEnJuego($db, $data->id_mesa)) {
+                        $rechazo = "La mesa tiene una partida en curso. Cóbrela o transfiérala desde Atención antes de cambiar su estado.";
+                    } elseif ($data->estado_actual === 'ocupada') {
+                        $rechazo = "Una mesa solo se ocupa desde Atención, al iniciar una partida.";
+                    }
+                    if ($rechazo) {
+                        $db->rollBack();
+                        http_response_code(409);
+                        echo json_encode(["status" => "error", "message" => $rechazo]);
+                        break;
+                    }
+                }
+
+                $query = "UPDATE mesas
+                          SET id_tipo_mesa = :id_tipo, numero_mesa = :numero, estado_actual = :estado
                           WHERE id_mesa = :id_mesa";
                 $stmt = $db->prepare($query);
                 $stmt->bindParam(':id_tipo', $data->id_tipo_mesa);
                 $stmt->bindParam(':numero', $data->numero_mesa);
                 $stmt->bindParam(':estado', $data->estado_actual);
                 $stmt->bindParam(':id_mesa', $data->id_mesa);
-                
-                if ($stmt->execute()) {
-                    http_response_code(200);
-                    echo json_encode(["status" => "success", "message" => "Mesa actualizada."]);
-                }
+                $stmt->execute();
+                $db->commit();
+
+                http_response_code(200);
+                echo json_encode(["status" => "success", "message" => "Mesa actualizada."]);
             } catch (PDOException $e) {
+                if ($db->inTransaction()) $db->rollBack();
                 http_response_code(500);
                 echo json_encode(["status" => "error", "message" => "Error al actualizar."]);
             }

@@ -1,0 +1,17 @@
+{
+  "name": "billar-simulador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simula turnos del sistema de billar con el reloj adelantado. Solo para desarrollo: no se despliega.",
+  "scripts": {
+    "unidad": "node correr.js unidad",
+    "doble": "node correr.js doble",
+    "limpieza": "node correr.js limpieza",
+    "reglas": "node correr.js reglas",
+    "turnos": "node correr.js turnos",
+    "todo": "node correr.js todo"
+  },
+  "dependencies": {
+    "playwright-core": "1.65.0"
+  }
+}

@@ -5,7 +5,8 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST");
 
 // Inclusión de la clase de base de datos según tu entorno unificado
-include_once '../config/database.php'; 
+include_once '../config/database.php';
+include_once '../models/Mesa.php';
 
 try {
     $database = new Database();
@@ -581,6 +582,8 @@ if ($method === 'POST') {
                 exit;
             }
 
+            Mesa::reservarLibre($pdo, $id_mesa, '%s ya está ocupada o en mantenimiento. Elija otra mesa.');
+
             // 2. Obtener tarifa por hora de la mesa
             $stmtTarifa = $pdo->prepare("SELECT m.id_tipo_mesa, tm.precio_hora FROM mesas m INNER JOIN tipos_mesa tm ON m.id_tipo_mesa = tm.id_tipo_mesa WHERE m.id_mesa = ?");
             $stmtTarifa->execute([$id_mesa]);
@@ -629,6 +632,9 @@ if ($method === 'POST') {
                 echo json_encode(['status' => 'error', 'message' => 'No se puede vender en barra sin una jornada de caja abierta.']);
                 $pdo->rollBack();
                 exit;
+            }
+            if (!empty($data['id_mesa_ocupar_promo'])) {
+                Mesa::reservarLibre($pdo, $data['id_mesa_ocupar_promo'], '%s ya no está libre para la hora gratis. No se cobró nada: elija otra mesa.');
             }
              $resPromo = calcularPromocionesSesion($pdo, null, $productos);
             $descuentos = $resPromo['descuento_total'];
@@ -1005,15 +1011,12 @@ if ($method === 'POST') {
             $id_mesa_destino = $data['id_mesa_destino'];
 
             // 1. Validar que la mesa de destino esté libre
-            $stmtCheck = $pdo->prepare("SELECT estado_actual FROM mesas WHERE id_mesa = ?");
-            $stmtCheck->execute([$id_mesa_destino]);
-            $estadoDestino = $stmtCheck->fetchColumn();
-
-            if ($estadoDestino !== 'libre') {
-                echo json_encode(['status' => 'error', 'message' => 'La mesa de destino no se encuentra disponible.']);
-                $pdo->rollBack();
-                exit;
+            if (intval($id_mesa_origen) === intval($id_mesa_destino)) {
+                throw new MesaNoDisponible('Elija una mesa de destino distinta a la actual.');
             }
+            $mesasBloqueadas = Mesa::bloquear($pdo, [$id_mesa_origen, $id_mesa_destino]);
+            $mesaDestino = isset($mesasBloqueadas[intval($id_mesa_destino)]) ? $mesasBloqueadas[intval($id_mesa_destino)] : null;
+            Mesa::exigirLibre($pdo, $mesaDestino, '%s ya está ocupada o en mantenimiento. Elija otra mesa.');
 
             // 2. Obtener la sesión y tramo activo de la mesa de origen
             $stmtTramo = $pdo->prepare("
@@ -1267,6 +1270,9 @@ if ($method === 'POST') {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 exit;
             }
+            if (!empty($data['id_mesa_ocupar_promo'])) {
+                Mesa::reservarLibre($pdo, $data['id_mesa_ocupar_promo'], '%s ya no está libre para la hora gratis. No se cobró nada: elija otra mesa.');
+            }
 
             // 2. Calcular los subtotales del carrito y promociones
             $subtotalProductos = 0.00;
@@ -1357,8 +1363,12 @@ if ($method === 'POST') {
 
         $pdo->commit();
 
+    } catch (MesaNoDisponible $e) {
+        // El cajero ve una mesa libre que otra caja ya tomó: no se guarda nada y la pantalla se refresca.
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        echo json_encode(['status' => 'error', 'codigo' => 'mesa_no_disponible', 'message' => $e->getMessage()]);
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['status' => 'error', 'message' => 'Error en la operación: ' . $e->getMessage()]);
     }
     exit;

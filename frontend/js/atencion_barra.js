@@ -1540,6 +1540,8 @@ window.gestorUI = {
                     this.iniciarMotorReloj();
                 }
 
+            } else if (data.codigo === "mesa_no_disponible") {
+                await this.avisarMesaNoDisponible(data, "modalTransferirMesa");
             } else {
                 window.mostrarToast(data.message || "Error al procesar transferencia", "error");
             }
@@ -1549,6 +1551,13 @@ window.gestorUI = {
         } finally {
             setBtnLoading(btn, false, originalHTML);
         }
+    },
+    // Otra caja ya tomó la mesa: no se guardó nada. Se cierra el modal y se refrescan las mesas para elegir otra.
+    avisarMesaNoDisponible: async function (data, idModal) {
+        window.mostrarToast(data.message, "warning");
+        await this.cerrarModal(idModal);
+        await this.cargarGrillaMesas();
+        this.actualizarRelojes();
     },
     confirmarOcupacion: async function () {
         if (!window.idMesaPendiente) return;
@@ -1573,6 +1582,8 @@ window.gestorUI = {
                 // e inyectar la 'hora_inicio' real asignada por la Base de Datos
                 await this.cargarGrillaMesas();
                 this.actualizarRelojes();
+            } else if (data.codigo === "mesa_no_disponible") {
+                await this.avisarMesaNoDisponible(data, "modalOcuparMesa");
             } else {
                 window.mostrarToast(data.message || "Error al habilitar la mesa", "error");
             }
@@ -1838,6 +1849,9 @@ window.gestorUI = {
                     this.limpiarCarrito();
                     await this.cargarDatalistProductos();
                     this.actualizarTotalesVista();
+                } else if (data.codigo === "mesa_no_disponible") {
+                    // Al cerrar el modal se quita la hora gratis del carrito y se conservan los productos.
+                    await this.avisarMesaNoDisponible(data, "modalDividirPago");
                 } else {
                     window.mostrarToast(data.message || "Error al procesar", "error");
                 }
@@ -2037,6 +2051,9 @@ window.gestorUI = {
                         productos: [...payloadBarra.productos],
                         tiempoMesa: 0
                     };
+                } else if (data.codigo === "mesa_no_disponible") {
+                    // Al cerrar el modal se quita la hora gratis del carrito y se conservan los productos.
+                    await this.avisarMesaNoDisponible(data, "modalConfirmarCobro");
                 } else {
                     window.mostrarToast(data.message || "Error al procesar venta en barra", "error");
                 }
