@@ -57,7 +57,7 @@
             <i class="material-icons" style="font-size:1.1rem;">add</i> Nuevo Gasto
         </button>
     </div>
-    <p class="gp-sub" id="gpSubtitulo">Productos con receta que se gastan al preparar en barra (por ejemplo, la botella de ron de los vasos). Descuentan stock.</p>
+    <p class="gp-sub" id="gpSubtitulo">Productos no vendibles que se gastan al preparar en barra (por ejemplo, la botella de ron de los vasos). Descuentan stock.</p>
 
     <div class="gp-tabla-wrapper">
         <table class="gp-tabla">
@@ -152,22 +152,22 @@
     if (esAdmin) {
         $('gpSubtitulo').textContent = 'Historial completo. Si el cajero olvidó registrar un gasto, regístralo aquí: queda en la jornada abierta, o sin jornada si no hay ninguna. Los gastos de jornadas cerradas ya están en su reporte y no se modifican.';
     } else {
-        $('gpSubtitulo').textContent = 'Productos con receta gastados en este turno (por ejemplo, la botella de ron de los vasos). Descuentan stock y aparecen en el cuadre de inventario.';
+        $('gpSubtitulo').textContent = 'Productos no vendibles gastados en este turno (por ejemplo, la botella de ron de los vasos). Descuentan stock y aparecen en el cuadre de inventario.';
     }
 
-    // ── Catálogo de productos con receta ──────────────────────────
+    // ── Catálogo de productos no vendibles ────────────────────────
     async function cargarCatalogo() {
         try {
             const json = await (await fetch(`${API}?accion=get_productos${esAdmin ? '&alcance=todos' : ''}`)).json();
             if (json.status !== 'success') {
-                toast(json.message || 'No se pudieron cargar los productos con receta.', 'error');
+                toast(json.message || 'No se pudieron cargar los productos no vendibles.', 'error');
                 return;
             }
             $('gpSelectProducto').innerHTML = '<option value="">-- Selecciona un producto --</option>' +
                 json.data.map(p => `<option value="${p.id_producto}" data-stock="${parseInt(p.stock_actual)}">${esc(p.nombre_producto)} (Stock: ${parseInt(p.stock_actual)})</option>`).join('');
-            if (!json.data.length) toast('No hay productos con la propiedad "receta". El administrador la activa en Inventario.', 'warning');
+            if (!json.data.length) toast('No hay productos no vendibles. El administrador los marca en Inventario.', 'warning');
         } catch (e) {
-            console.error('Error al cargar productos con receta:', e);
+            console.error('Error al cargar productos no vendibles:', e);
         }
     }
 
@@ -266,7 +266,7 @@
             if (!g) return;
             await cargarCatalogo();
             const sel = $('gpSelectProducto');
-            // Si el producto ya no tiene receta, se agrega para poder corregir la cantidad.
+            // Si el producto ya no es no vendible, se agrega para poder corregir la cantidad.
             if (!sel.querySelector(`option[value="${g.id_producto}"]`)) {
                 sel.insertAdjacentHTML('beforeend', `<option value="${g.id_producto}" data-stock="0">${esc(g.nombre_producto)}</option>`);
             }

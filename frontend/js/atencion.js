@@ -161,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Stock inicial</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Cargas</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Vendido</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;" title="Productos con receta gastados al preparar">Gasto</th>
+                                                    <th style="padding:10px; border:1px solid #cbd5e1;" title="Productos no vendibles gastados al preparar">Gasto</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Precio unitario</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Sub total</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; background:#f8fafc;">Stock final</th>
@@ -606,7 +606,7 @@ function filaInventario(p) {
         precio: vendido > 0 ? importe / vendido : parseFloat(p.precio_unitario),
         cargas: parseInt(p.cargas) || 0,
         enMesas: parseInt(p.en_mesas) || 0,
-        // Productos con receta gastados al preparar (botellas para los vasos)
+        // Productos no vendibles gastados al preparar (botellas para los vasos)
         gastado: parseInt(p.gastado) || 0,
         ajuste: parseInt(p.ajuste) || 0
     };

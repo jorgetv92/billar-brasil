@@ -1,5 +1,5 @@
 <?php
-// api/gastos_productos.php — productos con receta que se gastan al preparar en barra (botella de ron para los vasos).
+// api/gastos_productos.php — productos no vendibles que se gastan al preparar en barra (botella de ron para los vasos).
 // Descuentan stock y entran en el cuadre de inventario del turno.
 //
 // Modo atención (portal de atención): solo la jornada abierta. Como el resto de las APIs de atención, no exige la
@@ -75,14 +75,14 @@ function moverStockProducto($pdo, $idProducto, $cant) {
     $pdo->prepare("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?")->execute([$cant, $idProducto]);
 }
 
-// El producto debe tener receta, estar activo y llevar stock.
-function validarProductoReceta($pdo, $idProducto) {
-    $stmt = $pdo->prepare("SELECT nombre_producto, receta, activo, tipo FROM productos WHERE id_producto = ?");
+// El producto debe ser no vendible, estar activo y llevar stock.
+function validarProductoNoVendible($pdo, $idProducto) {
+    $stmt = $pdo->prepare("SELECT nombre_producto, no_vendible, activo, tipo FROM productos WHERE id_producto = ?");
     $stmt->execute([$idProducto]);
     $p = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$p) throw new ErrorGasto('Producto no encontrado.');
-    if (!intval($p['receta']) || $p['tipo'] !== 'inventario') {
-        throw new ErrorGasto("{$p['nombre_producto']} no tiene la propiedad receta: su gasto no se registra aquí.");
+    if (!intval($p['no_vendible']) || $p['tipo'] !== 'inventario') {
+        throw new ErrorGasto("{$p['nombre_producto']} no está marcado como no vendible: su gasto no se registra aquí.");
     }
     if (!intval($p['activo'])) throw new ErrorGasto("{$p['nombre_producto']} está retirado.");
 }
@@ -105,7 +105,7 @@ if ($method === 'GET') {
     try {
         if ($accion === 'get_productos') {
             $stmt = $pdo->query("SELECT id_producto, nombre_producto, stock_actual FROM productos
-                                 WHERE receta = 1 AND activo = 1 AND tipo = 'inventario' ORDER BY nombre_producto ASC");
+                                 WHERE no_vendible = 1 AND activo = 1 AND tipo = 'inventario' ORDER BY nombre_producto ASC");
             echo json_encode(["status" => "success", "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
             exit;
         }
@@ -169,7 +169,7 @@ if ($method === 'POST') {
             if (!$idProducto) throw new ErrorGasto('Elige un producto.');
             $cant = unidadesGasto($data['cantidad'] ?? null);
             $idUsuario = usuarioQueRegistra($pdo, $idUsuarioSesion, $data);
-            validarProductoReceta($pdo, $idProducto);
+            validarProductoNoVendible($pdo, $idProducto);
             moverStockProducto($pdo, $idProducto, -$cant);
             $pdo->prepare("INSERT INTO gastos_productos (id_jornada, id_producto, cantidad, id_usuario, fecha_hora) VALUES (?, ?, ?, ?, NOW())")
                 ->execute([$idAbierta, $idProducto, $cant, $idUsuario]);
@@ -185,8 +185,8 @@ if ($method === 'POST') {
             if (!$idGasto || !$idProducto) throw new ErrorGasto('Datos incompletos para editar.');
             $cant = unidadesGasto($data['cantidad'] ?? null);
             $viejo = $gastoEditable($idGasto);
-            // Se puede corregir la cantidad de un producto que ya no tiene receta; cambiar a otro exige que la tenga.
-            if ($idProducto !== $viejo['id_producto']) validarProductoReceta($pdo, $idProducto);
+            // Se puede corregir la cantidad de un producto que ya no es no vendible; cambiar a otro exige que lo sea.
+            if ($idProducto !== $viejo['id_producto']) validarProductoNoVendible($pdo, $idProducto);
 
             // Movimientos por producto, aplicados en orden de id para no cruzarse con otra operación.
             $mov = [$viejo['id_producto'] => $viejo['cantidad']];

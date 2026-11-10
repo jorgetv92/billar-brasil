@@ -316,7 +316,7 @@ try {
                 $data["insumos"] = $stmtI->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            // SECCIÓN: GASTO DE PRODUCTOS (con receta, gastados al preparar en barra)
+            // SECCIÓN: GASTO DE PRODUCTOS (no vendibles, gastados al preparar en barra)
             if ($data["filtros"]["gastos_productos"]) {
                 $stmtGp = $pdo->prepare("SELECT g.fecha_hora AS fecha, p.nombre_producto AS producto, g.cantidad,
                                                 COALESCE(CONCAT(u.nombres, ' ', u.apellidos), CONCAT('Usuario #', g.id_usuario)) AS usuario

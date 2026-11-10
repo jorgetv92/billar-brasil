@@ -1182,7 +1182,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     configurarModalProducto("Registrar Nuevo Producto", false);
                 });
                 document.getElementById("no_vendible_producto").addEventListener("change", sincronizarPropiedadesProducto);
-                document.getElementById("receta_producto").addEventListener("change", sincronizarPropiedadesProducto);
 
                 // Delegación de eventos (Editar / Eliminar)
                 document.getElementById("router-outlet").addEventListener("click", (e) => {
@@ -1207,8 +1206,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         precio_venta: noVendible ? 0 : document.getElementById("precio_venta").value,
                         tipo: document.getElementById("tipo_producto").value,
                         activo: document.getElementById("activo_producto").value === "1",
-                        no_vendible: noVendible,
-                        receta: document.getElementById("receta_producto").checked
+                        no_vendible: noVendible
                     };
 
                     let metodoHTTP = idProducto ? "PUT" : "POST";
@@ -1270,7 +1268,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const esPreparado = p.tipo === "preparado";
                     const retirado = String(p.activo) === "0";
                     const noVendible = String(p.no_vendible) === "1";
-                    const receta = String(p.receta) === "1";
                     let stockUI = `<b>${p.stock_actual}</b>`;
                     if (esPreparado) {
                         stockUI = `<span style="color:#64748b;">Sin stock</span>`;
@@ -1286,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td style="font-weight: 500;">${p.nombre_producto}</td>
                 <td style="color: var(--primary); font-weight: bold;">${noVendible ? '<span style="color:#64748b; font-weight:normal;">No vendible</span>' : parseFloat(p.precio_venta).toFixed(2) + ' Bs.'}</td>
                 <td>${stockUI}</td>
-                <td style="font-size:0.85rem;">${esPreparado ? 'Preparado' : 'Con stock'}${noVendible ? ' · No vendible' : ''}${receta ? ' · Receta' : ''}${retirado ? ' · <b>Retirado</b>' : ''}</td>
+                <td style="font-size:0.85rem;">${esPreparado ? 'Preparado' : 'Con stock'}${noVendible ? ' · No vendible' : ''}${retirado ? ' · <b>Retirado</b>' : ''}</td>
                 <td>
                     <button class="icon-btn text-primary btn-editar-producto" data-id="${p.id_producto}"><i class="material-icons">edit</i></button>
                     <button class="icon-btn text-danger btn-eliminar-producto" data-id="${p.id_producto}"><i class="material-icons">delete</i></button>
@@ -1312,25 +1309,23 @@ document.addEventListener("DOMContentLoaded", () => {
                         document.getElementById("tipo_producto").value = producto.tipo || "inventario";
                         document.getElementById("activo_producto").value = String(producto.activo) === "0" ? "0" : "1";
                         document.getElementById("no_vendible_producto").checked = String(producto.no_vendible) === "1";
-                        document.getElementById("receta_producto").checked = String(producto.receta) === "1";
                     }
                 }
                 sincronizarPropiedadesProducto();
                 document.getElementById("modalProducto").classList.add("show");
             }
 
-            // "No vendible" no lleva precio; "no vendible" y "receta" necesitan stock, así que fijan el tipo "Con stock".
+            // "No vendible" no lleva precio y necesita stock (combos y gasto de producto), así que fija el tipo "Con stock".
             function sincronizarPropiedadesProducto() {
                 const noVendible = document.getElementById("no_vendible_producto").checked;
-                const receta = document.getElementById("receta_producto").checked;
                 const precio = document.getElementById("precio_venta");
                 const tipo = document.getElementById("tipo_producto");
                 precio.disabled = noVendible;
                 precio.required = !noVendible;
                 if (noVendible) precio.value = "";
                 precio.placeholder = noVendible ? "No se vende suelto" : "Ej: 18.00";
-                if (noVendible || receta) tipo.value = "inventario";
-                tipo.disabled = noVendible || receta;
+                if (noVendible) tipo.value = "inventario";
+                tipo.disabled = noVendible;
             }
 
             function abrirModalEliminarProducto(id) {

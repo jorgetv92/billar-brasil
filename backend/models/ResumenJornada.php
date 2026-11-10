@@ -137,7 +137,7 @@ class ResumenJornada {
 
     // Inventario del turno por producto: inicial, cargas, vendido (cobrado y aún en mesas abiertas), gastado y final.
     // Solo productos con stock: los preparados no se cuentan, y los retirados solo si se movieron en el turno.
-    // "gastado" son los productos con receta que se usaron para preparar (botellas para los vasos).
+    // "gastado" son los productos no vendibles que se usaron para preparar (botellas para los vasos).
     // "ajuste" es lo que no explican las ventas, las cargas ni los gastos (por ejemplo, un cambio manual de stock).
     // Necesita la foto de apertura, que se borra al cerrar la jornada. Las cargas y los gastos del turno son los que
     // quedaron registrados con esta jornada (ver Cargas::crear), no los que caen en su horario.
