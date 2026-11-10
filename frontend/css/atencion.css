@@ -272,6 +272,7 @@ body {
     padding: 12px 20px;
     border-radius: 4px;
     color: white;
+    background: #1e293b; /* tipo sin estilo propio: igual se lee */
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transform: translateX(120%);
@@ -297,6 +298,10 @@ body {
 .toast.warning {
     background: var(--warning);
     color: #000;
+}
+
+.toast.info {
+    background: var(--primary);
 }
 
 

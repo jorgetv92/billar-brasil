@@ -27,27 +27,15 @@
 
 <input type="hidden" id="idCargaOculto" value="">
 
-<div id="modalHistorial" class="modal">
+<div id="modalHistorial" class="modal modal-completo">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Historial de la Carga #<span id="historialIdCarga"></span></h3>
-            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+            <button class="icon-btn btn-cerrar-modal" title="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="modal-body">
-            <div class="card table-responsive" style="box-shadow: none; border: 1px solid #e2e8f0;">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Usuario</th>
-                            <th>Acción</th>
-                            <th>Detalle</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyHistorial">
-                    </tbody>
-                </table>
-            </div>
+            <p class="historial-ayuda">Cada cambio muestra cuánto tenía la carga de cada producto antes y cómo quedó.</p>
+            <div id="listaHistorial" class="historial-lista"></div>
         </div>
     </div>
 </div>

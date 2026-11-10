@@ -46,13 +46,73 @@ class Cargas {
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    // Cada cambio de la carga con el nombre de quien lo hizo y sus líneas listas para mostrar:
+    // [{id, nombre, antes, ahora, diferencia}]. En una anulación "ahora" es 0 (todo se devolvió).
+    // Entiende las entradas viejas (ids como texto, "ahora" con el nombre, anulaciones sin detalle).
     public static function historial($pdo, $tipo, $idCarga) {
-        $stmt = $pdo->prepare("SELECT b.* FROM bitacora_cargas b
+        $t = self::TIPOS[$tipo];
+        $stmt = $pdo->prepare("SELECT b.id_bitacora, b.id_carga, b.id_usuario, b.fecha_modificacion, b.accion, b.detalle_cambios,
+                                      TRIM(CONCAT(u.nombres, ' ', u.apellidos)) AS usuario
+                               FROM bitacora_cargas b
                                INNER JOIN cargas c ON c.id_carga = b.id_carga
+                               LEFT JOIN usuarios u ON u.id_usuario = b.id_usuario
                                WHERE b.id_carga = ? AND c.tipo_carga = ?
                                ORDER BY b.fecha_modificacion DESC, b.id_bitacora DESC");
         $stmt->execute([$idCarga, $tipo]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $entradas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Nombres actuales de todo lo que aparece en la bitácora (también de ítems retirados).
+        $cantidades = function ($lista) use ($t) {
+            $res = [];
+            foreach (is_array($lista) ? $lista : [] as $linea) {
+                if (!is_array($linea) || !isset($linea[$t['id']])) continue;
+                $res[intval($linea[$t['id']])] = [
+                    'cantidad' => (float) (isset($linea['cantidad']) ? $linea['cantidad'] : 0),
+                    'nombre' => isset($linea[$t['etiqueta']]) ? $linea[$t['etiqueta']] : null,
+                ];
+            }
+            return $res;
+        };
+        $decodificadas = [];
+        $ids = [];
+        foreach ($entradas as $i => $e) {
+            $d = json_decode($e['detalle_cambios'], true);
+            $d = is_array($d) ? $d : [];
+            $antes = $cantidades($e['accion'] === 'anulacion' ? (isset($d['devuelto']) ? $d['devuelto'] : null) : (isset($d['antes']) ? $d['antes'] : null));
+            $ahora = $e['accion'] === 'anulacion' ? [] : $cantidades(isset($d['ahora']) ? $d['ahora'] : null);
+            $decodificadas[$i] = [$d, $antes, $ahora];
+            $ids = array_merge($ids, array_keys($antes), array_keys($ahora));
+        }
+        $nombres = [];
+        if ($ids) {
+            $ids = array_values(array_unique($ids));
+            $stmtN = $pdo->prepare("SELECT {$t['id']}, {$t['nombre']} FROM {$t['tabla']} WHERE {$t['id']} IN (" . implode(',', array_fill(0, count($ids), '?')) . ")");
+            $stmtN->execute($ids);
+            $nombres = $stmtN->fetchAll(PDO::FETCH_KEY_PAIR);
+        }
+
+        return array_map(function ($e, $i) use ($decodificadas, $nombres) {
+            list($d, $antes, $ahora) = $decodificadas[$i];
+            $lineas = [];
+            foreach (array_unique(array_merge(array_keys($antes), array_keys($ahora))) as $id) {
+                $a = isset($antes[$id]) ? $antes[$id]['cantidad'] : 0;
+                $b = isset($ahora[$id]) ? $ahora[$id]['cantidad'] : 0;
+                $nombre = isset($nombres[$id]) ? $nombres[$id]
+                    : (isset($ahora[$id]['nombre']) ? $ahora[$id]['nombre'] : (isset($antes[$id]['nombre']) ? $antes[$id]['nombre'] : "#$id"));
+                $lineas[] = ['id' => $id, 'nombre' => $nombre, 'antes' => $a, 'ahora' => $b, 'diferencia' => round($b - $a, 2)];
+            }
+            usort($lineas, function ($x, $y) { return strcasecmp($x['nombre'], $y['nombre']); });
+            return [
+                'id_bitacora' => intval($e['id_bitacora']),
+                'fecha_modificacion' => $e['fecha_modificacion'],
+                'accion' => $e['accion'],
+                'id_usuario' => intval($e['id_usuario']),
+                'usuario' => $e['usuario'] !== null && $e['usuario'] !== '' ? $e['usuario'] : "Usuario #{$e['id_usuario']} (ya no existe)",
+                'razon' => isset($d['razon']) ? $d['razon'] : null,
+                'lineas' => $lineas,
+                'detalle_cambios' => $e['detalle_cambios'],
+            ];
+        }, $entradas, array_keys($entradas));
     }
 
     public static function crear($pdo, $tipo, $items, $idUsuario) {

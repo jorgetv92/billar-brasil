@@ -1,3 +1,49 @@
+// Historial de una carga (mercadería o insumos): una tarjeta por cambio con fecha, usuario y acción,
+// y debajo la tabla de lo que tenía la carga antes y cómo quedó. Los datos ya vienen armados del backend.
+function htmlHistorialCarga(entradas, etiqueta, enteros) {
+    const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const num = (n) => enteros ? String(Math.round(n)) : Number(n).toFixed(2).replace(/\.?0+$/, "");
+    const dif = (n) => n > 0 ? `+${num(n)}` : n < 0 ? `−${num(-n)}` : "0";
+    return entradas.map(h => {
+        const anulacion = h.accion === "anulacion";
+        const lineas = h.lineas || [];
+        const cambiadas = lineas.filter(l => l.diferencia !== 0).length;
+        const resumen = anulacion
+            ? `Se devolvió el stock de ${lineas.length} ${lineas.length === 1 ? etiqueta.toLowerCase() : etiqueta.toLowerCase() + 's'}`
+            : `${cambiadas} de ${lineas.length} ${lineas.length === 1 ? 'línea cambió' : 'líneas cambiaron'}`;
+        const tabla = lineas.length === 0
+            ? `<div class="historial-vacio">${anulacion ? 'Esta anulación es anterior al registro del detalle: no se guardó qué se devolvió.' : 'No se guardó el detalle de este cambio.'}</div>`
+            : `<div class="table-responsive"><table class="data-table historial-tabla">
+                <colgroup><col class="col-nombre"><col><col><col></colgroup>
+                <thead><tr>
+                    <th>${etiqueta}</th>
+                    <th class="text-right">Antes</th>
+                    <th class="text-right">Después</th>
+                    <th class="text-right"><span class="historial-largo">Diferencia</span><span class="historial-corto">Dif.</span></th>
+                </tr></thead>
+                <tbody>${lineas.map(l => {
+                    const clase = l.diferencia > 0 ? 'sube' : l.diferencia < 0 ? 'baja' : 'igual';
+                    const nota = l.antes === 0 ? ' <span class="historial-nota">agregado</span>' : (l.ahora === 0 && !anulacion ? ' <span class="historial-nota">quitado</span>' : '');
+                    return `<tr class="historial-${clase}">
+                        <td>${esc(l.nombre)}${nota}</td>
+                        <td class="text-right">${num(l.antes)}</td>
+                        <td class="text-right">${num(l.ahora)}</td>
+                        <td class="text-right historial-dif">${dif(l.diferencia)}</td>
+                    </tr>`;
+                }).join("")}</tbody>
+            </table></div>`;
+        return `<article class="historial-item ${anulacion ? 'anulacion' : 'modificacion'}">
+            <header class="historial-cabecera">
+                <span class="historial-accion"><i class="material-icons">${anulacion ? 'block' : 'edit_note'}</i>${anulacion ? 'Anulación' : 'Modificación'}</span>
+                <span class="historial-dato"><i class="material-icons">event</i>${fechaHoraDMA(h.fecha_modificacion)}</span>
+                <span class="historial-dato"><i class="material-icons">person</i>${esc(h.usuario)}</span>
+                <span class="historial-resumen">${resumen}</span>
+            </header>
+            ${tabla}
+        </article>`;
+    }).join("");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
             const outlet = document.getElementById("router-outlet");
             const menuToggle = document.getElementById("menuToggle");
@@ -180,7 +226,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const toast = document.createElement("div");
                 toast.className = `toast ${tipo}`;
 
-                let icono = tipo === "success" ? "check_circle" : (tipo === "error" ? "cancel" : "warning");
+                let icono = { success: "check_circle", error: "cancel", warning: "warning", info: "info" }[tipo] || "info";
                 toast.innerHTML = `<i class="material-icons">${icono}</i> <span>${mensaje}</span>`;
 
                 container.appendChild(toast);
@@ -2353,15 +2399,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             if (result.data && result.data.length > 0) {
                                 document.getElementById('historialIdCarga').innerText = idCarga;
-                                const tbodyHistorial = document.getElementById('tbodyHistorial');
-                                tbodyHistorial.innerHTML = result.data.map(h => `
-                            <tr>
-                                <td>${fechaHoraDMA(h.fecha_modificacion)}</td>
-                                <td>Usuario #${h.id_usuario}</td>
-                                <td><span class="badge ${h.accion === 'anulacion' ? 'bg-danger' : 'bg-warning'}">${h.accion}</span></td>
-                                <td style="font-size: 12px;">${JSON.stringify(h.detalle_cambios)}</td>
-                            </tr>
-                        `).join("");
+                                document.getElementById('listaHistorial').innerHTML = htmlHistorialCarga(result.data, 'Producto', true);
                                 modalHistorial.classList.add("show");
                             } else {
                                 mostrarToast("No se han realizado cambios ni anulaciones en esta carga.", "info");
@@ -2621,15 +2659,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     if (result.data && result.data.length > 0) {
                         document.getElementById('historialIdCargaInsumo').innerText = idCarga;
-                        const tbodyHistorial = document.getElementById('tbodyHistorialInsumo');
-                        tbodyHistorial.innerHTML = result.data.map(h => `
-                            <tr>
-                                <td>${fechaHoraDMA(h.fecha_modificacion)}</td>
-                                <td>Usuario #${h.id_usuario}</td>
-                                <td><span class="badge ${h.accion === 'anulacion' ? 'bg-danger' : 'bg-warning'}">${h.accion}</span></td>
-                                <td style="font-size: 12px;">${JSON.stringify(h.detalle_cambios)}</td>
-                            </tr>
-                        `).join("");
+                        document.getElementById('listaHistorialInsumo').innerHTML = htmlHistorialCarga(result.data, 'Insumo', false);
                         modalHistorial.classList.add("show");
                     } else {
                         mostrarToast("No hay historial para esta carga.", "info");

@@ -119,6 +119,29 @@ async function venta(lineas, metodo = 'efectivo', base = BASE) {
   const bitacora = q(`SELECT accion FROM bitacora_cargas WHERE id_carga=${c1.id_carga} ORDER BY id_bitacora`).map((b) => b.accion).join(',');
   comprobar('La bitácora guarda las ediciones y la anulación', bitacora === 'modificacion,modificacion,anulacion', bitacora);
 
+  // Historial que ve el admin: nombre de quien cambió y, por línea, cuánto había antes y cuánto quedó.
+  const historial = (await api('GET', `cargas.php?action=historial&id_carga=${c1.id_carga}`)).data;
+  const linea = (h, id) => h.lineas.find((l) => l.id === id) || {};
+  const [hAnul, hQuita, hEdita] = historial;
+  comprobar('Historial: muestra el nombre del usuario, no su id', historial.length === 3 && historial.every((h) => h.usuario === 'Sim Admin'), json(historial.map((h) => h.usuario)));
+  comprobar('Historial: la primera edición tenía 12 Corona y quedaron 8 (−4); Macanuda sin cambio',
+    hEdita.accion === 'modificacion' && linea(hEdita, P.Corona).antes === 12 && linea(hEdita, P.Corona).ahora === 8 && linea(hEdita, P.Corona).diferencia === -4 && linea(hEdita, P.Macanuda).diferencia === 0 && linea(hEdita, P.Corona).nombre === 'Corona',
+    json(hEdita.lineas));
+  comprobar('Historial: quitar Macanuda queda como 5 → 0', linea(hQuita, P.Macanuda).antes === 5 && linea(hQuita, P.Macanuda).ahora === 0 && linea(hQuita, P.Corona).diferencia === 0, json(hQuita.lineas));
+  comprobar('Historial: la anulación muestra lo devuelto (8 Corona → 0)', hAnul.accion === 'anulacion' && hAnul.lineas.length === 1 && linea(hAnul, P.Corona).antes === 8 && linea(hAnul, P.Corona).ahora === 0, json(hAnul.lineas));
+  const histInsumo = (await api('GET', `cargas_insumos.php?action=historial&id_carga=${ci.id_carga}`)).data;
+  const detEditado = histInsumo.find((h) => h.accion === 'modificacion');
+  comprobar('Historial de insumos: con decimales (2.5 → 3.75)', detEditado && linea(detEditado, I.Det).antes === 2.5 && linea(detEditado, I.Det).ahora === 3.75 && linea(detEditado, I.Det).diferencia === 1.25 && linea(detEditado, I.Det).nombre === 'SIM Detergente', json(detEditado && detEditado.lineas));
+  // Entradas guardadas por versiones anteriores: ids como texto, "ahora" con el nombre, anulación sin detalle
+  // y un usuario que ya no existe.
+  q(`INSERT INTO bitacora_cargas (id_carga, id_usuario, accion, fecha_modificacion, detalle_cambios) VALUES
+     (${c1.id_carga}, 99999, 'modificacion', '2020-01-01 10:00:00', '{"antes":[{"id_producto":"${P.Corona}","cantidad":"12.00"}],"ahora":[{"id_producto":"${P.Corona}","producto":"Corona","cantidad":"10.00"}]}'),
+     (${c1.id_carga}, 99999, 'anulacion', '2020-01-01 09:00:00', '{"razon":"Anulación completa"}')`);
+  const viejas = (await api('GET', `cargas.php?action=historial&id_carga=${c1.id_carga}`)).data.slice(-2);
+  comprobar('Historial: entiende las entradas viejas y el usuario borrado',
+    viejas[0].accion === 'modificacion' && linea(viejas[0], P.Corona).antes === 12 && linea(viejas[0], P.Corona).ahora === 10 && viejas[1].lineas.length === 0 && viejas[0].usuario === 'Usuario #99999 (ya no existe)',
+    json(viejas.map((h) => [h.usuario, h.lineas])));
+
   console.log('\n--- Sin jornada abierta');
   const gastoSin = await gasto({ accion: 'crear', id_insumo: I.Det, cantidad: 1 });
   const egresoSin = await egreso({ accion: 'crear', concepto: 'x', monto: 10 });

@@ -447,7 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const toast = document.createElement("div");
         toast.className = `toast ${tipo}`;
 
-        let icono = tipo === "success" ? "check_circle" : (tipo === "error" ? "cancel" : "warning");
+        let icono = { success: "check_circle", error: "cancel", warning: "warning", info: "info" }[tipo] || "info";
         toast.innerHTML = `<i class="material-icons">${icono}</i> <span>${mensaje}</span>`;
 
         container.appendChild(toast);
