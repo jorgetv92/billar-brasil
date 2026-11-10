@@ -1,15 +1,17 @@
 -- =======================================================================
 -- INSTALACIÓN DESDE CERO DE LA BASE DE DATOS DE PRODUCCIÓN
 -- =======================================================================
--- Crea todas las tablas que usa el sistema y carga el catálogo inicial (tipos de mesa, mesas,
--- usuarios, insumos y productos) tomado de la base de producción anterior, con los mismos ids.
+-- Crea todas las tablas que usa el sistema y carga el catálogo inicial: tipos de mesa, mesas, usuarios,
+-- insumos, productos, combos y conceptos de cargo, con los mismos ids que la base de producción anterior.
 --
 -- Uso: en phpMyAdmin, seleccionar la base de datos del hosting (vacía, sin tablas) y en
 -- "Importar" subir este archivo. No crea la base ni cambia de base: trabaja sobre la seleccionada.
 -- Si alguna tabla ya existe se detiene con error en lugar de duplicar datos.
 --
--- No se migran: Fernet combo, Promo 2x30 amstel, Vaso de Fernet, Vaso de flor de caña,
--- Vaso o botella rota (ahora es un concepto de cargo) y Cuba libre.
+-- Productos que no pasan: Cuba libre, Vaso de Fernet, Combo de flor de caña, Fernet combo, Vaso de flor de caña, Promo 2x30 amstel, Vaso o botella rota.
+-- "Vaso o botella rota" ahora es un concepto de cargo.
+-- Los usuarios que no son administradores pasan a supervisor.
+-- El stock queda como en producción al 10/11/2026, registrado como una carga de mercadería.
 -- Las jornadas, ventas e historial empiezan vacíos.
 
 SET NAMES utf8mb4;
@@ -279,11 +281,16 @@ CREATE TABLE cargos_venta (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =======================================================================
--- DATOS INICIALES (copiados de la base de producción anterior, mismos ids)
+-- DATOS INICIALES
 -- =======================================================================
+-- Tipos de mesa, mesas, usuarios e insumos: copiados de la base de producción anterior, mismos ids.
+-- Productos: mismos ids, nombres y precios de producción, con el stock al 10/11/2026 10:26.
+-- Combos y conceptos de cargo: los configurados en la versión nueva.
 
--- Las roturas se cobran como cargo con monto sugerido, que el cajero puede cambiar.
-INSERT INTO conceptos_cargo (nombre, monto_sugerido, activo) VALUES ('Vaso o botella rota', 8.00, 1);
+-- Conceptos de cargo activos. El monto es una sugerencia: el cajero lo puede cambiar.
+INSERT INTO conceptos_cargo (id_concepto, nombre, monto_sugerido, activo) VALUES
+(1, 'Vaso Roto', 8.00, 1),
+(2, 'Botella Quebrada', 10.00, 1);
 
 INSERT INTO tipos_mesa (id_tipo_mesa, nombre_tipo, precio_hora) VALUES
 (1, 'Billar Privada', 30.00),
@@ -291,7 +298,7 @@ INSERT INTO tipos_mesa (id_tipo_mesa, nombre_tipo, precio_hora) VALUES
 (3, 'Cachos', 10.00),
 (5, 'Consumo', 0.00);
 
--- Todas las mesas quedan libres: la base nueva no tiene partidas abiertas.
+-- La base nueva no tiene partidas abiertas: una mesa ocupada queda libre; las de mantenimiento siguen igual.
 INSERT INTO mesas (id_mesa, id_tipo_mesa, numero_mesa, estado_actual) VALUES
 (1, 1, 'Privada #1', 'libre'),
 (2, 2, 'Billar #1', 'libre'),
@@ -307,40 +314,43 @@ INSERT INTO mesas (id_mesa, id_tipo_mesa, numero_mesa, estado_actual) VALUES
 (16, 2, 'Billar #6', 'libre'),
 (17, 2, 'Billar #7', 'libre');
 
+-- Los administradores conservan su rol; el resto pasa a supervisor. Las contraseñas son las mismas.
 INSERT INTO usuarios (id_usuario, nombres, apellidos, usuario, password, rol) VALUES
 (1, 'Administrador', 'Principal', 'admin', '$2y$10$Nm/WltmGn/748ISzv6a/7.vLRFcwLTW8G6cjQHDfuDgwMt4cvgnfe', 'administrador'),
 (2, 'Hugo Gonzalo', 'Paco Mendoza', 'gpaco', '$2y$10$3xxWIj/mYnbTLlP82CC8ZO8O3MNjn3tHQwooxc3bD4ZZV.L27Xnvm', 'administrador'),
-(4, 'Jorge', 'Torquato', 'jtorquato', '$2y$10$.wHURNHgwmKNlnPsrDbVaeZbnMstNG4TV.tbQ/rYtpNt3DKGKQt6C', 'atencion'),
-(5, 'Heidy', 'Roman', 'hroman', '$2y$10$rS38xLutjjVR628mEqlhMOZ1D4dH.ulCFclkocGTCSiGLiya2sWlW', 'atencion'),
-(6, 'Andrea', 'Ruiz', 'aruiz', '$2y$10$cKIv0eDCVt0eGHB3mitITOAoovp45WnNESYcCUnIrEjH9Tc/JtxKO', 'atencion'),
-(7, 'Selene', 'Freita', 'sfreita', '$2y$10$T2vufSFuOtGezMBx2LyaYeBsT76XP69moMOsDqgl5Xx8o.pD4b0QW', 'atencion'),
-(8, 'Fabiana', 'Moron', 'fmoron', '$2y$10$SF2q4y.c.Vdf/juN7Khkf.7X/qzPBt9tNVXKURVcLLepbY9V1uFHu', 'atencion'),
-(9, 'Amauris', 'Cuba', 'amauris', '$2y$10$v.9El2ftrOM.9jp1JmTJ7eP6tAmGfot8JewVFFybepLZmgWpwnwBe', 'atencion');
+(4, 'Jorge', 'Torquato', 'jtorquato', '$2y$10$.wHURNHgwmKNlnPsrDbVaeZbnMstNG4TV.tbQ/rYtpNt3DKGKQt6C', 'supervisor'),
+(5, 'Heidy', 'Roman', 'hroman', '$2y$10$rS38xLutjjVR628mEqlhMOZ1D4dH.ulCFclkocGTCSiGLiya2sWlW', 'supervisor'),
+(6, 'Andrea', 'Ruiz', 'aruiz', '$2y$10$cKIv0eDCVt0eGHB3mitITOAoovp45WnNESYcCUnIrEjH9Tc/JtxKO', 'supervisor'),
+(7, 'Selene', 'Freita', 'sfreita', '$2y$10$T2vufSFuOtGezMBx2LyaYeBsT76XP69moMOsDqgl5Xx8o.pD4b0QW', 'supervisor'),
+(8, 'Fabiana', 'Moron', 'fmoron', '$2y$10$SF2q4y.c.Vdf/juN7Khkf.7X/qzPBt9tNVXKURVcLLepbY9V1uFHu', 'supervisor'),
+(9, 'Amauris', 'Cuba', 'amauris', '$2y$10$v.9El2ftrOM.9jp1JmTJ7eP6tAmGfot8JewVFFybepLZmgWpwnwBe', 'supervisor');
 
 INSERT INTO insumos (id_insumo, nombre_insumo, unidad_medida, stock_actual) VALUES
 (1, 'Detergente en polvo', 'Bolsas', 20.00),
 (2, 'Papel higienico', 'Rollos', 16.00);
 
+-- 58 productos. No pasan: Cuba libre, Vaso de Fernet, Combo de flor de caña, Fernet combo, Vaso de flor de caña, Promo 2x30 amstel, Vaso o botella rota.
+-- El stock lo explica la carga de mercadería inicial de más abajo.
 INSERT INTO productos (id_producto, nombre_producto, precio_venta, stock_actual, tipo, activo) VALUES
-(1, 'Paceña Macanuda', 22.00, 438, 'inventario', 1),
+(1, 'Paceña Macanuda', 22.00, 429, 'inventario', 1),
 (4, 'Paceña Palito', 9.00, 140, 'inventario', 1),
 (6, 'Corona', 24.00, 10, 'inventario', 1),
 (7, 'Paceña Gordita', 12.00, 186, 'inventario', 1),
 (8, 'Paceña Huari G.', 26.00, 354, 'inventario', 1),
 (9, 'Amstel Palito', 8.50, 65, 'inventario', 1),
-(11, 'Soda Mini', 3.00, 45, 'inventario', 1),
-(12, 'Soda Popular', 8.00, 100, 'inventario', 1),
-(13, 'Soda 2Lts', 20.00, 28, 'inventario', 1),
-(14, 'Black, Powerade', 10.00, 14, 'inventario', 1),
+(11, 'Soda Mini', 3.00, 41, 'inventario', 1),
+(12, 'Soda Popular', 8.00, 98, 'inventario', 1),
+(13, 'Soda 2Lts', 20.00, 27, 'inventario', 1),
+(14, 'Black, Powerade', 10.00, 13, 'inventario', 1),
 (15, 'Agua 1Lts', 8.00, 0, 'inventario', 1),
 (16, 'Cajetilla Camel', 28.00, 48, 'inventario', 1),
-(17, 'Cajetilla Bohem', 20.00, 59, 'inventario', 1),
+(17, 'Cajetilla Bohem', 20.00, 57, 'inventario', 1),
 (18, 'Cajetilla Hills', 13.00, 16, 'inventario', 1),
 (19, 'Cigarro Suelto Camel', 1.50, 306, 'inventario', 1),
 (20, 'Cigarro Suelto Bohem', 1.50, 511, 'inventario', 1),
 (21, 'Cigarro Suelto Hills', 1.00, 192, 'inventario', 1),
-(22, 'Encendedor', 4.00, 72, 'inventario', 1),
-(23, 'Coca Machucada', 25.00, 12, 'inventario', 1),
+(22, 'Encendedor', 4.00, 71, 'inventario', 1),
+(23, 'Coca Machucada', 25.00, 11, 'inventario', 1),
 (24, 'Ciclon, fury', 8.00, 11, 'inventario', 1),
 (25, 'Soda de 1Lts', 10.00, 2, 'inventario', 1),
 (26, 'Galleta Club Social, Oreo', 4.00, 8, 'inventario', 1),
@@ -350,15 +360,15 @@ INSERT INTO productos (id_producto, nombre_producto, precio_venta, stock_actual,
 (31, 'Energizante Monster', 30.00, 3, 'inventario', 1),
 (32, 'Urbano Botella', 30.00, 42, 'inventario', 1),
 (33, 'Cerveza Stella Artois', 22.00, 0, 'inventario', 1),
-(34, 'Simba 2Lts', 15.00, 4, 'inventario', 1),
+(34, 'Simba 2Lts', 15.00, 3, 'inventario', 1),
 (35, 'Chupete Bom Bom Bum', 1.50, 35, 'inventario', 1),
-(36, 'Chicle Groso', 1.50, 225, 'inventario', 1),
-(37, 'Chicle Tumix, Push', 1.00, 122, 'inventario', 1),
+(36, 'Chicle Groso', 1.50, 224, 'inventario', 1),
+(37, 'Chicle Tumix, Push', 1.00, 121, 'inventario', 1),
 (38, 'Chocolate Bon o Bon', 3.00, 53, 'inventario', 1),
 (39, 'Nachos', 5.00, 4, 'inventario', 1),
 (40, 'Cheetos', 4.00, 6, 'inventario', 1),
 (41, 'Bico', 2.50, 46, 'inventario', 1),
-(42, 'Chocolate Momento', 4.00, 16, 'inventario', 1),
+(42, 'Chocolate Momento', 4.00, 15, 'inventario', 1),
 (43, 'Galleta Chips', 4.00, 2, 'inventario', 1),
 (44, 'Galleta Artesana Chico', 2.50, 25, 'inventario', 1),
 (46, 'Amstel Botella', 17.00, 29, 'inventario', 1),
@@ -370,7 +380,6 @@ INSERT INTO productos (id_producto, nombre_producto, precio_venta, stock_actual,
 (52, 'Papas Fritas Papa Nax, Super Papa', 5.00, 16, 'inventario', 1),
 (53, 'Galleta Festival', 3.00, 3, 'inventario', 1),
 (54, 'Galleta Sublime', 4.50, 5, 'inventario', 1),
-(56, 'Combo de flor de caña', 220.00, 5, 'inventario', 1),
 (60, 'Botella ducal', 17.00, 129, 'inventario', 1),
 (63, 'Four loco', 45.00, 5, 'inventario', 1),
 (65, 'Doblón chocolate', 1.50, 13, 'inventario', 1),
@@ -379,5 +388,75 @@ INSERT INTO productos (id_producto, nombre_producto, precio_venta, stock_actual,
 (68, 'Huari Miel', 20.00, 1, 'inventario', 1),
 (69, 'Chicle globo', 2.00, 25, 'inventario', 1),
 (70, 'Cuba 2 litros', 30.00, 6, 'inventario', 1),
-(71, 'Jugo valle', 16.00, 5, 'inventario', 1),
+(71, 'Jugo valle', 16.00, 3, 'inventario', 1),
 (72, 'Agua personal', 7.00, 5, 'inventario', 1);
+
+-- Combos: no tienen stock propio; al venderse descuentan el de sus productos.
+INSERT INTO combos (id_combo, nombre, precio, activo) VALUES
+(8, 'Combo de Fernet', 245.00, 1);
+
+-- combo 8: 1 x Soda 2Lts; combo 8: 1 x Urbano Botella
+INSERT INTO combo_items (id_combo, id_producto, cantidad) VALUES
+(8, 13, 1),
+(8, 32, 1);
+
+-- Carga de mercadería inicial: deja el stock de producción al 10/11/2026 (56 productos, 3542 unidades).
+-- No pertenece a ninguna jornada. Se ve en "Carga de Mercadería" y se puede corregir o anular desde ahí.
+INSERT INTO cargas (id_carga, tipo_carga, fecha_hora, estado, id_jornada) VALUES (1, 'producto', NOW(), 'activo', NULL);
+INSERT INTO detalle_cargas (id_carga, id_producto, id_insumo, cantidad) VALUES
+(1, 1, NULL, 429.00),
+(1, 4, NULL, 140.00),
+(1, 6, NULL, 10.00),
+(1, 7, NULL, 186.00),
+(1, 8, NULL, 354.00),
+(1, 9, NULL, 65.00),
+(1, 11, NULL, 41.00),
+(1, 12, NULL, 98.00),
+(1, 13, NULL, 27.00),
+(1, 14, NULL, 13.00),
+(1, 16, NULL, 48.00),
+(1, 17, NULL, 57.00),
+(1, 18, NULL, 16.00),
+(1, 19, NULL, 306.00),
+(1, 20, NULL, 511.00),
+(1, 21, NULL, 192.00),
+(1, 22, NULL, 71.00),
+(1, 23, NULL, 11.00),
+(1, 24, NULL, 11.00),
+(1, 25, NULL, 2.00),
+(1, 26, NULL, 8.00),
+(1, 27, NULL, 12.00),
+(1, 28, NULL, 16.00),
+(1, 30, NULL, 2.00),
+(1, 31, NULL, 3.00),
+(1, 32, NULL, 42.00),
+(1, 34, NULL, 3.00),
+(1, 35, NULL, 35.00),
+(1, 36, NULL, 224.00),
+(1, 37, NULL, 121.00),
+(1, 38, NULL, 53.00),
+(1, 39, NULL, 4.00),
+(1, 40, NULL, 6.00),
+(1, 41, NULL, 46.00),
+(1, 42, NULL, 15.00),
+(1, 43, NULL, 2.00),
+(1, 44, NULL, 25.00),
+(1, 46, NULL, 29.00),
+(1, 47, NULL, 4.00),
+(1, 48, NULL, 5.00),
+(1, 49, NULL, 27.00),
+(1, 50, NULL, 19.00),
+(1, 51, NULL, 21.00),
+(1, 52, NULL, 16.00),
+(1, 53, NULL, 3.00),
+(1, 54, NULL, 5.00),
+(1, 60, NULL, 129.00),
+(1, 63, NULL, 5.00),
+(1, 65, NULL, 13.00),
+(1, 66, NULL, 5.00),
+(1, 67, NULL, 16.00),
+(1, 68, NULL, 1.00),
+(1, 69, NULL, 25.00),
+(1, 70, NULL, 6.00),
+(1, 71, NULL, 3.00),
+(1, 72, NULL, 5.00);

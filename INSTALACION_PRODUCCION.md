@@ -1,12 +1,16 @@
 # Instalación de producción desde cero
 
-Producción arranca con una base **nueva y vacía** en el hosting. No se migra la base anterior: `script.sql` crea las tablas y carga el catálogo copiado de la base de producción anterior (`billarbrasil_produccion`), con los mismos ids:
+Producción arranca con una base **nueva y vacía** en el hosting. No se migra la base anterior: `script.sql` crea las tablas y carga el catálogo, con los mismos ids que la base de producción anterior:
 
-- todos los tipos de mesa (4), las mesas (13), los usuarios (8, con sus contraseñas actuales) y los insumos (2);
-- 59 de los 65 productos. No se copian Fernet combo, Promo 2x30 amstel, Vaso de Fernet, Vaso de flor de caña, Vaso o botella rota y Cuba libre;
-- el concepto de cargo "Vaso o botella rota" (Bs 8), que reemplaza al producto.
+- todos los tipos de mesa (4), las mesas (13) y los insumos (2), de la copia local de producción (`billarbrasil_produccion`);
+- los usuarios (8, con sus contraseñas actuales). Los 2 administradores siguen como administradores; los otros 6 pasan a **supervisor**;
+- 58 de los 65 productos, con nombre, precio y stock de producción al 10/11/2026 10:26 (archivo `StockActualProductos.sql`). No pasan: Cuba libre, Vaso de Fernet, Combo de flor de caña, Fernet combo, Vaso de flor de caña, Promo 2x30 amstel y Vaso o botella rota;
+- una **carga de mercadería** inicial (carga #1: 56 productos, 3542 unidades) que explica ese stock. Se ve en "Carga de Mercadería";
+- el combo "Combo de Fernet" (Bs 245: 1 Soda 2Lts + 1 Urbano Botella) y los conceptos de cargo activos "Vaso Roto" (Bs 8) y "Botella Quebrada" (Bs 10), tal como se configuraron en la versión nueva.
 
-Jornadas, ventas, cargas e historial empiezan vacíos. Las mesas quedan libres.
+Jornadas, ventas e historial empiezan vacíos. Las mesas quedan libres, salvo Privada #2, que sigue en mantenimiento.
+
+Si producción vende algo entre la toma del stock (10/11/2026 10:26) y la instalación, corregir esa diferencia con una carga o editando la carga #1.
 
 Este archivo no se sube al servidor.
 
@@ -54,11 +58,11 @@ Debe terminar sin errores y dejar 23 tablas. Si alguna tabla ya existía, se det
    - Si aparece "No se pudo conectar a la base de datos", revisar ahí el nombre de la base, el usuario y la contraseña.
 2. En el admin:
    - Revisar mesas, productos y precios.
-   - Ajustar el stock con una carga si hace falta: el stock copiado es el de la base anterior al 2026-11-09.
+   - Revisar en "Carga de Mercadería" la carga #1 y el stock de los productos.
    - Revisar los insumos.
-   - Crear los productos preparados (vasos y tragos), los combos (sección "Combos", debajo de Inventario; ej. "Fernet combo" = 1 Fernet + 2 Coca Cola) y las promociones que se vayan a usar.
+   - Crear los productos preparados (vasos y tragos), los combos que falten (sección "Combos", debajo de Inventario) y las promociones que se vayan a usar.
    - Las promociones "Producto 2x1" y la hora con descuento no se aplican solas: el cajero las elige en el buscador escribiendo "promo".
-   - En "Usuarios", dar el rol "Supervisor" a quienes autorizan las correcciones de ventas. El supervisor atiende igual que atención y además ve "Mis ventas" sin pedir autorización; a un usuario de atención, "Mis ventas" le pide primero los datos de un supervisor.
+   - En "Usuarios", revisar los roles: todos los que no son administradores quedaron como "Supervisor". El supervisor atiende igual que atención y además ve "Mis ventas" sin pedir autorización; a un usuario de atención, "Mis ventas" le pide primero los datos de un supervisor.
 3. En atención:
    - Abrir la jornada, ocupar una mesa, agregar un producto y cobrar.
    - Registrar un egreso y un gasto de insumo.

@@ -1,4 +1,7 @@
 <?php
+// Misma zona horaria que el resto del backend (este endpoint no incluye config/database.php).
+// En hosting, sin esto date() usaba la hora del servidor para el nombre del PDF y su fecha.
+date_default_timezone_set('America/La_Paz');
 header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
