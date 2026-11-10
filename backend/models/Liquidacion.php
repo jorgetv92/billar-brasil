@@ -2,7 +2,7 @@
 // Motor único de cobro: calcula cuánto se cobra por una partida de mesa o por un carrito de barra.
 // La pantalla solo muestra lo que devuelve este motor, y el cobro lo vuelve a calcular antes de guardar.
 //
-// Reglas del negocio (cada una tiene un caso en tests/simulador/oraculo.test.js):
+// Reglas del negocio:
 //  - El tiempo se cobra en bloques de 5 minutos que se cobran al iniciar: 00:01 cobra el primero, 05:01 el segundo.
 //  - Cada bloque usa la tarifa vigente cuando empieza: la de lista, la de una promo de tarifa o la del incentivo en mesa.
 //  - El incentivo en mesa baja la tarifa solo desde que se cumplen las horas mínimas, no hacia atrás.

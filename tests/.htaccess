@@ -1,7 +1,0 @@
-# Las pruebas son solo para desarrollo: nunca se sirven por web.
-<IfModule mod_authz_core.c>
-    Require all denied
-</IfModule>
-<IfModule !mod_authz_core.c>
-    Deny from all
-</IfModule>

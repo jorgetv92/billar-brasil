@@ -1,6 +1,3 @@
-# Paquetes generados por herramientas/empaquetar.js
-/dist/
-
 # Entornos con contraseñas reales: en git solo van las plantillas *.ejemplo.php
 /backend/config/entornos/produccion.php
 /backend/config/entornos/demo.php
