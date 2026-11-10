@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { DIR_RESULTADOS } = require('./config');
-const { Sim, abrirNavegador, q } = require('./lib');
+const { Sim, abrirNavegador, apiAdmin, q } = require('./lib');
 
 const P = { Corona: 6, SodaPop: 12 };
 
@@ -100,6 +100,56 @@ const cobradoEn = (idJornada) => +q(`SELECT COALESCE(SUM(monto_pagado),0) t FROM
   const cobradoFinal = cobradoEn(id);
   comprobar('Reporte de cierre: mesas + productos = cobrado', kpis && iguales(+kpis[2] + +kpis[4], cobradoFinal), `${kpis && kpis[2]} + ${kpis && kpis[4]} | cobrado ${cobradoFinal}`);
   comprobar('Reporte de cierre: muestra las horas jugadas (35 + 65 + 40 min = 2:20)', kpis && kpis[1] === '02:20', kpis && kpis[1]);
+
+  console.log('\n--- Ingresos por semana y por mes');
+  // Sábado: una jornada que cruza la medianoche cuenta en el sábado. Lunes 14: ya es otra semana.
+  await s.at('2026-12-12 22:00:00');
+  await s.abrirJornada(100);
+  const idSabado = s.j.id;
+  await barra([[P.Corona, 3]], { caso: 'sábado barra' });
+  await s.egreso('Hielo', 15);
+  await s.at('2026-12-13 00:30:00');
+  await barra([[P.SodaPop, 2]], { caso: 'pasada la medianoche', metodo: 'qr' });
+  await s.cerrarJornada();
+  await s.at('2026-12-14 18:00:00');
+  await s.abrirJornada(100);
+  const idLunes = s.j.id;
+  await barra([[P.Corona, 1]], { caso: 'lunes barra' });
+  await s.cerrarJornada();
+
+  const enRango = (desde, hasta) => q(`SELECT id_jornada i FROM jornadas WHERE fecha_hora_apertura >= '${desde} 00:00:00' AND fecha_hora_apertura < '${hasta} 00:00:00'`).map((x) => +x.i);
+  const sumaCobrada = (ids) => ids.reduce((a, j) => a + cobradoEn(j), 0);
+  const sumaEgresos = (ids) => (ids.length ? +q(`SELECT COALESCE(SUM(monto),0) t FROM egresos_caja WHERE id_jornada IN (${ids.join(',')})`)[0].t : 0);
+  const cuadraPeriodo = (d) =>
+    iguales(d.totales.mesas + d.totales.productos + d.totales.cargos, d.totales.total) &&
+    iguales(d.totales.efectivo + d.totales.qr, d.totales.total) &&
+    iguales(d.dias.reduce((a, x) => a + x.total, 0), d.totales.total) &&
+    iguales(d.totales.neto, d.totales.total - d.totales.egresos);
+
+  const semana = (await s.api('GET', 'reportes.php?tipo=ingresos_semana&fecha=2026-12-10')).data;
+  const idsSemana = enRango('2026-12-07', '2026-12-14');
+  comprobar('Semana: va del lunes 07/12 al domingo 13/12, con sus 7 días', semana.periodo.desde === '2026-12-07' && semana.periodo.hasta === '2026-12-13' && semana.dias.length === 7 && semana.dias[0].dia_semana === 1, JSON.stringify(semana.periodo));
+  comprobar('Semana: lo cobrado coincide con los pagos de sus jornadas (sin la del lunes 14)', iguales(semana.totales.total, sumaCobrada(idsSemana)) && semana.totales.jornadas === idsSemana.length && idsSemana.includes(id) && idsSemana.includes(idSabado) && !idsSemana.includes(idLunes), `${semana.totales.total} | ${sumaCobrada(idsSemana)} | jornadas ${idsSemana}`);
+  comprobar('Semana: mesas + productos + cargos = efectivo + QR = suma de los días', cuadraPeriodo(semana), JSON.stringify(semana.totales));
+  const sabado = semana.dias.find((x) => x.fecha === '2026-12-12');
+  const domingo = semana.dias.find((x) => x.fecha === '2026-12-13');
+  comprobar('Semana: la jornada que pasa la medianoche cuenta toda en el sábado', sabado.jornadas === 1 && iguales(sabado.total, cobradoEn(idSabado)) && domingo.jornadas === 0 && domingo.total === 0, JSON.stringify([sabado, domingo]));
+  comprobar('Semana: egresos e "ingresos − egresos"', iguales(semana.totales.egresos, sumaEgresos(idsSemana)) && iguales(sabado.egresos, 15), `egresos ${semana.totales.egresos}`);
+  const viernes = semana.dias.find((x) => x.fecha === '2026-12-11');
+  const repViernes = s.jornadas.find((j) => j.id === id).reporte.data;
+  comprobar('Semana: el viernes muestra lo mismo que el reporte de su jornada', iguales(viernes.mesas, +repViernes.mesas.resumen.efectivo + +repViernes.mesas.resumen.qr) && iguales(viernes.productos, +repViernes.productos.resumen.efectivo + +repViernes.productos.resumen.qr), JSON.stringify(viernes));
+
+  const mes = (await s.api('GET', 'reportes.php?tipo=ingresos_mes&mes=2026-12')).data;
+  const idsMes = enRango('2026-12-01', '2027-01-01');
+  comprobar('Mes: diciembre con 31 días y todas sus jornadas (también la del lunes 14)', mes.dias.length === 31 && mes.periodo.desde === '2026-12-01' && mes.periodo.hasta === '2026-12-31' && mes.totales.jornadas === idsMes.length && idsMes.includes(idLunes), `${mes.dias.length} días, ${mes.totales.jornadas} jornadas`);
+  comprobar('Mes: lo cobrado coincide con los pagos y cuadra por partes', iguales(mes.totales.total, sumaCobrada(idsMes)) && cuadraPeriodo(mes), JSON.stringify(mes.totales));
+  comprobar('Mes: productos más vendidos con unidades', mes.productos_top.length > 0 && mes.productos_top.some((p) => p.producto === 'Corona' && p.unidades >= 6), JSON.stringify(mes.productos_top.slice(0, 3)));
+
+  const fechaMala = await s.api('GET', 'reportes.php?tipo=ingresos_semana&fecha=2026-13-40');
+  const mesMalo = await s.api('GET', 'reportes.php?tipo=ingresos_mes&mes=2026-1');
+  const sinSesion = await apiAdmin('GET', 'reportes.php?tipo=ingresos_mes&mes=2026-12', null, { sesion: false });
+  const comoCaja = await apiAdmin('GET', 'reportes.php?tipo=ingresos_mes&mes=2026-12', null, { usuario: 'sim_caja' });
+  comprobar('Una fecha o un mes inválido se rechaza; sin ser administrador no hay reportes', fechaMala.status === 'error' && mesMalo.status === 'error' && sinSesion.http === 403 && comoCaja.http === 403, `${fechaMala.message} / ${mesMalo.message} / ${sinSesion.http} / ${comoCaja.http}`);
 
   comprobar('Sin errores de JavaScript', errores.length === 0, errores.join(' / '));
   await navegador.close();

@@ -982,6 +982,228 @@ input, select, textarea, button {
 .toast.info    { background: linear-gradient(180deg, #2e8f7a, #226f5f); }
 
 
+/* ======== REPORTES DE SEMANA Y MES ======== */
+
+.periodo-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--beige-borde);
+    border-radius: 10px;
+    background: var(--crema-2);
+}
+
+.periodo-nav .icon-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.periodo-texto {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.periodo-texto strong { font-size: 1.05rem; color: var(--verde-800); }
+.periodo-texto small { color: var(--texto-suave); font-size: 0.85rem; }
+
+.periodo-ayuda {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--texto-suave);
+}
+
+.rp {
+    font-family: Arial, sans-serif;
+    color: #1f2937;
+}
+
+.rp-encabezado {
+    text-align: center;
+    border-bottom: 2px solid #1f2937;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+}
+
+.rp-encabezado h1 { font-size: 1.6rem; margin: 0 0 4px; }
+.rp-encabezado p { margin: 0; color: #4b5563; font-size: 0.95rem; }
+
+.rp-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.rp-kpi {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rp-kpi span { font-size: 0.78rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+.rp-kpi strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.rp-kpi-principal { border-color: #3f9a52; background: #f0f8f2; }
+.rp-kpi-principal strong { font-size: 1.45rem; }
+.rp-kpis-secundarios .rp-kpi strong { font-size: 1.05rem; }
+
+.rp-seccion {
+    margin: 22px 0 10px;
+    padding: 5px 10px;
+    background: #f3f4f6;
+    border-left: 4px solid #3f9a52;
+    font-size: 1.05rem;
+}
+
+/* Barras de lo cobrado por día: una sola serie, sin leyenda; el título la nombra. */
+.rp-grafico {
+    position: relative;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 18px 12px 8px 44px;
+}
+
+.rp-plano {
+    position: relative;
+    height: 200px;
+    margin-bottom: 26px;
+}
+
+.rp-guia {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #eef0f2;
+}
+
+.rp-guia span {
+    position: absolute;
+    right: calc(100% + 6px);
+    top: -8px;
+    font-size: 11px;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+
+.rp-columnas {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    gap: 2px;
+}
+
+.rp-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    outline: none;
+    cursor: default;
+}
+
+.rp-barra-zona {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.rp-barra {
+    width: 72%;
+    max-width: 56px;
+    background: #3f9a52;
+    border-radius: 4px 4px 0 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    transition: filter 0.15s;
+}
+
+.rp-col:hover .rp-barra,
+.rp-col:focus-visible .rp-barra { filter: brightness(1.15); }
+.rp-col:focus-visible .rp-barra-zona { box-shadow: inset 0 0 0 2px #93c5fd; border-radius: 4px; }
+
+.rp-valor {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -4px);
+    font-size: 11px;
+    font-weight: 700;
+    color: #1f2937;
+    white-space: nowrap;
+}
+
+.rp-eje {
+    position: absolute;
+    bottom: -22px;
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.rp-col { position: relative; }
+.rp-col-sin .rp-eje { color: #b0b5bd; }
+
+.rp-grafico-mes .rp-eje { font-size: 10px; }
+
+.rp-tooltip {
+    position: absolute;
+    top: 6px;
+    transform: translateX(-50%);
+    background: #111827;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: none;
+    flex-direction: column;
+    gap: 1px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 2;
+}
+
+.rp-tooltip.visible { display: flex; }
+.rp-tooltip strong { font-size: 0.95rem; }
+.rp-tooltip span { font-size: 0.8rem; color: #d1d5db; }
+.rp-tooltip small { font-size: 0.75rem; color: #9ca3af; }
+
+.rp-nota { margin: 8px 0 0; font-size: 0.9rem; color: #374151; }
+
+.rp-tabla { font-size: 12px; width: 100%; }
+.rp-tabla td, .rp-tabla th { font-variant-numeric: tabular-nums; }
+.rp-tabla tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #9ca3af; }
+.rp-fila-sin td { color: #9ca3af; }
+.rp-fila-mejor td { background: #f0f8f2; font-weight: 700; }
+
+.rp-vacio {
+    text-align: center;
+    padding: 40px 10px;
+    color: #6b7280;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.rp-vacio .material-icons { font-size: 2.6rem; opacity: 0.5; }
+
+.rp-pie {
+    margin-top: 18px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+
 /* ======== MODAL A PANTALLA COMPLETA (historial de cargas) ======== */
 
 .modal-completo .modal-content {

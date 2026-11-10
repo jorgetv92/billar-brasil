@@ -3,6 +3,103 @@
 header('Content-Type: application/json');
 include_once '../config/database.php';
 include_once '../models/ResumenJornada.php';
+session_start();
+
+// Los reportes son del administrador, como el resto de su portal.
+if (!isset($_SESSION['rol']) || $_SESSION['rol'] !== 'administrador') {
+    http_response_code(403);
+    echo json_encode(["status" => "error", "message" => "Acceso denegado."]);
+    exit;
+}
+session_write_close();
+
+// Ingresos de un período (semana o mes), con los mismos números que el reporte de cada jornada:
+// cada jornada cuenta en el día en que abrió, aunque cierre pasada la medianoche.
+function reportePeriodo($pdo, DateTime $desde, DateTime $hasta, array $periodo) {
+    $cero = function () {
+        return ['jornadas' => 0, 'ventas' => 0, 'mesas' => 0, 'productos' => 0, 'cargos' => 0, 'total' => 0,
+                'efectivo' => 0, 'qr' => 0, 'egresos' => 0, 'neto' => 0, 'horas' => 0, 'unidades' => 0];
+    };
+    $dias = [];
+    for ($d = clone $desde; $d <= $hasta; $d->modify('+1 day')) {
+        $dias[$d->format('Y-m-d')] = ['fecha' => $d->format('Y-m-d'), 'dia_semana' => intval($d->format('N'))] + $cero();
+    }
+
+    $stmt = $pdo->prepare("SELECT id_jornada, DATE(fecha_hora_apertura) AS dia FROM jornadas
+                           WHERE fecha_hora_apertura >= ? AND fecha_hora_apertura < ? ORDER BY fecha_hora_apertura");
+    $stmt->execute([$desde->format('Y-m-d 00:00:00'), (clone $hasta)->modify('+1 day')->format('Y-m-d 00:00:00')]);
+    $jornadas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmtEg = $pdo->prepare("SELECT COALESCE(SUM(monto), 0) FROM egresos_caja WHERE id_jornada = ?");
+    $stmtVentas = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE id_jornada = ?");
+    $stmtUds = $pdo->prepare("SELECT COALESCE(SUM(dv.cantidad), 0) FROM detalle_venta_productos dv JOIN ventas v ON v.id_venta = dv.id_venta WHERE v.id_jornada = ?");
+    $ids = [];
+    foreach ($jornadas as $j) {
+        $id = intval($j['id_jornada']);
+        $ids[] = $id;
+        $ing = ResumenJornada::ingresos($pdo, $id);
+        $stmtEg->execute([$id]);
+        $stmtVentas->execute([$id]);
+        $stmtUds->execute([$id]);
+        $dia = &$dias[$j['dia']];
+        $dia['jornadas']++;
+        $dia['ventas'] += intval($stmtVentas->fetchColumn());
+        $dia['mesas'] += $ing['mesas']['total'];
+        $dia['productos'] += $ing['productos']['total'];
+        $dia['cargos'] += $ing['cargos']['total'];
+        $dia['efectivo'] += $ing['mesas']['efectivo'] + $ing['productos']['efectivo'] + $ing['cargos']['efectivo'];
+        $dia['qr'] += $ing['mesas']['qr'] + $ing['productos']['qr'] + $ing['cargos']['qr'];
+        $dia['egresos'] += floatval($stmtEg->fetchColumn());
+        $dia['horas'] += ResumenJornada::segundosJugados($pdo, $id) / 3600;
+        $dia['unidades'] += intval($stmtUds->fetchColumn());
+        unset($dia);
+    }
+
+    $totales = $cero();
+    foreach ($dias as &$dia) {
+        $dia['total'] = $dia['mesas'] + $dia['productos'] + $dia['cargos'];
+        $dia['neto'] = $dia['total'] - $dia['egresos']; // lo cobrado menos lo que salió de caja
+        foreach ($totales as $clave => $_) $totales[$clave] += $dia[$clave];
+        foreach (['mesas', 'productos', 'cargos', 'total', 'efectivo', 'qr', 'egresos', 'neto', 'horas'] as $clave) {
+            $dia[$clave] = round($dia[$clave], 2);
+        }
+    }
+    unset($dia);
+    foreach (['mesas', 'productos', 'cargos', 'total', 'efectivo', 'qr', 'egresos', 'neto', 'horas'] as $clave) {
+        $totales[$clave] = round($totales[$clave], 2);
+    }
+
+    // Productos más vendidos del período (unidades y lo que suman a su precio de venta, antes de descuentos)
+    $productos = [];
+    if ($ids) {
+        $marcas = implode(',', array_fill(0, count($ids), '?'));
+        $stmtP = $pdo->prepare("SELECT p.nombre_producto AS producto, SUM(dv.cantidad) AS unidades,
+                                       SUM(dv.cantidad * dv.precio_unitario_aplicado) AS importe
+                                FROM detalle_venta_productos dv
+                                JOIN ventas v ON v.id_venta = dv.id_venta
+                                JOIN productos p ON p.id_producto = dv.id_producto
+                                WHERE v.id_jornada IN ($marcas)
+                                GROUP BY p.id_producto, p.nombre_producto
+                                ORDER BY unidades DESC, importe DESC, p.nombre_producto
+                                LIMIT 10");
+        $stmtP->execute($ids);
+        $productos = array_map(function ($f) {
+            return ['producto' => $f['producto'], 'unidades' => intval($f['unidades']), 'importe' => round(floatval($f['importe']), 2)];
+        }, $stmtP->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    return [
+        'periodo' => $periodo + ['desde' => $desde->format('Y-m-d'), 'hasta' => $hasta->format('Y-m-d')],
+        'totales' => $totales,
+        'dias' => array_values($dias),
+        'productos_top' => $productos,
+    ];
+}
+
+function fechaValida($texto, $formato) {
+    $d = DateTime::createFromFormat('!' . $formato, (string) $texto);
+    return ($d && $d->format($formato) === $texto) ? $d : null;
+}
 
 $database = new Database();
 $pdo = $database->getConnection();
@@ -221,13 +318,22 @@ try {
             echo json_encode(["status" => "success", "data" => $data]);
             exit;
         } elseif ($tipo === 'ingresos_semana') {
-            // TODO: Crear query agrupado por semana
-            echo json_encode(["status" => "success", "data" => "Datos simulados para Semana"]);
-            
+            // Semana de lunes a domingo que contiene ?fecha=AAAA-MM-DD
+            $dia = fechaValida($_GET['fecha'] ?? '', 'Y-m-d');
+            if (!$dia) throw new Exception("Elija un día de la semana (fecha inválida).");
+            $desde = (clone $dia)->modify('-' . (intval($dia->format('N')) - 1) . ' days');
+            $hasta = (clone $desde)->modify('+6 days');
+            echo json_encode(["status" => "success", "data" => reportePeriodo($pdo, $desde, $hasta, ['tipo' => 'semana'])]);
+            exit;
+
         } elseif ($tipo === 'ingresos_mes') {
-            // TODO: Crear query agrupado por mes
-            echo json_encode(["status" => "success", "data" => "Datos simulados para Mes"]);
-            
+            // Mes completo: ?mes=AAAA-MM
+            $desde = fechaValida(($_GET['mes'] ?? '') . '-01', 'Y-m-d');
+            if (!$desde) throw new Exception("Elija un mes (formato inválido).");
+            $hasta = (clone $desde)->modify('last day of this month');
+            echo json_encode(["status" => "success", "data" => reportePeriodo($pdo, $desde, $hasta, ['tipo' => 'mes'])]);
+            exit;
+
         } else {
             throw new Exception("El tipo de reporte seleccionado no es válido.");
         }

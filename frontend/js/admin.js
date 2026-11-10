@@ -2759,41 +2759,23 @@ document.addEventListener("DOMContentLoaded", () => {
     // MÓDULO 8: REPORTES
     // -------------------------------------------------------------------
     function inicializarModuloReportes() {
-        const cardsReportes = document.querySelectorAll('.btn-reporte-card');
         const modalForm = document.getElementById('modalFormReporte');
         const modalVisor = document.getElementById('modalVisorReporte');
         const bodyForm = document.getElementById('bodyFormReporte');
         const tituloForm = document.getElementById('tituloFormReporte');
-        const outlet = document.getElementById('router-outlet');
         let reporteActivo = '';
-        outlet.addEventListener('click', function(e) {
-        // Buscamos si el elemento clickeado o su padre tiene la clase .btn-reporte-card
-        const card = e.target.closest('.btn-reporte-card');
-        
-        if (card) {
-            const reporteActivo = card.dataset.reporte;
 
-            if (reporteActivo === 'ultimos_cierres') {
-                abrirModalListadoCierres();
-                return;
-            }
+        // Período elegido en semana/mes: fecha de inicio (lunes o día 1)
+        let inicioPeriodo = null;
+        const dos = (n) => String(n).padStart(2, '0');
+        const isoLocal = (d) => `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+        const lunesDe = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+        const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-            prepararFiltros(reporteActivo);
-            
-            // Aseguramos que la clase 'show' se añada
-            if (modalForm) {
-                modalForm.classList.add('show');
-            } else {
-                console.error("No se encontró el modalFormReporte en el DOM");
-            }
-        }
-    });
-        // Efecto Hover simple con JS para no tocar CSS global
-        cardsReportes.forEach(card => {
+        // Cada tarjeta abre su formulario (las tarjetas se crean de nuevo cada vez que se entra a la vista).
+        document.querySelectorAll('.btn-reporte-card').forEach(card => {
             card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-4px)');
             card.addEventListener('mouseleave', () => card.style.transform = 'translateY(0)');
-            
-            // Al hacer click, prepara y abre el modal 1 (Filtros)
             card.addEventListener('click', () => {
                 reporteActivo = card.dataset.reporte;
                 if (reporteActivo === 'ultimos_cierres') {
@@ -2805,78 +2787,137 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // Inyectar dinámicamente los campos según el reporte clickeado
+        // Campos del formulario según el reporte elegido
         function prepararFiltros(tipo) {
-            bodyForm.innerHTML = ''; 
+            bodyForm.innerHTML = '';
             if (tipo === 'jornada') {
                 tituloForm.innerText = 'Reporte de Jornada';
                 bodyForm.innerHTML = `
-                    <div class="input-group">
-                        <label>Seleccione la fecha de la jornada</label>
-                        <input type="date" id="filtroFechaJornada" class="form-control" required>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Día</label>
+                            <select id="cmbDia" class="form-control"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Mes</label>
+                            <select id="cmbMes" class="form-control"></select>
+                        </div>
+                        <div class="input-group">
+                            <label>Año</label>
+                            <select id="cmbAnio" class="form-control"></select>
+                        </div>
+                    </div>
+
+                    <div class="input-group" id="divComboJornadas" style="display: none; margin-top: 10px;">
+                        <label class="text-danger">Seleccione la jornada (Múltiples aperturas detectadas)</label>
+                        <select id="cmbJornadaId" class="form-control"></select>
+                    </div>
+
+                    <div class="filtros-reporte" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                        <h4 style="margin-bottom: 10px; font-size: 14px;">Filtros a incluir:</h4>
+                        <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkAperturaCierre"> Información de apertura y cierre</label>
+                        <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkMesas" checked> Horas de uso de mesas (> $0)</label>
+                        <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkProductos" checked> Venta de productos</label>
+                        <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkEgresos"> Egresos</label>
+                        <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkInsumos"> Gasto de insumos</label>
                     </div>
                 `;
-                // Autocompletar con fecha de hoy
-                document.getElementById('filtroFechaJornada').valueAsDate = new Date();
-            } 
-            else if (tipo === 'ingresos_semana') {
-                tituloForm.innerText = 'Ingresos Semanales';
+                inicializarCombosFecha();
+            } else if (tipo === 'ingresos_semana') {
+                tituloForm.innerText = 'Ingresos por Semana';
                 bodyForm.innerHTML = `
-                    <div class="input-group">
-                        <label>Seleccione la semana</label>
-                        <input type="week" id="filtroSemana" class="form-control" required>
+                    <div class="periodo-nav">
+                        <button type="button" class="icon-btn" id="btnPeriodoAnterior" title="Semana anterior"><i class="material-icons">chevron_left</i></button>
+                        <div class="periodo-texto"><strong id="lblPeriodo"></strong><small id="lblPeriodoNota"></small></div>
+                        <button type="button" class="icon-btn" id="btnPeriodoSiguiente" title="Semana siguiente"><i class="material-icons">chevron_right</i></button>
                     </div>
+                    <div class="input-group" style="margin-top: 14px;">
+                        <label for="filtroDiaSemana">O elija cualquier día de la semana</label>
+                        <input type="text" id="filtroDiaSemana" class="form-control" data-fecha-dma placeholder="dd/mm/aaaa" inputmode="numeric" autocomplete="off">
+                    </div>
+                    <p class="periodo-ayuda">La semana va de lunes a domingo. Cada jornada cuenta en el día en que abrió.</p>
                 `;
-            } 
-            else if (tipo === 'ingresos_mes') {
+                inicioPeriodo = lunesDe(new Date());
+                const campo = document.getElementById('filtroDiaSemana');
+                if (typeof SelectorFecha !== 'undefined') SelectorFecha.activar(campo);
+                campo.addEventListener('change', () => {
+                    const iso = isoDesdeDMA(campo.value);
+                    if (iso) { const [a, m, d] = iso.split('-').map(Number); inicioPeriodo = lunesDe(new Date(a, m - 1, d)); pintarPeriodo(); }
+                });
+                document.getElementById('btnPeriodoAnterior').addEventListener('click', () => moverPeriodo(-1));
+                document.getElementById('btnPeriodoSiguiente').addEventListener('click', () => moverPeriodo(1));
+                pintarPeriodo();
+            } else if (tipo === 'ingresos_mes') {
                 tituloForm.innerText = 'Ingresos Mensuales';
+                const hoy = new Date();
                 bodyForm.innerHTML = `
-                    <div class="input-group">
-                        <label>Seleccione el mes</label>
-                        <input type="month" id="filtroMes" class="form-control" required>
+                    <div class="periodo-nav">
+                        <button type="button" class="icon-btn" id="btnPeriodoAnterior" title="Mes anterior"><i class="material-icons">chevron_left</i></button>
+                        <div class="periodo-texto"><strong id="lblPeriodo"></strong><small id="lblPeriodoNota"></small></div>
+                        <button type="button" class="icon-btn" id="btnPeriodoSiguiente" title="Mes siguiente"><i class="material-icons">chevron_right</i></button>
                     </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;">
+                        <div class="input-group">
+                            <label for="cmbMesReporte">Mes</label>
+                            <select id="cmbMesReporte" class="form-control">${MESES.map((m, i) => `<option value="${i}">${m}</option>`).join('')}</select>
+                        </div>
+                        <div class="input-group">
+                            <label for="cmbAnioReporte">Año</label>
+                            <select id="cmbAnioReporte" class="form-control">${Array.from({ length: 6 }, (_, i) => hoy.getFullYear() - i).map(a => `<option value="${a}">${a}</option>`).join('')}</select>
+                        </div>
+                    </div>
+                    <p class="periodo-ayuda">Cada jornada cuenta en el mes del día en que abrió.</p>
                 `;
+                inicioPeriodo = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                const alElegir = () => {
+                    inicioPeriodo = new Date(+document.getElementById('cmbAnioReporte').value, +document.getElementById('cmbMesReporte').value, 1);
+                    pintarPeriodo();
+                };
+                document.getElementById('cmbMesReporte').addEventListener('change', alElegir);
+                document.getElementById('cmbAnioReporte').addEventListener('change', alElegir);
+                document.getElementById('btnPeriodoAnterior').addEventListener('click', () => moverPeriodo(-1));
+                document.getElementById('btnPeriodoSiguiente').addEventListener('click', () => moverPeriodo(1));
+                pintarPeriodo();
             }
         }
-        // Inyectar dinámicamente los campos según el reporte clickeado
-    function prepararFiltros(tipo) {
-        bodyForm.innerHTML = ''; 
-        if (tipo === 'jornada') {
-            tituloForm.innerText = 'Reporte de Jornada';
-            bodyForm.innerHTML = `
-                <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                    <div class="input-group">
-                        <label>Día</label>
-                        <select id="cmbDia" class="form-control"></select>
-                    </div>
-                    <div class="input-group">
-                        <label>Mes</label>
-                        <select id="cmbMes" class="form-control"></select>
-                    </div>
-                    <div class="input-group">
-                        <label>Año</label>
-                        <select id="cmbAnio" class="form-control"></select>
-                    </div>
-                </div>
-                
-                <div class="input-group" id="divComboJornadas" style="display: none; margin-top: 10px;">
-                    <label class="text-danger">Seleccione la jornada (Múltiples aperturas detectadas)</label>
-                    <select id="cmbJornadaId" class="form-control"></select>
-                </div>
 
-                <div class="filtros-reporte" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-                    <h4 style="margin-bottom: 10px; font-size: 14px;">Filtros a incluir:</h4>
-                    <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkAperturaCierre"> Información de apertura y cierre</label>
-                    <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkMesas" checked> Horas de uso de mesas (> $0)</label>
-                    <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkProductos" checked> Venta de productos</label>
-                    <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkEgresos"> Egresos</label>
-                    <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkInsumos"> Gasto de insumos</label>
-                </div>
-            `;
-            inicializarCombosFecha();
-        } 
-        // ... (Aquí mantienes los ifs de ingresos_semana y ingresos_mes que ya tenías)
-    }
+        function moverPeriodo(paso) {
+            const d = new Date(inicioPeriodo);
+            if (reporteActivo === 'ingresos_semana') d.setDate(d.getDate() + 7 * paso);
+            else d.setMonth(d.getMonth() + paso);
+            inicioPeriodo = d;
+            pintarPeriodo();
+        }
+
+        // Texto del período elegido y botones: no se avanza más allá del período actual.
+        function pintarPeriodo() {
+            const hoy = new Date();
+            const lbl = document.getElementById('lblPeriodo');
+            const nota = document.getElementById('lblPeriodoNota');
+            let actual, distancia;
+            if (reporteActivo === 'ingresos_semana') {
+                const fin = new Date(inicioPeriodo); fin.setDate(fin.getDate() + 6);
+                lbl.textContent = `Lunes ${fechaDMA(inicioPeriodo)} al domingo ${fechaDMA(fin)}`;
+                actual = lunesDe(hoy);
+                distancia = Math.round((actual - inicioPeriodo) / (7 * 86400000));
+                nota.textContent = distancia === 0 ? 'Esta semana' : distancia === 1 ? 'Semana pasada' : distancia > 1 ? `Hace ${distancia} semanas` : 'Semana futura';
+                const campo = document.getElementById('filtroDiaSemana');
+                if (campo && isoDesdeDMA(campo.value) && lunesDe(new Date(isoDesdeDMA(campo.value) + 'T00:00:00')).getTime() !== inicioPeriodo.getTime()) campo.value = '';
+            } else {
+                lbl.textContent = `${MESES[inicioPeriodo.getMonth()]} ${inicioPeriodo.getFullYear()}`;
+                actual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                distancia = (actual.getFullYear() - inicioPeriodo.getFullYear()) * 12 + actual.getMonth() - inicioPeriodo.getMonth();
+                nota.textContent = distancia === 0 ? 'Este mes' : distancia === 1 ? 'Mes pasado' : distancia > 1 ? `Hace ${distancia} meses` : 'Mes futuro';
+                const cmbMes = document.getElementById('cmbMesReporte');
+                const cmbAnio = document.getElementById('cmbAnioReporte');
+                if (!Array.from(cmbAnio.options).some(o => +o.value === inicioPeriodo.getFullYear())) {
+                    cmbAnio.insertAdjacentHTML('beforeend', `<option value="${inicioPeriodo.getFullYear()}">${inicioPeriodo.getFullYear()}</option>`);
+                }
+                cmbMes.value = String(inicioPeriodo.getMonth());
+                cmbAnio.value = String(inicioPeriodo.getFullYear());
+            }
+            document.getElementById('btnPeriodoSiguiente').disabled = inicioPeriodo >= actual;
+        }
 
     // Lógica para poblar combos y buscar jornadas
     function inicializarCombosFecha() {
@@ -2946,9 +2987,13 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (e) { console.error(e); }
     }
 
-    // Botón procesar modificado con la Validación requerida
-    document.getElementById('btnProcesarReporte').addEventListener('click', async () => {
-        if (reporteActivo === 'jornada') {
+        // Botón "Generar" del formulario
+        document.getElementById('btnProcesarReporte').addEventListener('click', async () => {
+            if (reporteActivo === 'jornada') await generarReporteJornada();
+            else if (reporteActivo === 'ingresos_semana' || reporteActivo === 'ingresos_mes') await generarReportePeriodo();
+        });
+
+        async function generarReporteJornada() {
             const idJornada = document.getElementById('cmbJornadaId')?.value;
             const chkApertura = document.getElementById('chkAperturaCierre').checked;
             const chkMesas = document.getElementById('chkMesas').checked;
@@ -2957,27 +3002,19 @@ document.addEventListener("DOMContentLoaded", () => {
             const chkInsumos = document.getElementById('chkInsumos').checked;
 
             if (!idJornada) {
-                if(typeof mostrarToast !== 'undefined') mostrarToast("Debe seleccionar una jornada válida", "warning");
+                mostrarToast("Debe seleccionar una jornada válida", "warning");
                 return;
             }
             if (!chkApertura && !chkMesas && !chkProductos && !chkEgresos && !chkInsumos) {
-                if(typeof mostrarToast !== 'undefined') mostrarToast("Debe seleccionar al menos un filtro", "warning");
+                mostrarToast("Debe seleccionar al menos un filtro", "warning");
                 return;
             }
 
-            modalForm.classList.remove('show');
-            modalVisor.classList.add('show');
-            
-            const bodyContenido = document.getElementById('bodyContenidoReporte');
-            document.getElementById('tituloVisorReporte').innerText = 'Reporte de Jornada';
-            bodyContenido.innerHTML = '<div style="text-align:center; padding:3rem;"><i class="material-icons" style="animation: spin 1s linear infinite;">autorenew</i> Generando datos...</div>';
-
+            const bodyContenido = abrirVisor('Reporte de Jornada');
             try {
-                // Fetch al backend pasando los filtros
                 const queryParams = `tipo=jornada&id_jornada=${idJornada}&apertura=${chkApertura}&mesas=${chkMesas}&productos=${chkProductos}&egresos=${chkEgresos}&insumos=${chkInsumos}`;
                 const response = await fetch(`../backend/api/reportes.php?${queryParams}`);
                 const r = await response.json();
-                
                 if (r.status === 'success') {
                     renderizarReporteJornada(r.data, bodyContenido);
                 } else {
@@ -2987,7 +3024,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 bodyContenido.innerHTML = '<div class="text-danger">Error de red al generar el reporte.</div>';
             }
         }
-    });
+
+        async function generarReportePeriodo() {
+            const semana = reporteActivo === 'ingresos_semana';
+            const query = semana
+                ? `tipo=ingresos_semana&fecha=${isoLocal(inicioPeriodo)}`
+                : `tipo=ingresos_mes&mes=${inicioPeriodo.getFullYear()}-${dos(inicioPeriodo.getMonth() + 1)}`;
+            const bodyContenido = abrirVisor(semana ? 'Ingresos por Semana' : 'Ingresos Mensuales');
+            try {
+                const response = await fetch(`../backend/api/reportes.php?${query}`);
+                const r = await response.json();
+                if (r.status === 'success') {
+                    renderizarReportePeriodo(r.data, bodyContenido);
+                } else {
+                    bodyContenido.innerHTML = `<div class="text-danger">Error: ${r.message}</div>`;
+                }
+            } catch (e) {
+                bodyContenido.innerHTML = '<div class="text-danger">Error de red al generar el reporte.</div>';
+            }
+        }
+
+        function abrirVisor(titulo) {
+            modalForm.classList.remove('show');
+            modalVisor.classList.add('show');
+            document.getElementById('tituloVisorReporte').innerText = titulo;
+            const bodyContenido = document.getElementById('bodyContenidoReporte');
+            bodyContenido.innerHTML = '<div style="text-align:center; padding:3rem;"><i class="material-icons" style="animation: spin 1s linear infinite;">autorenew</i> Generando datos...</div>';
+            return bodyContenido;
+        }
 
     // Creador dinámico del HTML del reporte
     function renderizarReporteJornada(d, contenedor) {
@@ -3011,11 +3075,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 <table class="data-table" style="width: 100%; margin-bottom: 20px;">
                     <thead style="background: #e2e8f0;"><tr><th>Monto Apertura</th><th>Ingresos Efectivo</th><th>Ingresos QR</th><th>Egresos</th><th>Total Estimado</th></tr></thead>
                     <tbody><tr>
-                        <td class="text-center">$${d.apertura.monto_inicial}</td>
-                        <td class="text-center text-success">$${d.apertura.ingreso_efectivo}</td>
-                        <td class="text-center text-info">$${d.apertura.ingreso_qr}</td>
-                        <td class="text-center text-danger">$${d.apertura.total_egresos}</td>
-                        <td class="text-center"><strong>$${totalCaja.toFixed(2)}</strong></td>
+                        <td class="text-center">${d.apertura.monto_inicial}</td>
+                        <td class="text-center text-success">${d.apertura.ingreso_efectivo}</td>
+                        <td class="text-center text-info">${d.apertura.ingreso_qr}</td>
+                        <td class="text-center text-danger">${d.apertura.total_egresos}</td>
+                        <td class="text-center"><strong>${totalCaja.toFixed(2)}</strong></td>
                     </tr></tbody>
                 </table>
             `;
@@ -3027,7 +3091,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
                         <thead style="background: #e2e8f0;"><tr><th>Mesa</th><th>Ocupación</th><th>Tiempo</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
             d.mesas.filas.forEach(f => {
-                html += `<tr><td>${f.mesa}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.tiempo_uso}</td><td>${f.metodo}</td><td class="text-right">$${f.total}</td></tr>`;
+                html += `<tr><td>${f.mesa}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.tiempo_uso}</td><td>${f.metodo}</td><td class="text-right">${f.total}</td></tr>`;
             });
             html += `</tbody></table>`;
             
@@ -3037,9 +3101,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         <thead style="background: #d1fae5;"><tr><th>Total Horas Jugadas</th><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL MESAS</th></tr></thead>
                         <tbody><tr>
                             <td class="text-center"><strong>${d.mesas.resumen.horas}</strong></td>
-                            <td class="text-center text-success">$${d.mesas.resumen.efectivo}</td>
-                            <td class="text-center text-info">$${d.mesas.resumen.qr}</td>
-                            <td class="text-center"><strong>$${totalMs.toFixed(2)}</strong></td>
+                            <td class="text-center text-success">${d.mesas.resumen.efectivo}</td>
+                            <td class="text-center text-info">${d.mesas.resumen.qr}</td>
+                            <td class="text-center"><strong>${totalMs.toFixed(2)}</strong></td>
                         </tr></tbody>
                      </table>`;
         }
@@ -3050,7 +3114,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
                         <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Cant. Prod.</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
             d.productos.filas.forEach(f => {
-                html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td class="text-center">${f.cantidad}</td><td>${f.metodo}</td><td class="text-right">$${f.total}</td></tr>`;
+                html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td class="text-center">${f.cantidad}</td><td>${f.metodo}</td><td class="text-right">${f.total}</td></tr>`;
             });
             html += `</tbody></table>`;
             
@@ -3060,9 +3124,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         <thead style="background: #fef3c7;"><tr><th>Total Prod. Vendidos</th><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL PROD.</th></tr></thead>
                         <tbody><tr>
                             <td class="text-center"><strong>${d.productos.resumen.cantidad} uds.</strong></td>
-                            <td class="text-center text-success">$${d.productos.resumen.efectivo}</td>
-                            <td class="text-center text-info">$${d.productos.resumen.qr}</td>
-                            <td class="text-center"><strong>$${totalPd.toFixed(2)}</strong></td>
+                            <td class="text-center text-success">${d.productos.resumen.efectivo}</td>
+                            <td class="text-center text-info">${d.productos.resumen.qr}</td>
+                            <td class="text-center"><strong>${totalPd.toFixed(2)}</strong></td>
                         </tr></tbody>
                      </table>`;
 
@@ -3073,15 +3137,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
                             <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
                 d.cargos.filas.forEach(f => {
-                    html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.descripcion}</td><td class="text-right">$${parseFloat(f.monto).toFixed(2)}</td></tr>`;
+                    html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.descripcion}</td><td class="text-right">${parseFloat(f.monto).toFixed(2)}</td></tr>`;
                 });
                 html += `</tbody></table>
                          <table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid #8b5cf6;">
                             <thead style="background: #ede9fe;"><tr><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL CARGOS</th></tr></thead>
                             <tbody><tr>
-                                <td class="text-center text-success">$${d.cargos.resumen.efectivo}</td>
-                                <td class="text-center text-info">$${d.cargos.resumen.qr}</td>
-                                <td class="text-center"><strong>$${totalCg.toFixed(2)}</strong></td>
+                                <td class="text-center text-success">${d.cargos.resumen.efectivo}</td>
+                                <td class="text-center text-info">${d.cargos.resumen.qr}</td>
+                                <td class="text-center"><strong>${totalCg.toFixed(2)}</strong></td>
                             </tr></tbody>
                          </table>`;
             }
@@ -3092,8 +3156,8 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
                         <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
             let tEg = 0;
-            d.egresos.forEach(f => { tEg += parseFloat(f.monto); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.concepto}</td><td class="text-right text-danger">$${f.monto}</td></tr>`; });
-            html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Total Egresos: <span class="text-danger">$${tEg.toFixed(2)}</span></div>`;
+            d.egresos.forEach(f => { tEg += parseFloat(f.monto); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.concepto}</td><td class="text-right text-danger">${f.monto}</td></tr>`; });
+            html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Total Egresos: <span class="text-danger">${tEg.toFixed(2)}</span></div>`;
         }
 
         if (d.filtros.insumos) {
@@ -3109,33 +3173,162 @@ document.addEventListener("DOMContentLoaded", () => {
         contenedor.innerHTML = html;
     }
 
-        // Botón que gatilla el backend y pasa al Modal 2
-        document.getElementById('btnProcesarReporte').addEventListener('click', async () => {
-            modalForm.classList.remove('show');
-            modalVisor.classList.add('show');
-            
-            const bodyContenido = document.getElementById('bodyContenidoReporte');
-            document.getElementById('tituloVisorReporte').innerText = tituloForm.innerText;
-            bodyContenido.innerHTML = '<div style="text-align:center; padding:3rem;"><i class="material-icons" style="animation: spin 1s linear infinite;">autorenew</i> Generando datos...</div>';
+        // Reporte de semana o mes: totales, cobrado por día (barras), detalle por día y productos más vendidos.
+        function renderizarReportePeriodo(d, contenedor) {
+            const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+            const bs = (n) => `${Number(n).toFixed(2)} Bs`;
+            const DIAS = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+            const DIAS_CORTOS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+            const semana = d.periodo.tipo === 'semana';
+            const t = d.totales;
+            const desde = new Date(d.periodo.desde + 'T00:00:00');
+            const titulo = semana ? 'Ingresos de la semana' : `Ingresos de ${MESES[desde.getMonth()]} ${desde.getFullYear()}`;
+            const subtitulo = semana
+                ? `Del lunes ${fechaDMA(d.periodo.desde)} al domingo ${fechaDMA(d.periodo.hasta)}`
+                : `Del ${fechaDMA(d.periodo.desde)} al ${fechaDMA(d.periodo.hasta)}`;
 
-            // AQUÍ INICIAREMOS LA LÓGICA AJAX INDIVIDUAL LUEGO
-            // const response = await fetch(`../backend/api/reportes.php?tipo=${reporteActivo}&filtro=...`);
-            // ...
-        });
+            let html = `<div class="rp">
+                <div class="rp-encabezado">
+                    <h1>${titulo}</h1>
+                    <p>${subtitulo} · ${t.jornadas} ${t.jornadas === 1 ? 'jornada' : 'jornadas'} · ${t.ventas} ${t.ventas === 1 ? 'venta' : 'ventas'}</p>
+                </div>`;
 
-        // Funcionalidad base para impresión
+            if (t.jornadas === 0) {
+                contenedor.innerHTML = html + `<div class="rp-vacio"><i class="material-icons">event_busy</i>No hubo jornadas en este período.</div></div>`;
+                return;
+            }
+
+            html += `
+                <div class="rp-kpis">
+                    <div class="rp-kpi rp-kpi-principal"><span>Total cobrado</span><strong>${bs(t.total)}</strong></div>
+                    <div class="rp-kpi"><span>Efectivo</span><strong>${bs(t.efectivo)}</strong></div>
+                    <div class="rp-kpi"><span>QR</span><strong>${bs(t.qr)}</strong></div>
+                    <div class="rp-kpi"><span>Egresos de caja</span><strong>${bs(t.egresos)}</strong></div>
+                    <div class="rp-kpi"><span>Cobrado − egresos</span><strong>${bs(t.neto)}</strong></div>
+                </div>
+                <div class="rp-kpis rp-kpis-secundarios">
+                    <div class="rp-kpi"><span>Mesas</span><strong>${bs(t.mesas)}</strong></div>
+                    <div class="rp-kpi"><span>Productos</span><strong>${bs(t.productos)}</strong></div>
+                    <div class="rp-kpi"><span>Otros cargos</span><strong>${bs(t.cargos)}</strong></div>
+                    <div class="rp-kpi"><span>Horas jugadas</span><strong>${Number(t.horas).toFixed(1)} h</strong></div>
+                    <div class="rp-kpi"><span>Productos vendidos</span><strong>${t.unidades} uds.</strong></div>
+                </div>`;
+
+            // Cobrado por día: una barra por día; el mejor día lleva su monto.
+            const maximo = Math.max(...d.dias.map(x => x.total));
+            const escala = maximo > 0 ? maximo : 1;
+            const mejor = d.dias.find(x => x.total === maximo && maximo > 0);
+            const guias = [1, 0.5, 0].map(f => `<div class="rp-guia" style="bottom:${f * 100}%"><span>${(escala * f).toFixed(0)}</span></div>`).join('');
+            const columnas = d.dias.map(x => {
+                const alto = x.total > 0 ? Math.max(2, (x.total / escala) * 100) : 0;
+                const etiqueta = semana ? `${DIAS_CORTOS[x.dia_semana]} ${x.fecha.slice(8, 10)}` : String(+x.fecha.slice(8, 10));
+                const detalle = `${DIAS[x.dia_semana]} ${fechaDMA(x.fecha)}: ${bs(x.total)} (mesas ${bs(x.mesas)}, productos ${bs(x.productos)}, cargos ${bs(x.cargos)})`;
+                return `<div class="rp-col${x === mejor ? ' rp-col-mejor' : ''}${x.jornadas === 0 ? ' rp-col-sin' : ''}" tabindex="0" title="${esc(detalle)}" aria-label="${esc(detalle)}"
+                            data-dia="${esc(DIAS[x.dia_semana] + ' ' + fechaDMA(x.fecha))}" data-total="${bs(x.total)}"
+                            data-desglose="${esc(x.jornadas === 0 ? 'Sin jornada' : `Mesas ${bs(x.mesas)} · Productos ${bs(x.productos)} · Cargos ${bs(x.cargos)}`)}">
+                    <div class="rp-barra-zona">${x === mejor ? `<span class="rp-valor" style="bottom:${alto}%">${Number(x.total).toFixed(0)}</span>` : ''}<div class="rp-barra" style="height:${alto}%"></div></div>
+                    <span class="rp-eje">${etiqueta}</span>
+                </div>`;
+            }).join('');
+            html += `
+                <h3 class="rp-seccion">Cobrado por día (Bs)</h3>
+                <div class="rp-grafico${semana ? '' : ' rp-grafico-mes'}">
+                    <div class="rp-plano">${guias}<div class="rp-columnas">${columnas}</div></div>
+                    <div class="rp-tooltip" role="status" aria-live="polite"></div>
+                </div>
+                ${mejor ? `<p class="rp-nota">Mejor día: <strong>${DIAS[mejor.dia_semana]} ${fechaDMA(mejor.fecha)}</strong> con ${bs(mejor.total)}.</p>` : ''}`;
+
+            // En el mes: qué días de la semana rinden más (suma y promedio por jornada)
+            if (!semana) {
+                const porDia = [1, 2, 3, 4, 5, 6, 7].map(n => {
+                    const dias = d.dias.filter(x => x.dia_semana === n);
+                    const total = dias.reduce((s, x) => s + x.total, 0);
+                    const jornadas = dias.reduce((s, x) => s + x.jornadas, 0);
+                    return { n, total, jornadas, promedio: jornadas ? total / jornadas : 0 };
+                });
+                const mejorDia = porDia.reduce((a, b) => (b.promedio > a.promedio ? b : a));
+                html += `
+                    <h3 class="rp-seccion">Por día de la semana</h3>
+                    <div class="table-responsive"><table class="data-table rp-tabla">
+                        <thead><tr><th>Día</th><th class="text-right">Jornadas</th><th class="text-right">Cobrado</th><th class="text-right">Promedio por jornada</th></tr></thead>
+                        <tbody>${porDia.map(p => `<tr class="${p.jornadas === 0 ? 'rp-fila-sin' : ''}${p === mejorDia && p.promedio > 0 ? ' rp-fila-mejor' : ''}">
+                            <td>${DIAS[p.n]}</td><td class="text-right">${p.jornadas}</td><td class="text-right">${bs(p.total)}</td><td class="text-right">${p.jornadas ? bs(p.promedio) : '—'}</td></tr>`).join('')}
+                        </tbody>
+                    </table></div>`;
+            }
+
+            // Detalle por día (para contabilidad): todos los días del período, con totales
+            html += `
+                <h3 class="rp-seccion">Detalle por día</h3>
+                <div class="table-responsive"><table class="data-table rp-tabla">
+                    <thead><tr>
+                        <th>Día</th><th class="text-right">Jorn.</th><th class="text-right">Mesas</th><th class="text-right">Productos</th><th class="text-right">Cargos</th>
+                        <th class="text-right">Efectivo</th><th class="text-right">QR</th><th class="text-right">Total</th><th class="text-right">Egresos</th>
+                    </tr></thead>
+                    <tbody>${d.dias.map(x => `<tr class="${x.jornadas === 0 ? 'rp-fila-sin' : ''}">
+                        <td>${DIAS_CORTOS[x.dia_semana]} ${fechaDMA(x.fecha)}</td>
+                        <td class="text-right">${x.jornadas}</td>
+                        <td class="text-right">${x.mesas.toFixed(2)}</td>
+                        <td class="text-right">${x.productos.toFixed(2)}</td>
+                        <td class="text-right">${x.cargos.toFixed(2)}</td>
+                        <td class="text-right">${x.efectivo.toFixed(2)}</td>
+                        <td class="text-right">${x.qr.toFixed(2)}</td>
+                        <td class="text-right"><strong>${x.total.toFixed(2)}</strong></td>
+                        <td class="text-right">${x.egresos.toFixed(2)}</td>
+                    </tr>`).join('')}</tbody>
+                    <tfoot><tr>
+                        <td>Total</td><td class="text-right">${t.jornadas}</td><td class="text-right">${t.mesas.toFixed(2)}</td><td class="text-right">${t.productos.toFixed(2)}</td>
+                        <td class="text-right">${t.cargos.toFixed(2)}</td><td class="text-right">${t.efectivo.toFixed(2)}</td><td class="text-right">${t.qr.toFixed(2)}</td>
+                        <td class="text-right">${t.total.toFixed(2)}</td><td class="text-right">${t.egresos.toFixed(2)}</td>
+                    </tr></tfoot>
+                </table></div>`;
+
+            if (d.productos_top.length) {
+                html += `
+                    <h3 class="rp-seccion">Productos más vendidos</h3>
+                    <div class="table-responsive"><table class="data-table rp-tabla">
+                        <thead><tr><th>#</th><th>Producto</th><th class="text-right">Unidades</th><th class="text-right">A precio de venta</th></tr></thead>
+                        <tbody>${d.productos_top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.producto)}</td><td class="text-right">${p.unidades}</td><td class="text-right">${bs(p.importe)}</td></tr>`).join('')}</tbody>
+                    </table></div>`;
+            }
+
+            html += `<p class="rp-pie">Montos en Bs. Lo cobrado se reparte entre mesas, productos y cargos igual que en el reporte de cada jornada. "A precio de venta" no descuenta las promociones. Cada jornada cuenta en el día en que abrió.</p></div>`;
+            contenedor.innerHTML = html;
+
+            // Tooltip de cada barra (con mouse o teclado)
+            const grafico = contenedor.querySelector('.rp-grafico');
+            const tooltip = grafico.querySelector('.rp-tooltip');
+            const mostrar = (col) => {
+                tooltip.replaceChildren();
+                const valor = document.createElement('strong'); valor.textContent = col.dataset.total;
+                const dia = document.createElement('span'); dia.textContent = col.dataset.dia;
+                const desglose = document.createElement('small'); desglose.textContent = col.dataset.desglose;
+                tooltip.append(valor, dia, desglose);
+                const caja = grafico.getBoundingClientRect();
+                const r = col.getBoundingClientRect();
+                tooltip.style.left = `${Math.min(Math.max(r.left - caja.left + r.width / 2, 90), caja.width - 90)}px`;
+                tooltip.classList.add('visible');
+            };
+            grafico.querySelectorAll('.rp-col').forEach(col => {
+                col.removeAttribute('title');
+                col.addEventListener('mouseenter', () => mostrar(col));
+                col.addEventListener('focus', () => mostrar(col));
+                col.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+                col.addEventListener('blur', () => tooltip.classList.remove('visible'));
+            });
+        }
+
+        // Impresión: abre el reporte en una ventana aparte con los estilos del sistema
         document.getElementById('btnImprimirReporte').addEventListener('click', () => {
             const contenidoDiv = document.getElementById('bodyContenidoReporte').innerHTML;
             const ventana = window.open('', '', 'height=700,width=900');
             ventana.document.write('<html><head><title>Imprimir Reporte</title>');
-            // Incluimos tu CSS para que el PDF se vea igual que el sistema
-            ventana.document.write('<link rel="stylesheet" href="css/app.css">'); 
+            ventana.document.write('<link rel="stylesheet" href="css/app.css">');
             ventana.document.write('<style>body { background: white; padding: 20px; }</style>');
             ventana.document.write('</head><body>');
             ventana.document.write(contenidoDiv);
             ventana.document.write('</body></html>');
             ventana.document.close();
-            
             setTimeout(() => {
                 ventana.print();
             }, 500); // Damos medio segundo para que carguen los estilos
