@@ -163,6 +163,93 @@
     </div>
 </div>
 
+<style>
+    .sup-login {
+        max-width: 380px;
+        margin: 12px auto 20px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .sup-login-icono {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 4px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        background: #eef2ff;
+        color: #4f46e5;
+    }
+    .sup-login-icono .material-icons { font-size: 34px; }
+    .sup-login h3 { margin: 0; font-size: 1.2rem; color: #0f172a; }
+    .sup-login p { margin: 0 0 6px; color: #64748b; font-size: 0.9rem; line-height: 1.45; }
+    .sup-login small { color: #94a3b8; font-size: 0.78rem; }
+    .sup-campo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 48px;
+        padding: 0 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #f8fafc;
+        cursor: text;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .sup-campo:focus-within {
+        border-color: #6366f1;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    .sup-campo > .material-icons { color: #94a3b8; font-size: 20px; }
+    .sup-campo input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 0.98rem;
+        color: #0f172a;
+    }
+    .sup-ver {
+        border: none;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        padding: 4px;
+    }
+    .sup-error {
+        display: none;
+        padding: 9px 12px;
+        border-radius: 10px;
+        background: #fef2f2;
+        color: #b91c1c;
+        font-size: 0.86rem;
+        font-weight: 600;
+        text-align: left;
+    }
+    .sup-error.visible { display: block; }
+    .sup-boton {
+        height: 48px;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: #fff;
+        font-size: 0.98rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .sup-boton:disabled { opacity: 0.6; cursor: wait; }
+</style>
+
 <!-- ================================================================== -->
 <!-- MODAL: VENTAS DE LA JORNADA                                         -->
 <!-- ================================================================== -->
@@ -176,6 +263,9 @@
                     <div style="font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em;">Ventas de la Jornada</div>
                     <div style="font-size: 0.78rem; opacity: 0.85;">Productos vendidos — barra y mesa</div>
                 </div>
+                <span id="lblSupervisorVentas" style="display: none; margin-left: 6px; background: rgba(255,255,255,0.18); padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; align-items: center; gap: 4px;">
+                    <i class="material-icons" style="font-size: 0.95rem;">verified_user</i><span></span>
+                </span>
             </div>
             <button type="button" id="btnCerrarMisVentas" style="background: rgba(255,255,255,0.18); border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: background 0.2s;" title="Cerrar">
                 <i class="material-icons" style="font-size: 1.2rem;">close</i>
@@ -184,6 +274,25 @@
 
         <!-- Cuerpo del modal -->
         <div style="padding: 20px 24px; min-height: 200px;">
+            <!-- Autorización: un usuario de atención necesita que un supervisor ingrese sus datos -->
+            <form id="misVentasLogin" class="sup-login" style="display: none;" autocomplete="off">
+                <span class="sup-login-icono"><i class="material-icons">admin_panel_settings</i></span>
+                <h3>Autorización de supervisor</h3>
+                <p>Para ver y corregir las ventas de la jornada, un supervisor debe ingresar su usuario y contraseña.</p>
+                <label class="sup-campo">
+                    <i class="material-icons">person</i>
+                    <input type="text" id="supUsuario" placeholder="Usuario del supervisor" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+                </label>
+                <label class="sup-campo">
+                    <i class="material-icons">lock</i>
+                    <input type="password" id="supPassword" placeholder="Contraseña" autocomplete="new-password" required>
+                    <button type="button" class="sup-ver" id="supVerPassword" title="Mostrar contraseña"><i class="material-icons">visibility</i></button>
+                </label>
+                <div class="sup-error" id="supError" role="alert"></div>
+                <button type="submit" class="sup-boton" id="supAutorizar"><i class="material-icons">lock_open</i>Autorizar y ver ventas</button>
+                <small>La autorización termina al cerrar esta ventana.</small>
+            </form>
+
             <div id="misVentasLoading" style="text-align: center; padding: 40px; color: #94a3b8;">
                 <i class="material-icons" style="font-size: 2.5rem; display: block; margin-bottom: 10px;">hourglass_empty</i>
                 Cargando ventas...

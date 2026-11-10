@@ -12,6 +12,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const txtSidebarName = document.getElementById("sidebarUserName");
     const nombreGuardado = localStorage.getItem("usuario_nombre");
     txtSidebarName.innerText = nombreGuardado ? nombreGuardado : "Trabajador Activo";
+    // Solo informativo: lo que permite cada rol lo decide el backend.
+    const badgeRol = document.getElementById("sidebarRol");
+    if (badgeRol && localStorage.getItem("usuario_rol") === "supervisor") {
+        badgeRol.textContent = "Supervisor";
+        badgeRol.style.background = "#7c3aed";
+    }
 
     // --- 2. ENRUTAMIENTO (MÉTODO SPA ACTUALIZADO CON COUPLING) ---
     async function navegarA(nombreArchivo) {
@@ -1034,22 +1040,128 @@ document.addEventListener("click", (e) => {
  * Abre el modal "Ventas de la Jornada", consulta el backend y renderiza
  * la tabla maestra + subtablas acordeón.
  */
+const API_AUTORIZACION = "../backend/api/autorizacion.php";
+
+// Un supervisor con su sesión ve las ventas directo. Cualquier otro usuario ve primero el login de
+// supervisor, cada vez que abre el modal (la autorización anterior se descarta).
 async function abrirModalMisVentas() {
-    const modal = document.getElementById("modalMisVentas");
+    document.getElementById("modalMisVentas").style.display = "flex";
+    mostrarPanelMisVentas("cargando");
+    marcarSupervisorVentas(null);
+    let estado = null;
+    try {
+        estado = await (await fetch(API_AUTORIZACION, { cache: "no-store" })).json();
+    } catch (e) { /* sin conexión: se pide el login */ }
+    if (estado && estado.es_supervisor) {
+        return cargarVentasJornada();
+    }
+    await revocarAutorizacionVentas();
+    mostrarLoginSupervisor();
+}
+
+function cerrarModalMisVentas() {
+    document.getElementById("modalMisVentas").style.display = "none";
+    revocarAutorizacionVentas();
+}
+
+function revocarAutorizacionVentas() {
+    return fetch(API_AUTORIZACION, { method: "DELETE", keepalive: true }).catch(() => {});
+}
+
+// "login" | "cargando" | "ventas"
+function mostrarPanelMisVentas(panel) {
+    document.getElementById("misVentasLogin").style.display = panel === "login" ? "flex" : "none";
+    document.getElementById("misVentasLoading").style.display = panel === "cargando" ? "block" : "none";
+    document.getElementById("misVentasContenido").style.display = panel === "ventas" ? "block" : "none";
+}
+
+function marcarSupervisorVentas(nombre) {
+    const etiqueta = document.getElementById("lblSupervisorVentas");
+    if (!etiqueta) return;
+    etiqueta.style.display = nombre ? "inline-flex" : "none";
+    etiqueta.querySelector("span").textContent = nombre ? `Autorizó: ${nombre}` : "";
+}
+
+function mostrarLoginSupervisor(aviso) {
+    marcarSupervisorVentas(null);
+    document.getElementById("misVentasTbody").innerHTML = "";
+    document.getElementById("supUsuario").value = "";
+    document.getElementById("supPassword").value = "";
+    document.getElementById("supPassword").type = "password";
+    mostrarErrorSupervisor(aviso || "");
+    mostrarPanelMisVentas("login");
+    setTimeout(() => document.getElementById("supUsuario").focus(), 50);
+}
+
+function mostrarErrorSupervisor(mensaje) {
+    const caja = document.getElementById("supError");
+    caja.textContent = mensaje;
+    caja.classList.toggle("visible", !!mensaje);
+}
+
+async function autorizarSupervisor() {
+    const usuario = document.getElementById("supUsuario").value.trim();
+    const password = document.getElementById("supPassword").value;
+    if (!usuario || !password) {
+        mostrarErrorSupervisor("Ingrese el usuario y la contraseña del supervisor.");
+        return;
+    }
+    const boton = document.getElementById("supAutorizar");
+    boton.disabled = true;
+    try {
+        const res = await fetch(API_AUTORIZACION, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ usuario, password })
+        });
+        const data = await res.json();
+        if (data.status !== "success") {
+            mostrarErrorSupervisor(data.message || "No se pudo autorizar.");
+            document.getElementById("supPassword").value = "";
+            document.getElementById("supPassword").focus();
+            return;
+        }
+        document.getElementById("supPassword").value = "";
+        mostrarErrorSupervisor("");
+        marcarSupervisorVentas(data.supervisor);
+        await cargarVentasJornada();
+    } catch (e) {
+        mostrarErrorSupervisor("Error de conexión con el servidor.");
+    } finally {
+        boton.disabled = false;
+    }
+}
+
+document.addEventListener("submit", (e) => {
+    if (e.target && e.target.id === "misVentasLogin") {
+        e.preventDefault();
+        autorizarSupervisor();
+    }
+});
+document.addEventListener("click", (e) => {
+    const ver = e.target.closest("#supVerPassword");
+    if (!ver) return;
+    const input = document.getElementById("supPassword");
+    input.type = input.type === "password" ? "text" : "password";
+    ver.querySelector(".material-icons").textContent = input.type === "password" ? "visibility" : "visibility_off";
+});
+
+async function cargarVentasJornada() {
     const loading = document.getElementById("misVentasLoading");
     const contenido = document.getElementById("misVentasContenido");
     const empty = document.getElementById("misVentasEmpty");
     const tbody = document.getElementById("misVentasTbody");
 
-    // Mostrar modal en estado de carga
-    modal.style.display = "flex";
-    loading.style.display = "block";
-    contenido.style.display = "none";
+    mostrarPanelMisVentas("cargando");
     tbody.innerHTML = "";
 
     try {
         const res = await fetch("../backend/api/jornada.php?action=ventas_jornada");
         const data = await res.json();
+        if (data.codigo === "requiere_supervisor") {
+            mostrarLoginSupervisor("La autorización venció. El supervisor debe ingresar de nuevo.");
+            return;
+        }
 
         loading.style.display = "none";
         contenido.style.display = "block";
@@ -1318,6 +1430,10 @@ document.addEventListener("click", async (e) => {
                 })
             });
             const data = await res.json();
+            if (data.codigo === "requiere_supervisor") {
+                mostrarLoginSupervisor("La autorización venció. El supervisor debe ingresar de nuevo.");
+                return;
+            }
 
             if (data.status === "success") {
                 // El total se recalculó con las promos de la venta: el cajero devuelve o cobra la diferencia.
@@ -1442,6 +1558,10 @@ document.addEventListener("click", async (e) => {
             document.getElementById("modalConfirmarEliminarDetalle").style.display = "none";
             btnCE.disabled = false;
             btnCE.innerHTML = `<i class="material-icons" style="font-size:1rem;">delete_forever</i> Eliminar`;
+            if (data.codigo === "requiere_supervisor") {
+                mostrarLoginSupervisor("La autorización venció. El supervisor debe ingresar de nuevo.");
+                return;
+            }
 
             if (data.status === "success") {
                 const huboAjuste = data.ajuste && (data.ajuste.efectivo || data.ajuste.qr);
@@ -1481,6 +1601,6 @@ document.addEventListener("click", async (e) => {
 
     // ── CERRAR MODAL MIS VENTAS ────────────────────────────────────────────
     if (e.target.closest("#btnCerrarMisVentas") || e.target.closest("#btnCerrarMisVentas2")) {
-        document.getElementById("modalMisVentas").style.display = "none";
+        cerrarModalMisVentas();
     }
 });

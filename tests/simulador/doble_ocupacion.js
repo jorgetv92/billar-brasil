@@ -74,7 +74,7 @@ async function probarApi() {
     const ventas = nVentas();
     const unidades = stock(CORONA);
     const r = await post(BASE, ventaBarra(accion, MESA.Billar2));
-    comprobar(`${accion}: hora gratis sobre mesa ocupada se rechaza`, rechazoDeMesa(r), JSON.stringify(r));
+    comprobar(`${accion}: hora con descuento sobre mesa ocupada se rechaza`, rechazoDeMesa(r), JSON.stringify(r));
     comprobar(`${accion}: no se guarda la venta ni se descuenta stock`, nVentas() === ventas && stock(CORONA) === unidades, `ventas ${ventas}→${nVentas()}, stock ${unidades}→${stock(CORONA)}`);
     comprobar(`${accion}: no se abre otra sesión`, abiertos(MESA.Billar2) === 1, `abiertas: ${abiertos(MESA.Billar2)}`);
     liberar(MESA.Billar2);
@@ -82,7 +82,7 @@ async function probarApi() {
 
     const ventasOk = nVentas();
     const libre = await post(BASE, ventaBarra(accion, MESA.Billar3));
-    comprobar(`${accion}: hora gratis sobre mesa libre sigue funcionando`, libre.status === 'success' && estado(MESA.Billar3) === 'ocupada' && nVentas() === ventasOk + 1, JSON.stringify(libre));
+    comprobar(`${accion}: hora con descuento sobre mesa libre sigue funcionando`, libre.status === 'success' && estado(MESA.Billar3) === 'ocupada' && nVentas() === ventasOk + 1, JSON.stringify(libre));
     liberar(MESA.Billar3);
   }
 
@@ -125,7 +125,7 @@ async function probarCarreras() {
     if (exitos !== 1 || abiertos(MESA.Billar5) !== 1 || nVentas() !== ventas + 1 || stock(CORONA) !== unidades - 4) malas++;
     liberar(MESA.Billar5);
   }
-  comprobar('Dos ventas con hora gratis sobre la misma mesa: se cobra una sola', malas === 0, `vueltas con error: ${malas}`);
+  comprobar('Dos ventas con hora con descuento sobre la misma mesa: se cobra una sola', malas === 0, `vueltas con error: ${malas}`);
 
   malas = 0;
   for (let i = 0; i < VUELTAS_CARRERA; i++) {
@@ -241,7 +241,7 @@ async function probarPantalla(s, page) {
     await page.evaluate(async () => {
       await gestorUI.cargarGrillaMesas();
     });
-    // El cajero elige en el buscador la promo de hora gratis (trae las 4 Corona) y la mesa Billar #5.
+    // El cajero elige en el buscador la promo de hora con descuento (trae las 4 Corona) y la mesa Billar #5.
     await s.elegirPromoHora(MESA.Billar5);
     await page.evaluate((f) => gestorUI.iniciarFlujoCobro(f), flujo);
     await page.waitForTimeout(60);
@@ -263,11 +263,11 @@ async function probarPantalla(s, page) {
     await page.waitForTimeout(150);
     aviso = await s.toastUltimo();
     const carrito = await page.evaluate(() => gestorUI.itemsCarrito.map((i) => ({ nombre: i.nombre, promo: !!i.es_promo_hora, cantidad: i.cantidad })));
-    comprobar(`Hora gratis ${flujo} con pantalla vieja: avisa al cajero`, aviso && aviso.t === 'warning', JSON.stringify(aviso));
-    comprobar(`Hora gratis ${flujo} con pantalla vieja: no se cobra`, nVentas() === ventas);
-    comprobar(`Hora gratis ${flujo} con pantalla vieja: cierra el cobro`, !(await modalAbierto(modal)));
-    comprobar(`Hora gratis ${flujo} con pantalla vieja: quita la hora y conserva los productos`, carrito.length === 1 && !carrito[0].promo && carrito[0].cantidad === 4, JSON.stringify(carrito));
-    comprobar(`Hora gratis ${flujo} con pantalla vieja: una sola sesión`, abiertos(MESA.Billar5) === 1, `abiertas: ${abiertos(MESA.Billar5)}`);
+    comprobar(`Hora con descuento ${flujo} con pantalla vieja: avisa al cajero`, aviso && aviso.t === 'warning', JSON.stringify(aviso));
+    comprobar(`Hora con descuento ${flujo} con pantalla vieja: no se cobra`, nVentas() === ventas);
+    comprobar(`Hora con descuento ${flujo} con pantalla vieja: cierra el cobro`, !(await modalAbierto(modal)));
+    comprobar(`Hora con descuento ${flujo} con pantalla vieja: quita la hora y conserva los productos`, carrito.length === 1 && !carrito[0].promo && carrito[0].cantidad === 4, JSON.stringify(carrito));
+    comprobar(`Hora con descuento ${flujo} con pantalla vieja: una sola sesión`, abiertos(MESA.Billar5) === 1, `abiertas: ${abiertos(MESA.Billar5)}`);
     await page.evaluate(() => gestorUI.limpiarCarrito());
     liberar(MESA.Billar5);
   }
@@ -280,7 +280,7 @@ async function probarPantalla(s, page) {
   page.on('dialog', (d) => d.accept().catch(() => {}));
   const s = new Sim(page);
 
-  // Sábado: hace falta la promo de hora gratis por 4 Corona.
+  // Sábado: hace falta la promo de hora con descuento por 4 Corona.
   await s.at('2026-12-19 14:00:00');
   await s.cargarPortal();
   await s.carga([[CORONA, 500]]);

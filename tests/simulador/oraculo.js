@@ -57,7 +57,7 @@ function liquidarTiempo(tramos, gratis, ctx) {
       const inicio = tramo.a + k * SEG_POR_BLOQUE * 1000;
       const tarifa = tarifaDelBloque(tramo.tipo, inicio, segJugados + k * SEG_POR_BLOQUE, ctx);
       bloques++;
-      // Hora gratis: los primeros 60 minutos cobrables quedan en cero, con sus tarifas reales.
+      // Hora con descuento: los primeros 60 minutos cobrables quedan en cero, con sus tarifas reales.
       if (tarifa > 0 && gratisPendientes > 0) {
         gratisPendientes--;
         continue;

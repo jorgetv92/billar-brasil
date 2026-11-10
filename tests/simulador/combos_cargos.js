@@ -1,5 +1,5 @@
 // Combos que elige el cajero, productos preparados sin stock, productos retirados y cargos (roturas,
-// hora gratis). Todo por la pantalla real, salvo lo que solo se puede provocar por la API.
+// hora con descuento). Todo por la pantalla real, salvo lo que solo se puede provocar por la API.
 const fs = require('fs');
 const path = require('path');
 const { BASE, DIR_RESULTADOS } = require('./config');
@@ -60,17 +60,28 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
     await page.waitForTimeout(100);
     return pantalla;
   };
-  const agregarCargo = (concepto, monto, descripcion) =>
-    page.evaluate(async ({ concepto, monto, descripcion }) => {
+  // Arma la lista del modal de cargos tocando los botones, como el cajero, y la agrega de una vez.
+  // lista: [{ concepto, cantidad }] para un concepto, [{ otro, monto }] para uno escrito a mano.
+  const agregarCargos = (lista) =>
+    page.evaluate(async (lista) => {
       await gestorUI.abrirModalCargo();
-      const sel = document.getElementById('selectConceptoCargo');
-      const opcion = Array.from(sel.options).find((o) => o.text.startsWith(concepto));
-      sel.value = opcion ? opcion.value : '';
-      gestorUI.onConceptoCargo();
-      if (monto !== null) document.getElementById('inputMontoCargo').value = monto;
-      if (descripcion) document.getElementById('inputDescripcionCargo').value = descripcion;
+      for (const c of lista) {
+        if (c.otro) {
+          document.querySelector('#listaConceptosCargo .cargo-concepto-otro').click();
+          document.getElementById('inputDescripcionCargo').value = c.otro;
+          document.getElementById('inputMontoCargo').value = c.monto;
+          document.querySelector('#formCargoOtro button').click();
+        } else {
+          const k = gestorUI.conceptosCargo.find((x) => x.nombre.startsWith(c.concepto));
+          for (let i = 0; i < (c.cantidad || 1); i++) document.querySelector(`#listaConceptosCargo .cargo-concepto[data-id="${k.id_concepto}"]`).click();
+        }
+      }
+      const boton = document.getElementById('lblBotonCargos').textContent;
+      const total = document.getElementById('lblTotalCargosModal').textContent;
       await gestorUI.confirmarCargo();
-    }, { concepto, monto, descripcion });
+      return { boton, total, abierto: !document.getElementById('modalAgregarCargo').classList.contains('hidden') };
+    }, lista);
+  const lineasCargo = () => page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').map((i) => [i.nombre, i.cantidad, i.total]));
 
   // ---------- VIERNES ----------
   await s.at('2026-12-18 19:00:00');
@@ -113,12 +124,17 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
 
   await elegir('Corona -', 1);
   await agregar();
-  await agregarCargo('SIM Vaso roto', 12, 'Botella rota en la barra');
+  const modalBarra = await agregarCargos([{ concepto: 'SIM Vaso roto', cantidad: 2 }, { otro: 'Botella rota en la barra', monto: 12 }]);
+  comprobar('El modal suma varios cargos con cantidad: "Agregar 3 cargos", 28.00 Bs, y se cierra', modalBarra.boton === 'Agregar 3 cargos' && modalBarra.total === '28.00 Bs' && !modalBarra.abierto, JSON.stringify(modalBarra));
+  const enCarritoBarra = await lineasCargo();
+  comprobar('Barra: el carrito muestra 2 vasos rotos en una línea y la botella aparte', JSON.stringify(enCarritoBarra) === JSON.stringify([['SIM Vaso roto', 2, 16], ['Botella rota en la barra', 1, 12]]), JSON.stringify(enCarritoBarra));
   pantalla = await cobrarBarra();
   v = ultimaVenta();
-  const cargoBarra = q(`SELECT tipo, descripcion, monto FROM cargos_venta WHERE id_venta=${v.id_venta}`);
-  comprobar('Cargo en barra con el monto cambiado por el cajero: 24 + 12', pantalla === 36 && +v.subtotal_cargos === 12 && +v.subtotal_productos === 24 && cuadra(v), resumen(v));
-  comprobar('El cargo queda con su descripción y no como producto', cargoBarra.length === 1 && cargoBarra[0].tipo === 'cargo' && cargoBarra[0].descripcion === 'Botella rota en la barra', JSON.stringify(cargoBarra));
+  const cargoBarra = q(`SELECT tipo, descripcion, monto FROM cargos_venta WHERE id_venta=${v.id_venta} ORDER BY id_cargo`);
+  comprobar('Cargos en barra: 24 + 2 x 8 + 12 escrito por el cajero = 52', pantalla === 52 && +v.subtotal_cargos === 28 && +v.subtotal_productos === 24 && cuadra(v), resumen(v));
+  comprobar('Cada cargo queda guardado por unidad, con su descripción y no como producto', cargoBarra.length === 3 && cargoBarra.every((c) => c.tipo === 'cargo') && cargoBarra.filter((c) => c.descripcion === 'SIM Vaso roto').length === 2 && cargoBarra.some((c) => c.descripcion === 'Botella rota en la barra' && +c.monto === 12), JSON.stringify(cargoBarra));
+  const cantidadMala = await post({ accion: 'cotizar_carrito', cargos: [{ descripcion: 'Vaso', monto: 8, cantidad: 1.5 }] });
+  comprobar('Una cantidad de cargo no entera se rechaza', cantidadMala.codigo === 'cargo_invalido', cantidadMala.message);
 
   console.log('\n--- Mesa');
   await s.at('2026-12-18 19:10:00');
@@ -126,13 +142,16 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await s.sel('Billar #1');
   await elegir('Combo: SIM Combo 2 Amstel');
   await agregar();
-  await agregarCargo('SIM Vaso roto', null, null);
-  const cargosMesa = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').map((i) => [i.nombre, i.total]));
-  comprobar('Cargo en mesa con el monto sugerido', cargosMesa.length === 1 && cargosMesa[0][1] === 8, JSON.stringify(cargosMesa));
-  await page.evaluate(() => gestorUI.eliminarDelCarrito(gestorUI.itemsCarrito.findIndex((i) => i.tipo === 'cargo')));
-  const sinCargo = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').length);
-  comprobar('Un cargo se puede quitar de la mesa', sinCargo === 0);
-  await agregarCargo('SIM Vaso roto', null, null);
+  await agregarCargos([{ concepto: 'SIM Vaso roto', cantidad: 2 }, { otro: 'Botella quebrada', monto: 15 }]);
+  const cargosMesa = await lineasCargo();
+  comprobar('Mesa: 2 vasos rotos (monto sugerido) y una botella, de una vez', JSON.stringify(cargosMesa) === JSON.stringify([['SIM Vaso roto', 2, 16], ['Botella quebrada', 1, 15]]), JSON.stringify(cargosMesa));
+  await page.evaluate(() => gestorUI.eliminarDelCarrito(gestorUI.itemsCarrito.findIndex((i) => i.tipo === 'cargo' && i.nombre === 'SIM Vaso roto')));
+  await page.evaluate(() => gestorUI.eliminarDelCarrito(gestorUI.itemsCarrito.findIndex((i) => i.tipo === 'cargo' && i.nombre === 'Botella quebrada')));
+  const idMesaCargo = await page.evaluate(() => gestorUI.tarjetaSeleccionada().getAttribute('data-id'));
+  const sinCargos = await post({ accion: 'agregar_cargo_mesa', id_mesa: +idMesaCargo, cargos: [] });
+  comprobar('Agregar una lista vacía de cargos a la mesa se rechaza', sinCargos.codigo === 'cargo_invalido', sinCargos.message);
+  const quedanCargos = await lineasCargo();
+  comprobar('En la mesa el tacho quita un cargo por vez', JSON.stringify(quedanCargos) === JSON.stringify([['SIM Vaso roto', 1, 8]]), JSON.stringify(quedanCargos));
 
   await s.at('2026-12-18 20:10:00');
   // Quitar una línea de un combo quita el combo completo y devuelve el stock de todos sus productos.
@@ -178,30 +197,30 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   let suma = (x) => +x.resumen.efectivo + +x.resumen.qr;
   let cobrado = +rep.apertura.ingreso_efectivo + +rep.apertura.ingreso_qr;
   comprobar('Reporte: mesas + productos + cargos = cobrado', iguales(suma(rep.mesas) + suma(rep.productos) + suma(rep.cargos), cobrado), `${suma(rep.mesas)} + ${suma(rep.productos)} + ${suma(rep.cargos)} | cobrado ${cobrado}`);
-  comprobar('Reporte: los cargos van aparte (12 + 8)', iguales(suma(rep.cargos), 20) && rep.cargos.filas.length === 2, JSON.stringify(rep.cargos.filas));
+  comprobar('Reporte: los cargos van aparte (barra 8 + 8 + 12, mesa 8)', iguales(suma(rep.cargos), 36) && rep.cargos.filas.length === 4, JSON.stringify(rep.cargos.filas));
 
-  // ---------- SÁBADO: hora gratis por 4 Corona ----------
-  console.log('\n--- Hora gratis');
+  // ---------- SÁBADO: hora con descuento por 4 Corona ----------
+  console.log('\n--- Hora con descuento');
   await s.at('2026-12-19 14:00:00');
   await s.cargarPortal();
   await s.abrirJornada(100);
   await s.at('2026-12-19 14:05:00');
-  const barraHora = await s.ventaBarra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #3', caso: 'barra con hora gratis' });
+  const barraHora = await s.ventaBarra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #3', caso: 'barra con hora con descuento' });
   v = venta(barraHora.id_venta);
   const cargosHora = q(`SELECT tipo, monto FROM cargos_venta WHERE id_venta=${v.id_venta}`);
-  comprobar('Hora gratis en barra: 4 Corona + 5 de cargo, sin producto falso', barraHora.pantalla === 101 && +v.subtotal_productos === 96 && cargosHora.length === 1 && cargosHora[0].tipo === 'hora_gratis' && cuadra(v), `${resumen(v)} | ${JSON.stringify(cargosHora)}`);
+  comprobar('Hora con descuento en barra: 4 Corona + 5 de cargo, sin producto falso', barraHora.pantalla === 101 && +v.subtotal_productos === 96 && cargosHora.length === 1 && cargosHora[0].tipo === 'hora_gratis' && cuadra(v), `${resumen(v)} | ${JSON.stringify(cargosHora)}`);
 
   // La promo se elige en el buscador: no se detecta sola por tener 4 Corona.
   const opcionPromo = await page.evaluate(() => (gestorUI.productosLocal.find((x) => x.es_incentivo) || {}).display_nombre);
-  comprobar('La promo de hora gratis está en el buscador con su nombre', opcionPromo === 'Promo: SIM 4 Corona: 1a hora gratis (4 Corona + 1 hora gratis en Billar) - 101.00 Bs', opcionPromo);
+  comprobar('La promo de hora con descuento está en el buscador con su nombre', opcionPromo === 'Promo: SIM 4 Corona: 1a hora con descuento (4 Corona + 1 hora con descuento en Billar) - 101.00 Bs', opcionPromo);
   await s.at('2026-12-19 14:06:00');
   const sinPromo = await s.ventaBarra([[P.Corona, 4]], { caso: 'barra 4 Corona sin elegir la promo' });
   v = venta(sinPromo.id_venta);
-  comprobar('Barra: 4 Corona sin elegir la promo no agrega la hora gratis', sinPromo.pantalla === 96 && +v.subtotal_cargos === 0 && cuadra(v), resumen(v));
+  comprobar('Barra: 4 Corona sin elegir la promo no agrega la hora con descuento', sinPromo.pantalla === 96 && +v.subtotal_cargos === 0 && cuadra(v), resumen(v));
   await s.abrirMesa('Privada #1');
   await s.consumo('Privada #1', P.Corona, 4);
   const cargosPrivada = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').length);
-  comprobar('Mesa: 4 Corona sin elegir la promo no agrega la hora gratis', cargosPrivada === 0);
+  comprobar('Mesa: 4 Corona sin elegir la promo no agrega la hora con descuento', cargosPrivada === 0);
   await s.elegirPromoHora(null);
   const avisoTipo = await s.toastUltimo();
   const despuesPromo = await page.evaluate(() => gestorUI.itemsCarrito.length);
@@ -210,20 +229,20 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await s.abrirMesa('Billar #2');
   await s.consumo('Billar #2', P.Corona, 4, { incentivo: 'si' });
   const enMesa = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').map((i) => [i.nombre, i.total, i.es_hora_gratis]));
-  comprobar('Hora gratis en mesa: queda como cargo de la mesa', enMesa.length === 1 && enMesa[0][1] === 5 && enMesa[0][2] === true, JSON.stringify(enMesa));
+  comprobar('Hora con descuento en mesa: queda como cargo de la mesa', enMesa.length === 1 && enMesa[0][1] === 5 && enMesa[0][2] === true, JSON.stringify(enMesa));
   await s.at('2026-12-19 15:15:00');
-  const m2 = await s.cobrarMesa('Billar #2', { caso: 'mesa con hora gratis 70 min' });
+  const m2 = await s.cobrarMesa('Billar #2', { caso: 'mesa con hora con descuento 70 min' });
   v = venta(m2.id_venta);
-  comprobar('Mesa con hora gratis: 10 min (2,50) + 96 + 5 = 103,50', m2.pantalla === 103.5 && +v.total_pagar === 103.5 && cuadra(v), resumen(v));
+  comprobar('Mesa con hora con descuento: 10 min (2,50) + 96 + 5 = 103,50', m2.pantalla === 103.5 && +v.total_pagar === 103.5 && cuadra(v), resumen(v));
   await s.at('2026-12-19 15:20:00');
-  await s.cobrarMesa('Billar #3', { caso: 'mesa abierta por la hora gratis de barra' });
+  await s.cobrarMesa('Billar #3', { caso: 'mesa abierta por la hora con descuento de barra' });
   const privada = await s.cobrarMesa('Privada #1', { caso: 'privada con 4 Corona sin promo' });
   comprobar('Privada: tiempo + 4 Corona, sin cargo', privada && privada.bd.cargos === 0 && iguales(privada.bd.total, privada.oraculo.total), privada && JSON.stringify(privada.bd));
   await s.cerrarJornada();
   rep = s.jornadas[s.jornadas.length - 1].reporte.data;
   cobrado = +rep.apertura.ingreso_efectivo + +rep.apertura.ingreso_qr;
   const horas = +q(`SELECT COALESCE(SUM(c.monto),0) t FROM cargos_venta c JOIN ventas v USING(id_venta) WHERE v.id_jornada=${s.jornadas[s.jornadas.length - 1].id} AND c.tipo='hora_gratis'`)[0].t;
-  comprobar('Lo pagado por la hora gratis cuenta como ingreso de mesas', iguales(suma(rep.cargos), 0) && suma(rep.mesas) >= horas && iguales(suma(rep.mesas) + suma(rep.productos), cobrado), `mesas ${suma(rep.mesas)} (horas gratis ${horas}) + productos ${suma(rep.productos)} | cobrado ${cobrado}`);
+  comprobar('Lo pagado por la hora con descuento cuenta como ingreso de mesas', iguales(suma(rep.cargos), 0) && suma(rep.mesas) >= horas && iguales(suma(rep.mesas) + suma(rep.productos), cobrado), `mesas ${suma(rep.mesas)} (horas gratis ${horas}) + productos ${suma(rep.productos)} | cobrado ${cobrado}`);
 
   comprobar('Sin errores de JavaScript ni alertas', errores.length === 0, errores.join(' / '));
   await navegador.close();

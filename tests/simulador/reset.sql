@@ -13,7 +13,7 @@ INSERT INTO promociones (id_promocion,nombre_promo,tipo_promo,hora_inicio,hora_f
 (104,'SIM Amstel Bot a 12 tras 1h','incentivo_cruzado',NULL,NULL,'martes',12,46,NULL,1),
 (105,'SIM Palito nocturno a 7','descuento_producto','22:00:00','02:00:00','martes',7,9,NULL,NULL),
 (106,'SIM Privada a 25 tras 2h','incentivo_mesa',NULL,NULL,'sábado',25,1,NULL,2),
-(107,'SIM 4 Corona: 1a hora gratis','incentivo_producto',NULL,NULL,'sábado',5,6,2,4),
+(107,'SIM 4 Corona: 1a hora con descuento','incentivo_producto',NULL,NULL,'sábado',5,6,2,4),
 (108,'SIM Cachos a 5','tarifa_mesa','15:00:00','21:00:00','jueves',5,3,NULL,NULL);
 -- Combos (sección propia, no son promociones): el cajero los elige en el buscador. El 111 está retirado.
 DELETE FROM combo_items;

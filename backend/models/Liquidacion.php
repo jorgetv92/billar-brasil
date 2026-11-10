@@ -6,9 +6,10 @@
 //  - El tiempo se cobra en bloques de 5 minutos que se cobran al iniciar: 00:01 cobra el primero, 05:01 el segundo.
 //  - Cada bloque usa la tarifa vigente cuando empieza: la de lista, la de una promo de tarifa o la del incentivo en mesa.
 //  - El incentivo en mesa baja la tarifa solo desde que se cumplen las horas mínimas, no hacia atrás.
-//  - La hora gratis del incentivo en producto deja en cero los primeros 12 bloques que tienen tarifa.
+//  - La hora con descuento del incentivo en producto deja en cero los primeros 12 bloques que tienen tarifa:
+//    esa hora se paga con el monto adicional de la promo, que se cobra como cargo.
 //  - Un producto conserva el precio y las promos del momento en que se pidió, aunque se pague después.
-//  - 2x1: de cada par de unidades pedidas en horario de promo, una es gratis (5 unidades pagan 3).
+//  - Producto 2x1: cada par que elige el cajero paga una unidad; las unidades sueltas pagan precio completo.
 //  - El total se redondea hacia arriba a .00 o .50, porque no hay monedas menores a 50 centavos.
 //
 // Todo se calcula en centavos para no arrastrar errores de decimales; los resultados salen en Bs.
@@ -279,13 +280,28 @@ class Liquidacion {
         return ['tipo' => 'cargo', 'id_concepto' => $idConcepto, 'id_promocion' => null, 'descripcion' => $descripcion, 'monto' => $monto];
     }
 
-    // El monto adicional que paga el cliente por la hora gratis del incentivo en producto.
+    // Varios cargos de una vez, cada uno con su cantidad (2 vasos rotos = 2 cargos de un vaso).
+    public static function cargosPedidos($pdo, array $lista) {
+        $cargos = [];
+        foreach ($lista as $pedido) {
+            if (!is_array($pedido)) throw new ErrorOperacion('Cargo inválido.', 'cargo_invalido');
+            $cantidad = isset($pedido['cantidad']) ? $pedido['cantidad'] : 1;
+            if (!is_numeric($cantidad) || intval($cantidad) != $cantidad || $cantidad < 1 || $cantidad > 50) {
+                throw new ErrorOperacion('La cantidad de cada cargo debe ser un número entero entre 1 y 50.', 'cargo_invalido');
+            }
+            $cargo = self::validarCargo($pdo, $pedido);
+            for ($i = 0; $i < intval($cantidad); $i++) $cargos[] = $cargo;
+        }
+        return $cargos;
+    }
+
+    // El monto adicional que paga el cliente por la hora con descuento del incentivo en producto.
     public static function cargoHoraGratis(array $promo) {
         return [
             'tipo' => 'hora_gratis',
             'id_concepto' => null,
             'id_promocion' => intval($promo['id_promocion']),
-            'descripcion' => 'Hora gratis (' . $promo['nombre_promo'] . ')',
+            'descripcion' => 'Hora con descuento (' . $promo['nombre_promo'] . ')',
             'monto' => self::centavos($promo['valor_descuento']),
         ];
     }
@@ -342,7 +358,7 @@ class Liquidacion {
         return $res;
     }
 
-    // Incentivos en producto vigentes en $ts (N unidades de un producto + monto adicional = 1 hora gratis
+    // Incentivos en producto vigentes en $ts (N unidades de un producto + monto adicional = 1 hora con descuento
     // en un tipo de mesa), para que el cajero los elija. "precio" es lo que paga el cliente en total.
     public static function incentivosVigentes($pdo, array $promos, $ts) {
         $res = [];
@@ -606,7 +622,7 @@ class Liquidacion {
 
     // ---------------------------------------------------------------- barra
 
-    // Promo de hora gratis que se cumple con estas unidades del producto pedido, para el tipo de mesa indicado.
+    // Promo de hora con descuento que se cumple con estas unidades del producto pedido, para el tipo de mesa indicado.
     // Con $idPromocion solo vale esa promoción (la que eligió el cajero en el buscador).
     public static function promoHoraGratis(array $promos, $ts, array $unidadesPorProducto, $idTipoMesa = null, $idPromocion = null) {
         foreach ($promos as $promo) {
@@ -690,19 +706,19 @@ class Liquidacion {
     // Cotiza un carrito de barra. El precio que mande la pantalla no se usa.
     // $pedido: productos [{id_producto, cantidad}], combos [{id_combo, cantidad}], pares [{id_promocion, cantidad}],
     // cargos [{id_concepto, descripcion, monto}]
-    // y hora_gratis (true si el cliente aceptó la hora gratis del incentivo en producto).
+    // y hora_gratis (true si el cliente aceptó la hora con descuento del incentivo en producto).
     public static function cotizarCarrito($pdo, array $pedido, $ts, array $promos) {
         $cantidades = self::sumarCantidades(isset($pedido['productos']) ? $pedido['productos'] : []);
         $lineas = self::lineasPedido($pdo, $cantidades, isset($pedido['combos']) ? $pedido['combos'] : [], $ts, $promos, isset($pedido['pares']) ? $pedido['pares'] : []);
 
         $cargos = [];
-        foreach ((isset($pedido['cargos']) ? $pedido['cargos'] : []) as $cargo) $cargos[] = self::validarCargo($pdo, $cargo);
+        foreach (self::cargosPedidos($pdo, isset($pedido['cargos']) ? $pedido['cargos'] : []) as $cargo) $cargos[] = $cargo;
 
         $promoHora = null;
         if (!empty($pedido['hora_gratis'])) {
             $promoHora = self::promoHoraGratis($promos, $ts, $cantidades, null, isset($pedido['id_promo_hora']) ? $pedido['id_promo_hora'] : null);
             if (!$promoHora) {
-                throw new ErrorOperacion('La promoción de hora gratis ya no está vigente para este carrito.', 'promo_no_vigente');
+                throw new ErrorOperacion('La promoción de hora con descuento ya no está vigente para este carrito.', 'promo_no_vigente');
             }
             $cargos[] = self::cargoHoraGratis($promoHora);
         }

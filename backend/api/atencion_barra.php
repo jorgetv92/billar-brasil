@@ -235,7 +235,7 @@ function leerPedido(array $data) {
         'pares' => isset($data['pares']) && is_array($data['pares']) ? $data['pares'] : [],
         'cargos' => isset($data['cargos']) && is_array($data['cargos']) ? $data['cargos'] : [],
         'hora_gratis' => !empty($data['hora_gratis']),
-        // La promoción de hora gratis que eligió el cajero en el buscador
+        // La promoción de hora con descuento que eligió el cajero en el buscador
         'id_promo_hora' => !empty($data['id_promo_hora']) ? intval($data['id_promo_hora']) : null,
     ];
 }
@@ -519,14 +519,14 @@ if ($method === 'GET') {
                 ];
             }
 
-            // Incentivos en producto (productos + 1 hora gratis de mesa): también los elige el cajero.
+            // Incentivos en producto (productos + 1 hora con descuento de mesa): también los elige el cajero.
             foreach (Liquidacion::incentivosVigentes($pdo, $promosTodas, $ts) as $inc) {
                 $productos[] = [
                     'es_incentivo' => true,
                     'id_promocion' => $inc['id_promocion'],
                     'nombre_producto' => $inc['nombre'],
                     'display_nombre' => "Promo: " . $inc['nombre'] . " (" . $inc['cantidad'] . " " . $inc['nombre_producto']
-                        . " + 1 hora gratis en " . $inc['tipo_mesa'] . ") - " . number_format($inc['precio'], 2, '.', '') . " Bs",
+                        . " + 1 hora con descuento en " . $inc['tipo_mesa'] . ") - " . number_format($inc['precio'], 2, '.', '') . " Bs",
                     'precio' => $inc['precio'],
                     'id_producto' => $inc['id_producto'],
                     'producto' => $inc['nombre_producto'],
@@ -586,7 +586,10 @@ if ($method === 'GET') {
     // 4. MESAS DISPONIBLES
     if ($accion === 'get_mesas_disponibles') {
         try {
-            $query = "SELECT id_mesa, numero_mesa FROM mesas WHERE estado_actual = 'libre'";
+            $query = "SELECT m.id_mesa, m.numero_mesa, t.nombre_tipo, t.precio_hora
+                      FROM mesas m JOIN tipos_mesa t ON t.id_tipo_mesa = m.id_tipo_mesa
+                      WHERE m.estado_actual = 'libre'
+                      ORDER BY t.id_tipo_mesa, m.id_mesa";
             $stmt = $pdo->prepare($query);
             $stmt->execute();
 
@@ -594,7 +597,9 @@ if ($method === 'GET') {
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $mesas[] = [
                     'id_mesa' => $row['id_mesa'],
-                    'nombre_mesa' => $row['numero_mesa']
+                    'nombre_mesa' => $row['numero_mesa'],
+                    'tipo' => $row['nombre_tipo'],
+                    'precio_hora' => (float) $row['precio_hora']
                 ];
             }
 
@@ -650,13 +655,13 @@ if ($method === 'POST') {
         elseif ($accion === 'registrar_venta_barra' || $accion === 'cobrar_carrito_dividido') {
             exigirJornada($id_jornada);
 
-            // La mesa de la hora gratis se bloquea antes de cualquier lectura.
+            // La mesa de la hora con descuento se bloquea antes de cualquier lectura.
             $idMesaPromo = !empty($data['id_mesa_ocupar_promo']) ? intval($data['id_mesa_ocupar_promo']) : null;
             $mesaPromo = null;
             if ($idMesaPromo) {
                 $mesas = Mesa::bloquear($pdo, [$idMesaPromo]);
                 $mesaPromo = isset($mesas[$idMesaPromo]) ? $mesas[$idMesaPromo] : null;
-                Mesa::exigirLibre($pdo, $mesaPromo, '%s ya no está libre para la hora gratis. No se cobró nada: elija otra mesa.');
+                Mesa::exigirLibre($pdo, $mesaPromo, '%s ya no está libre para la hora con descuento. No se cobró nada: elija otra mesa.');
             }
 
             $pedido = leerPedido($data);
@@ -666,13 +671,13 @@ if ($method === 'POST') {
             }
             if ($cot['promo_hora']) {
                 if (!$mesaPromo) {
-                    throw new ErrorOperacion('Elija la mesa para la hora gratis.', 'promo_no_vigente');
+                    throw new ErrorOperacion('Elija la mesa para la hora con descuento.', 'promo_no_vigente');
                 }
                 if (intval($cot['promo_hora']['id_item_secundario']) !== intval($mesaPromo['id_tipo_mesa'])) {
                     throw new ErrorOperacion("{$mesaPromo['numero_mesa']} no es del tipo de mesa de la promoción.", 'promo_no_vigente');
                 }
             } elseif ($mesaPromo) {
-                throw new ErrorOperacion('El carrito ya no incluye la hora gratis.', 'promo_no_vigente');
+                throw new ErrorOperacion('El carrito ya no incluye la hora con descuento.', 'promo_no_vigente');
             }
 
             $liq = $cot['cotizacion'];
@@ -690,7 +695,7 @@ if ($method === 'POST') {
         }
 
         // ACCIÓN B2: AGREGAR PRODUCTOS O COMBOS A UNA MESA OCUPADA (el precio lo fija el backend).
-        // aplicar_hora_gratis: el cliente aceptó la hora gratis del incentivo en producto.
+        // aplicar_hora_gratis: el cliente aceptó la hora con descuento del incentivo en producto.
         elseif ($accion === 'agregar_productos_mesa') {
             list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
             $id_sesion = $tramo['id_sesion'];
@@ -711,7 +716,7 @@ if ($method === 'POST') {
                 $stmtSes = $pdo->prepare("SELECT primera_hora_gratis FROM sesiones_juego WHERE id_sesion = ?");
                 $stmtSes->execute([$id_sesion]);
                 if (intval($stmtSes->fetchColumn()) === 1) {
-                    throw new ErrorOperacion('Esta mesa ya tiene la hora gratis.', 'promo_no_vigente');
+                    throw new ErrorOperacion('Esta mesa ya tiene la hora con descuento.', 'promo_no_vigente');
                 }
                 // Cuenta lo que la mesa ya pidió (fuera de combos) más lo que se agrega ahora.
                 $unidades = $cantidades;
@@ -724,7 +729,7 @@ if ($method === 'POST') {
                 $idPromoHora = !empty($data['id_promo_hora']) ? intval($data['id_promo_hora']) : null;
                 $promoHora = Liquidacion::promoHoraGratis($promos, $ts, $unidades, $mesa['id_tipo_mesa'], $idPromoHora);
                 if (!$promoHora) {
-                    throw new ErrorOperacion('La promoción de hora gratis ya no está vigente para esta mesa.', 'promo_no_vigente');
+                    throw new ErrorOperacion('La promoción de hora con descuento ya no está vigente para esta mesa.', 'promo_no_vigente');
                 }
                 $cargos[] = Liquidacion::cargoHoraGratis($promoHora);
                 $pdo->prepare("UPDATE sesiones_juego SET primera_hora_gratis = 1 WHERE id_sesion = ?")->execute([$id_sesion]);
@@ -735,15 +740,19 @@ if ($method === 'POST') {
             $respuesta = ['status' => 'success', 'message' => 'Productos agregados a la mesa'];
         }
 
-        // ACCIÓN B2b: AGREGAR UN CARGO A UNA MESA (rotura de vaso, una ventana...). El monto lo decide el cajero.
+        // ACCIÓN B2b: AGREGAR CARGOS A UNA MESA (rotura de vaso, una ventana...). El monto lo decide el cajero.
+        // Llegan en "cargos" (varios, cada uno con su cantidad) o en "cargo" (uno solo).
         elseif ($accion === 'agregar_cargo_mesa') {
             list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
-            $cargo = Liquidacion::validarCargo($pdo, isset($data['cargo']) && is_array($data['cargo']) ? $data['cargo'] : []);
-            guardarCargos($pdo, [$cargo], null, $tramo['id_sesion'], $ahora);
-            $respuesta = ['status' => 'success', 'message' => 'Cargo agregado a la mesa'];
+            $lista = isset($data['cargos']) && is_array($data['cargos']) ? $data['cargos']
+                : (isset($data['cargo']) && is_array($data['cargo']) ? [$data['cargo']] : []);
+            if (!$lista) throw new ErrorOperacion('Agregue al menos un cargo.', 'cargo_invalido');
+            $cargos = Liquidacion::cargosPedidos($pdo, $lista);
+            guardarCargos($pdo, $cargos, null, $tramo['id_sesion'], $ahora);
+            $respuesta = ['status' => 'success', 'message' => count($cargos) === 1 ? 'Cargo agregado a la mesa' : count($cargos) . ' cargos agregados a la mesa'];
         }
 
-        // ACCIÓN B2c: QUITAR UN CARGO DE UNA MESA. Quitar la hora gratis devuelve la mesa a tarifa normal.
+        // ACCIÓN B2c: QUITAR UN CARGO DE UNA MESA. Quitar la hora con descuento devuelve la mesa a tarifa normal.
         elseif ($accion === 'eliminar_cargo_mesa') {
             list($mesa, $tramo) = exigirMesaEnJuego($pdo, $data['id_mesa']);
             $stmt = $pdo->prepare("SELECT tipo FROM cargos_venta WHERE id_cargo = ? AND id_sesion = ? AND id_venta IS NULL FOR UPDATE");

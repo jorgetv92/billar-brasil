@@ -31,6 +31,9 @@ if(!empty($data->usuario) && !empty($data->password)) {
 
     if($resultado) {
         // Credenciales correctas: Guardamos datos en la sesión de PHP
+        // Sesión nueva: no hereda la autorización de supervisor ni los datos de quien estaba antes.
+        session_regenerate_id(true);
+        unset($_SESSION['autorizacion_ventas']);
         $_SESSION['id_usuario'] = $resultado['id_usuario'];
         $_SESSION['rol'] = $resultado['rol'];
 

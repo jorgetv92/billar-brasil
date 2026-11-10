@@ -7,7 +7,7 @@ ALTER TABLE productos
 ADD COLUMN tipo ENUM('inventario', 'preparado') NOT NULL DEFAULT 'inventario' AFTER stock_actual,
 ADD COLUMN activo TINYINT(1) NOT NULL DEFAULT 1 AFTER tipo;
 
--- 2. Cargos: lo que se cobra en una venta y no es un producto. La hora gratis del incentivo en producto
+-- 2. Cargos: lo que se cobra en una venta y no es un producto. La hora con descuento del incentivo en producto
 --    (el monto adicional que paga el cliente) y los cargos por daños (vaso o botella rota, una ventana).
 CREATE TABLE conceptos_cargo (
     id_concepto INT AUTO_INCREMENT PRIMARY KEY,
@@ -22,7 +22,7 @@ CREATE TABLE cargos_venta (
     id_sesion INT NULL, -- Cargo de una mesa
     tipo ENUM('hora_gratis', 'cargo') NOT NULL,
     id_concepto INT NULL,
-    id_promocion INT NULL, -- Promo de hora gratis que lo originó
+    id_promocion INT NULL, -- Promo de hora con descuento que lo originó
     descripcion VARCHAR(150) NOT NULL,
     monto DECIMAL(10,2) NOT NULL,
     fecha_hora DATETIME NOT NULL,
@@ -52,6 +52,6 @@ CREATE TABLE promocion_items (
 ALTER TABLE detalle_venta_productos
 ADD COLUMN id_promocion INT NULL AFTER fecha_hora;
 
--- 4. La hora gratis ya no es un producto. Si existe el producto "Hora Promo" de la versión anterior
+-- 4. La hora con descuento ya no es un producto. Si existe el producto "Hora Promo" de la versión anterior
 --    (no existe en producción), se retira sin borrarlo porque puede tener ventas antiguas.
 UPDATE productos SET activo = 0, stock_actual = 0 WHERE nombre_producto LIKE 'Hora Promo%';

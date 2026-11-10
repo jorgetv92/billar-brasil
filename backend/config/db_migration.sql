@@ -8,9 +8,9 @@ MODIFY tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incent
 ALTER TABLE promociones 
 ADD COLUMN id_item_secundario INT NULL AFTER id_item_condicion;
 
--- 3. Soporte para primera hora gratis en sesiones de juego
+-- 3. Soporte para primera hora con descuento en sesiones de juego
 ALTER TABLE sesiones_juego 
 ADD COLUMN primera_hora_gratis TINYINT(1) NOT NULL DEFAULT 0;
 
 -- 4. (Retirado) Antes se creaba aquí el producto "Hora Promo (Incentivo)" con precio 0 y stock 999999.
---    La hora gratis ahora es un cargo de la venta (ver migracion_productos_cargos_combos.sql).
+--    La hora con descuento ahora es un cargo de la venta (ver migracion_productos_cargos_combos.sql).

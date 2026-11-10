@@ -47,7 +47,7 @@ Para probar con otra base, por ejemplo una copia de producción, sin cambiar la 
 | `motor.js` | Validaciones del cobro en el backend y carreras entre dos cajas. |
 | `ajustes.js` | Correcciones de ventas ya cobradas: total, pagos, stock y bitácora. |
 | `reportes.js` | Cifras de pre-cierre, cierre, reporte del admin y dashboard. |
-| `combos_cargos.js` | Combos, preparados, productos retirados, cargos y hora gratis como cargo. |
+| `combos_cargos.js` | Combos, preparados, productos retirados, cargos y hora con descuento como cargo. |
 | `insumos_caja.js` | Cargas de mercadería e insumos, gastos de insumos, egresos, cierre y apertura simultáneos. |
 | `doble_ocupacion.js`, `limpieza.js` | Doble ocupación de mesas y el script de sesiones huérfanas. |
 | `turnos.js`, `dirigidas.js`, `analizar.js` | Turnos completos, casos aislados y el análisis. |

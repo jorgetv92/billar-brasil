@@ -24,14 +24,15 @@ En phpMyAdmin, con la base de la demo seleccionada, ejecutar estos scripts de `b
 | 3 | `migracion_productos_cargos_combos.sql` | Tipo y estado de los productos, tablas de cargos y de conceptos de cargo, y combos específicos. Retira el producto "Hora Promo (Incentivo)". |
 | 4 | `migracion_cargas_jornada.sql` | Cada carga guarda la jornada en la que se hizo, para que el inventario del turno no cuente dos veces una carga hecha en el mismo momento de la apertura. A las cargas pasadas les asigna la jornada que estaba abierta a esa hora. |
 | 5 | `migracion_combos.sql` | Los combos pasan a su propia sección (tablas `combos` y `combo_items`): ya no son promociones. Si hubiera combos creados como promoción, los pasa con sus productos. |
-| 6 | `correccion_datos_produccion.sql` | Corrige datos que dejaron errores del sistema anterior y ordena el catálogo (ver abajo). |
-| 7 | `limpieza_sesiones_huerfanas.sql` | Cierra las partidas que quedaron abiertas en jornadas ya cerradas. |
+| 6 | `migracion_rol_supervisor.sql` | Agrega el rol "supervisor" y guarda en cada corrección de venta qué supervisor la autorizó. |
+| 7 | `correccion_datos_produccion.sql` | Corrige datos que dejaron errores del sistema anterior y ordena el catálogo (ver abajo). |
+| 8 | `limpieza_sesiones_huerfanas.sql` | Cierra las partidas que quedaron abiertas en jornadas ya cerradas. |
 
 `db_migration.sql` **no** se ejecuta: la demo ya lo tiene.
 
-Si un script se ejecuta dos veces por error, se detiene en su primera instrucción sin cambiar nada. Los pasos 6 y 7 directamente no encuentran nada que corregir.
+Si un script se ejecuta dos veces por error, se detiene en su primera instrucción sin cambiar nada. Los pasos 7 y 8 directamente no encuentran nada que corregir.
 
-### Lo que hacen los pasos 4 a 7 en la demo
+### Lo que hacen los pasos 4 a 8 en la demo
 
 - **Cargas**: 6 de las 10 cargas quedan en la jornada en que se hicieron. Las otras 4 se hicieron entre jornadas.
 - **Combos**: la demo no tiene combos creados como promoción; el paso 5 solo crea las tablas nuevas.
@@ -82,15 +83,16 @@ Los scripts de las páginas llevan un número de versión (`?v=...`), así que l
    - En "Conceptos de Cargo", ajustar los montos sugeridos.
    - Hacer una carga de mercadería y otra de insumos. Editar la de mercadería y anularla: el stock vuelve a quedar como estaba.
    - En "Combos" (debajo de Inventario), crear los combos que se vendan (ej. 1 Fernet + 2 Coca Cola).
+   - En "Usuarios", crear o pasar a rol "Supervisor" a quienes autorizan las correcciones de ventas.
 3. Abrir la jornada:
-   - En el buscador, "promo" muestra las promociones que rigen en ese momento (Producto 2x1, hora gratis) y "combo" los combos. El 2x1 ya no se aplica solo: el cajero lo elige.
-   - Cobrar una mesa y revisar en "Mis ventas" que el total coincida con lo cobrado.
+   - En el buscador, "promo" muestra las promociones que rigen en ese momento (Producto 2x1, hora con descuento) y "combo" los combos. El 2x1 ya no se aplica solo: el cajero lo elige.
+   - Cobrar una mesa y revisar en "Mis ventas" que el total coincida con lo cobrado. Con un usuario de atención, "Mis ventas" pide primero el usuario y la contraseña de un supervisor; un supervisor las ve directo.
    - Registrar un egreso y un gasto de insumo.
    - En el pre-cierre, el efectivo esperado debe ser la apertura más el efectivo cobrado menos los egresos.
 
 ## Qué cambia en los reportes de jornadas anteriores
 
-Los reportes reparten lo que realmente se cobró entre mesas, productos y otros cargos, así que la suma da lo que entró a caja. En jornadas antiguas los montos de mesas y productos cambian respecto a lo que mostraban, pero el total cobrado es el mismo. Solo cambian las jornadas con ventas que corrige el paso 6: en ellas el total baja en lo que se había registrado de más.
+Los reportes reparten lo que realmente se cobró entre mesas, productos y otros cargos, así que la suma da lo que entró a caja. En jornadas antiguas los montos de mesas y productos cambian respecto a lo que mostraban, pero el total cobrado es el mismo. Solo cambian las jornadas con ventas que corrige el paso 7: en ellas el total baja en lo que se había registrado de más.
 
 ## Si hay que volver atrás
 

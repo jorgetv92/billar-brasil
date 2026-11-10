@@ -11,7 +11,7 @@ class ResumenJornada {
     }
 
     // Parte de una venta que corresponde a mesas, productos y otros cargos, en centavos.
-    // Lo pagado por la hora gratis es tiempo de mesa. El redondeo acompaña al tiempo; en una venta sin tiempo,
+    // Lo pagado por la hora con descuento es tiempo de mesa. El redondeo acompaña al tiempo; en una venta sin tiempo,
     // a los productos, y si tampoco hay productos, a los cargos.
     private static function partes(array $venta) {
         $mesas = self::centavos($venta['subtotal_mesas']) + self::centavos($venta['cargos_hora']);

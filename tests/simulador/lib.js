@@ -9,7 +9,7 @@ const { CLAVE_ADMIN_SIM } = require('./preparar');
 
 const RELOJ = path.join(DIR_SITIO, 'backend', 'config', 'sim_clock.txt');
 
-// La hora gratis no es un producto: para el oráculo es una línea más con el monto adicional, y en la base
+// La hora con descuento no es un producto: para el oráculo es una línea más con el monto adicional, y en la base
 // queda como cargo de la venta. Este id no coincide con ningún producto ni promoción.
 const CARGO_HORA_GRATIS = 'cargo_hora_gratis';
 
@@ -188,7 +188,7 @@ class Sim {
       { id, qty },
     );
   }
-  // Elige en el buscador la promoción de hora gratis vigente ("Promo: ..."), como lo haría el cajero.
+  // Elige en el buscador la promoción de hora con descuento vigente ("Promo: ..."), como lo haría el cajero.
   // En barra además elige la mesa libre que se habilitará al cobrar.
   async elegirPromoHora(mesaId) {
     return this.page.evaluate(
@@ -248,9 +248,9 @@ class Sim {
       const promo = PROMOS.find((p) => p.t === 'incentivo_producto' && promoActiva(p, this.now));
       s.prods.push({ id: CARGO_HORA_GRATIS, qty: 1, precio: promo.v, ef: promo.v, t: this.now });
     }
-    this.say(`${n}: consumo prod ${id} x${qty} @${precio}${hubo ? ` (promo hora gratis)` : ''}`);
+    this.say(`${n}: consumo prod ${id} x${qty} @${precio}${hubo ? ` (promo hora con descuento)` : ''}`);
   }
-  // Quita la hora gratis de una mesa (el cargo): la mesa vuelve a tarifa normal.
+  // Quita la hora con descuento de una mesa (el cargo): la mesa vuelve a tarifa normal.
   async quitarHoraGratis(n) {
     await this.sel(n);
     const r = await this.page.evaluate(async (n) => {
@@ -264,7 +264,7 @@ class Sim {
     const s = this.ses[n];
     s.prods = s.prods.filter((p) => p.id !== CARGO_HORA_GRATIS);
     s.gratis = false;
-    this.say(`${n}: quita la hora gratis: ${r && r.status}`);
+    this.say(`${n}: quita la hora con descuento: ${r && r.status}`);
   }
   async quitarConsumo(n, id) {
     await this.sel(n);
@@ -360,7 +360,7 @@ class Sim {
     return r;
   }
   tally(items) {
-    // La hora gratis es un cargo: no mueve inventario.
+    // La hora con descuento es un cargo: no mueve inventario.
     for (const it of items.filter((x) => x.id !== CARGO_HORA_GRATIS)) this.j.vendido[it.id] = (this.j.vendido[it.id] || 0) + it.qty;
   }
   nVentas() {
@@ -545,26 +545,29 @@ class Sim {
   }
 }
 
-// Sesión PHP del admin de prueba que crea preparar.js. Se inicia una vez por servidor.
-const cookiesAdmin = {};
-async function cookieAdmin(base = BASE) {
-  if (!cookiesAdmin[base]) {
+// Sesiones PHP de los usuarios de prueba que crea preparar.js (sim_admin, sim_supervisor, sim_caja).
+// Se inicia una vez por usuario y servidor.
+const cookiesSim = {};
+async function cookieDe(usuario = 'sim_admin', base = BASE) {
+  const clave = `${usuario}@${base}`;
+  if (!cookiesSim[clave]) {
     const r = await fetch(`${base}/backend/api/login.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario: 'sim_admin', password: CLAVE_ADMIN_SIM }),
+      body: JSON.stringify({ usuario, password: CLAVE_ADMIN_SIM }),
     });
     const cookie = (r.headers.get('set-cookie') || '').split(';')[0];
-    if (!r.ok || !cookie) throw new Error('No se pudo iniciar la sesión del admin de prueba');
-    cookiesAdmin[base] = cookie;
+    if (!r.ok || !cookie) throw new Error(`No se pudo iniciar la sesión de prueba de ${usuario}`);
+    cookiesSim[clave] = cookie;
   }
-  return cookiesAdmin[base];
+  return cookiesSim[clave];
 }
 
-// Petición a la API. Con {sesion: false} va sin sesión, como lo haría alguien que no inició sesión.
-async function apiAdmin(metodo, ruta, cuerpo, { base = BASE, sesion = true } = {}) {
+// Petición a la API como el admin de prueba (o como {usuario}). Con {sesion: false} va sin sesión,
+// como lo haría alguien que no inició sesión.
+async function apiAdmin(metodo, ruta, cuerpo, { base = BASE, sesion = true, usuario = 'sim_admin' } = {}) {
   const headers = { 'Content-Type': 'application/json' };
-  if (sesion) headers.Cookie = await cookieAdmin(base);
+  if (sesion) headers.Cookie = await cookieDe(usuario, base);
   const r = await fetch(`${base}/backend/api/${ruta}`, { method: metodo, headers, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
   const texto = await r.text();
   try {

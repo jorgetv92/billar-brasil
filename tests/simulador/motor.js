@@ -80,7 +80,7 @@ async function probarBarra() {
 
   const cuatroCorona = [{ id_producto: P.Corona, cantidad: 4 }];
   const otraMesa = await post(BASE, { accion: 'registrar_venta_barra', total_mostrado: 101, metodo_pago: 'efectivo', productos: cuatroCorona, hora_gratis: true, id_mesa_ocupar_promo: MESA.Cachos1 });
-  comprobar('Hora gratis en una mesa de otro tipo se rechaza', otraMesa.codigo === 'promo_no_vigente' && estado(MESA.Cachos1) === 'libre', otraMesa.message);
+  comprobar('Hora con descuento en una mesa de otro tipo se rechaza', otraMesa.codigo === 'promo_no_vigente' && estado(MESA.Cachos1) === 'libre', otraMesa.message);
 
   const sinCondicion = await post(BASE, {
     accion: 'registrar_venta_barra',
@@ -90,11 +90,11 @@ async function probarBarra() {
     hora_gratis: true,
     id_mesa_ocupar_promo: MESA.Billar2,
   });
-  comprobar('Hora gratis sin la cantidad requerida se rechaza', sinCondicion.codigo === 'promo_no_vigente' && estado(MESA.Billar2) === 'libre', sinCondicion.message);
+  comprobar('Hora con descuento sin la cantidad requerida se rechaza', sinCondicion.codigo === 'promo_no_vigente' && estado(MESA.Billar2) === 'libre', sinCondicion.message);
 
   const valida = await post(BASE, { accion: 'registrar_venta_barra', total_mostrado: 101, metodo_pago: 'efectivo', productos: cuatroCorona, hora_gratis: true, id_mesa_ocupar_promo: MESA.Billar2 });
   const gratis = q(`SELECT s.primera_hora_gratis g FROM sesiones_juego s JOIN tramos_mesas t USING(id_sesion) WHERE t.id_mesa=${MESA.Billar2} AND s.estado='activa'`)[0];
-  comprobar('Hora gratis válida: cobra 101 y abre la mesa con la hora gratis', valida.status === 'success' && estado(MESA.Billar2) === 'ocupada' && gratis && gratis.g === '1', JSON.stringify(valida).slice(0, 120));
+  comprobar('Hora con descuento válida: cobra 101 y abre la mesa con la hora con descuento', valida.status === 'success' && estado(MESA.Billar2) === 'ocupada' && gratis && gratis.g === '1', JSON.stringify(valida).slice(0, 120));
 
   console.log('\n--- Venta de barra enviada dos veces (en producción hubo 5 casos por doble clic)');
   const venta = (idOperacion) => ({
@@ -239,7 +239,7 @@ async function probarModal(s, page) {
   page.on('dialog', (d) => d.accept().catch(() => {}));
   const s = new Sim(page);
 
-  // Sábado: está la promo de hora gratis por 4 Corona en mesas de Billar.
+  // Sábado: está la promo de hora con descuento por 4 Corona en mesas de Billar.
   await s.at('2026-12-12 14:00:00');
   await s.cargarPortal();
   await s.carga([[P.Corona, 300], [P.Macanuda, 100]]);

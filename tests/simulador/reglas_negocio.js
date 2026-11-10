@@ -145,7 +145,7 @@ function verificar(nombre, venta, esperado) {
   await s.at('2026-12-04 01:15:00');
   await s.cerrarJornada();
 
-  // ---------- SÁBADO: Privada (Bs 30) a Bs 25 tras 2 h. 4 Corona + Bs 5 = una hora gratis ----------
+  // ---------- SÁBADO: Privada (Bs 30) a Bs 25 tras 2 h. 4 Corona + Bs 5 = una hora con descuento ----------
   await s.at('2026-12-05 14:00:00');
   await s.cargarPortal();
   await s.abrirJornada(100);
@@ -163,11 +163,11 @@ function verificar(nombre, venta, esperado) {
   await s.at('2026-12-05 19:20:00');
   verificar(
     'Incentivo en producto: 4 Corona + aumento de Bs 5',
-    await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #1', caso: 'hora gratis barra' }),
+    await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #1', caso: 'hora con descuento barra' }),
     101,
   );
   await s.at('2026-12-05 20:40:00');
-  verificar('Hora gratis: 80 min en Billar pagan 20 min', await s.cobrarMesa('Billar #1', { caso: 'hora gratis 80m' }), 5);
+  verificar('Hora con descuento: 80 min en Billar pagan 20 min', await s.cobrarMesa('Billar #1', { caso: 'hora con descuento 80m' }), 5);
   await s.at('2026-12-05 20:45:00');
   await s.cerrarJornada();
 

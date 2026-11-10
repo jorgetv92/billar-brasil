@@ -24,7 +24,7 @@ CREATE TABLE usuarios (
     apellidos VARCHAR(100) NOT NULL,
     usuario VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    rol ENUM('administrador', 'atencion') NOT NULL
+    rol ENUM('administrador', 'supervisor', 'atencion') NOT NULL -- supervisor: atiende y además ve y corrige las ventas de la jornada
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE jornadas (
@@ -184,7 +184,7 @@ CREATE TABLE ventas (
     id_sesion INT NULL, -- Es NULL si fue venta rápida de barra
     subtotal_mesas DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     subtotal_productos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    subtotal_cargos DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Hora gratis y cargos por daños
+    subtotal_cargos DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Hora con descuento y cargos por daños
     descuentos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     redondeo DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Ajuste hacia arriba a .00 o .50
     total_pagar DECIMAL(10,2) NOT NULL,
@@ -223,6 +223,7 @@ CREATE TABLE ajustes_venta (
     ajuste_efectivo DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- Negativo: se devolvió al cliente
     ajuste_qr DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     id_usuario INT NULL,
+    id_autorizo INT NULL, -- Supervisor o administrador que autorizó la corrección
     fecha_hora DATETIME NOT NULL,
     CONSTRAINT fk_ajuste_venta FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -254,7 +255,7 @@ CREATE TABLE promociones (
     cantidad_condicion DECIMAL(10,2) NULL -- Cantidad mínima requerida (ej. 2 horas, 3 cervezas)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Cargos que no son productos: la hora gratis del incentivo y los daños (vaso roto, ventana...)
+-- Cargos que no son productos: la hora con descuento del incentivo y los daños (vaso roto, ventana...)
 CREATE TABLE conceptos_cargo (
     id_concepto INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,

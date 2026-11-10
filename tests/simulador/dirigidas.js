@@ -66,10 +66,10 @@ const P = { Macanuda: 1, Corona: 6, Palito: 9, SodaPop: 12, AmstelBot: 46, Choco
   await s.at('2026-11-25 02:20:00'); await barra([[P.Palito, 2]], { caso: 'R11 barra Palito 02:20' });
   await s.cerrarJornada();
 
-  // ---------- SÁBADO 28: hora gratis comprada con pago mixto ----------
+  // ---------- SÁBADO 28: hora con descuento comprada con pago mixto ----------
   await s.at('2026-11-28 14:00:00'); await s.cargarPortal(); await s.abrirJornada(100);
-  await s.at('2026-11-28 14:10:00'); await barra([[P.Corona, 4]], { mixto: true, incentivo: 'si', mesaIncentivo: 'Billar #1', caso: 'R12 barra 4 Corona + hora gratis, pago mixto' });
-  await s.at('2026-11-28 15:10:00'); await s.cobrarMesa('Billar #1', { caso: 'R13 hora gratis: 60m exactos = 0' });
+  await s.at('2026-11-28 14:10:00'); await barra([[P.Corona, 4]], { mixto: true, incentivo: 'si', mesaIncentivo: 'Billar #1', caso: 'R12 barra 4 Corona + hora con descuento, pago mixto' });
+  await s.at('2026-11-28 15:10:00'); await s.cobrarMesa('Billar #1', { caso: 'R13 hora con descuento: 60m exactos = 0' });
   await s.at('2026-11-28 15:20:00'); await s.abrirMesa('Privada #1');
   await s.at('2026-11-28 15:50:00'); await s.pausar('Privada #1');
   await s.at('2026-11-28 16:50:00'); await s.reanudar('Privada #1');

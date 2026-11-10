@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="css/atencion_barra.css?v=2026111101">
+<link rel="stylesheet" href="css/atencion_barra.css?v=2026111202">
 
 <div class="atencion-layout state-barra">
 
@@ -174,75 +174,125 @@
     </div>
 
     <div id="modalConfirmarCobro" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Confirmar Pago</h3>
+        <div class="modal-content mm" role="dialog" aria-labelledby="ttlConfirmarCobro">
+            <div class="mm-header">
+                <span class="mm-icono"><i class="material-icons">point_of_sale</i></span>
+                <div>
+                    <h3 class="mm-titulo" id="ttlConfirmarCobro">Confirmar pago</h3>
+                    <p class="mm-subtitulo" id="lblTipoCobroModal"></p>
+                </div>
+                <button type="button" class="mm-cerrar" title="Cerrar" onclick="gestorUI.cerrarModal('modalConfirmarCobro')"><i class="material-icons">close</i></button>
             </div>
-            <div class="modal-body">
-                <p class="text-center" style="font-weight: bold; margin-bottom: 15px; color: #2196f3;" id="lblTipoCobroModal"></p>
-
-                <div id="contenedorDetallesMesa">
-                    <p id="rowTiempoModal">Tiempo de mesa: <span id="lblDetalleTiempoModal">0.00 Bs</span></p>
-                    <p>Productos: <span id="lblDetalleConsumoModal">0.00 Bs</span></p>
-                    <p id="rowDescuentoModal" style="display:none; color: #166534; font-weight: bold;">Descuento Promocional: <span id="lblDetalleDescuentoModal">-0.00 Bs</span></p>
-                    <p id="rowCargosModal" style="display:none; color: #6d28d9;">Cargos: <span id="lblDetalleCargosModal">+0.00 Bs</span></p>
-                    <p id="rowRedondeoModal" style="display:none; color: #64748b;">Redondeo a .50: <span id="lblDetalleRedondeoModal">+0.00 Bs</span></p>
+            <div class="mm-body">
+                <div class="mm-desglose" id="contenedorDetallesMesa">
+                    <div class="mm-fila" id="rowTiempoModal"><span>Tiempo de mesa</span><span id="lblDetalleTiempoModal">0.00 Bs</span></div>
+                    <div class="mm-fila"><span>Productos</span><span id="lblDetalleConsumoModal">0.00 Bs</span></div>
+                    <div class="mm-fila mm-fila-descuento" id="rowDescuentoModal" style="display:none;"><span>Descuento promocional</span><span id="lblDetalleDescuentoModal">-0.00 Bs</span></div>
+                    <div class="mm-fila mm-fila-cargo" id="rowCargosModal" style="display:none;"><span>Cargos</span><span id="lblDetalleCargosModal">+0.00 Bs</span></div>
+                    <div class="mm-fila mm-fila-suave" id="rowRedondeoModal" style="display:none;"><span>Redondeo a .50</span><span id="lblDetalleRedondeoModal">+0.00 Bs</span></div>
                 </div>
 
-                <h4 class="text-center mb-10">Total a Pagar: <span id="lblTotalCobrarModal">0.00 Bs</span></h4>
+                <div class="mm-total">
+                    <span>Total a pagar</span>
+                    <strong id="lblTotalCobrarModal">0.00 Bs</strong>
+                </div>
 
-                <label>Método de Pago:</label>
-                <div class="btn-group-radio mt-10">
+                <div class="mm-etiqueta">Método de pago</div>
+                <div class="mm-metodos">
                     <input type="radio" name="metodoPago" id="pagoEfectivo" value="efectivo" checked>
-                    <label for="pagoEfectivo">Efectivo</label>
+                    <label for="pagoEfectivo" class="mm-metodo"><i class="material-icons">payments</i><span>Efectivo</span></label>
                     <input type="radio" name="metodoPago" id="pagoQR" value="qr">
-                    <label for="pagoQR">QR</label>
+                    <label for="pagoQR" class="mm-metodo"><i class="material-icons">qr_code_2</i><span>QR</span></label>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalConfirmarCobro')">Cancelar</button>
-                <button class="btn-primary btn-success" onclick="gestorUI.ejecutarCobroConfirmado()">Confirmar
-                    Pago</button>
+            <div class="mm-footer">
+                <button type="button" class="mm-btn mm-btn-sec" onclick="gestorUI.cerrarModal('modalConfirmarCobro')">Cancelar</button>
+                <button type="button" id="btnConfirmarCobro" class="mm-btn mm-btn-ok" onclick="gestorUI.ejecutarCobroConfirmado()"><i class="material-icons">check_circle</i>Confirmar pago</button>
             </div>
         </div>
     </div>
 
     <div id="modalTransferirMesa" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Transferir Mesa</h3>
+        <div class="modal-content mm mm-ancho" role="dialog" aria-labelledby="ttlTransferirMesa">
+            <div class="mm-header">
+                <span class="mm-icono mm-icono-transferir"><i class="material-icons">swap_horiz</i></span>
+                <div>
+                    <h3 class="mm-titulo" id="ttlTransferirMesa">Transferir mesa</h3>
+                    <p class="mm-subtitulo">El tiempo, los productos y los cargos pasan a la mesa nueva</p>
+                </div>
+                <button type="button" class="mm-cerrar" title="Cerrar" onclick="gestorUI.cerrarModal('modalTransferirMesa')"><i class="material-icons">close</i></button>
             </div>
-            <div class="modal-body">
-                <label>Seleccione mesa destino:</label>
-                <select id="selectMesaDestino" class="input-text mt-10" style="width: 100%;">
-                </select>
+            <div class="mm-body">
+                <div class="transferir-ruta">
+                    <div class="transferir-punto">
+                        <span class="transferir-rotulo">Desde</span>
+                        <strong id="lblTransferirOrigen">—</strong>
+                    </div>
+                    <i class="material-icons transferir-flecha">arrow_forward</i>
+                    <div class="transferir-punto transferir-destino">
+                        <span class="transferir-rotulo">Hacia</span>
+                        <strong id="lblTransferirDestino">Elija una mesa</strong>
+                    </div>
+                </div>
+
+                <div class="mm-etiqueta">Mesas libres</div>
+                <div id="listaMesasDestino" class="transferir-mesas"></div>
+                <!-- La mesa elegida queda en este select (oculto): es lo que se envía al transferir. -->
+                <select id="selectMesaDestino" class="transferir-select" aria-hidden="true" tabindex="-1"></select>
             </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalTransferirMesa')">Cancelar</button>
-                <button class="btn-primary btn-info" onclick="gestorUI.confirmarTransferencia()">Transferir</button>
+            <div class="mm-footer">
+                <button type="button" class="mm-btn mm-btn-sec" onclick="gestorUI.cerrarModal('modalTransferirMesa')">Cancelar</button>
+                <button type="button" id="btnConfirmarTransferencia" class="mm-btn mm-btn-transferir" onclick="gestorUI.confirmarTransferencia()" disabled><i class="material-icons">swap_horiz</i>Transferir</button>
             </div>
         </div>
     </div>
 
     <div id="modalDividirPago" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Dividir Pago</h3>
-            </div>
-            <div class="modal-body">
-                <p>Total a pagar: <strong id="lblTotalDividir">00.00</strong> Bs</p>
-                <div class="form-group mt-10">
-                    <label>Efectivo (Bs):</label>
-                    <input type="number" id="inputDividirEfectivo" class="input-text" onkeyup="gestorUI.calcularDividirPago('efectivo')">
+        <div class="modal-content mm" role="dialog" aria-labelledby="ttlDividirPago">
+            <div class="mm-header">
+                <span class="mm-icono"><i class="material-icons">call_split</i></span>
+                <div>
+                    <h3 class="mm-titulo" id="ttlDividirPago">Dividir pago</h3>
+                    <p class="mm-subtitulo">Efectivo y QR en un mismo cobro</p>
                 </div>
-                <div class="form-group mt-10">
-                    <label>QR (Bs):</label>
-                    <input type="number" id="inputDividirQR" class="input-text" onkeyup="gestorUI.calcularDividirPago('qr')">
-                </div>
+                <button type="button" class="mm-cerrar" title="Cerrar" onclick="gestorUI.cerrarModal('modalDividirPago')"><i class="material-icons">close</i></button>
             </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="gestorUI.cerrarModal('modalDividirPago')">Cancelar</button>
-                <button class="btn-primary btn-success" onclick="gestorUI.confirmarPagoDividido()">Procesar</button>
+            <div class="mm-body">
+                <div class="mm-total">
+                    <span>Total a pagar</span>
+                    <strong><span id="lblTotalDividir">0.00</span> Bs</strong>
+                </div>
+
+                <div class="mm-etiqueta">¿Cuánto paga con cada método?</div>
+                <div class="mm-montos">
+                    <label class="mm-monto" for="inputDividirEfectivo">
+                        <span class="mm-monto-metodo"><i class="material-icons">payments</i>Efectivo</span>
+                        <span class="mm-monto-campo">
+                            <input type="number" id="inputDividirEfectivo" inputmode="decimal" step="0.50" min="0" oninput="gestorUI.calcularDividirPago('efectivo')" onfocus="this.select()">
+                            <span>Bs</span>
+                        </span>
+                    </label>
+                    <label class="mm-monto" for="inputDividirQR">
+                        <span class="mm-monto-metodo"><i class="material-icons">qr_code_2</i>QR</span>
+                        <span class="mm-monto-campo">
+                            <input type="number" id="inputDividirQR" inputmode="decimal" step="0.50" min="0" oninput="gestorUI.calcularDividirPago('qr')" onfocus="this.select()">
+                            <span>Bs</span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="mm-rapidos">
+                    <button type="button" onclick="gestorUI.repartirPago(1)">Todo efectivo</button>
+                    <button type="button" onclick="gestorUI.repartirPago(0.5)">Mitad y mitad</button>
+                    <button type="button" onclick="gestorUI.repartirPago(0)">Todo QR</button>
+                </div>
+
+                <div class="mm-barra" aria-hidden="true"><span id="barraDividirEfectivo"></span><span id="barraDividirQR"></span></div>
+                <p class="mm-estado" id="lblEstadoDividir"></p>
+            </div>
+            <div class="mm-footer">
+                <button type="button" class="mm-btn mm-btn-sec" onclick="gestorUI.cerrarModal('modalDividirPago')">Cancelar</button>
+                <button type="button" id="btnProcesarDividido" class="mm-btn mm-btn-ok" onclick="gestorUI.confirmarPagoDividido()"><i class="material-icons">check_circle</i>Cobrar</button>
             </div>
         </div>
     </div>
@@ -265,27 +315,39 @@
         </div>
     </div>
 
-    <!-- MODAL CARGO (rotura de vaso o botella, daños): el concepto sugiere el monto y se puede cambiar -->
+    <!-- MODAL CARGOS (roturas, daños): se arma una lista con cantidades y se agrega todo de una vez -->
     <div id="modalAgregarCargo" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Agregar Cargo</h3>
-            </div>
-            <div class="modal-body">
-                <label for="selectConceptoCargo">Concepto:</label>
-                <select id="selectConceptoCargo" class="input-text mt-10" style="width: 100%;" onchange="gestorUI.onConceptoCargo()"></select>
-                <div class="form-group mt-10">
-                    <label for="inputDescripcionCargo">Descripción:</label>
-                    <input type="text" id="inputDescripcionCargo" class="input-text" maxlength="150" placeholder="Ej: Ventana del baño">
+        <div class="modal-content mm mm-ancho" role="dialog" aria-labelledby="ttlAgregarCargo">
+            <div class="mm-header">
+                <span class="mm-icono mm-icono-cargo"><i class="material-icons">receipt_long</i></span>
+                <div>
+                    <h3 class="mm-titulo" id="ttlAgregarCargo">Agregar cargos</h3>
+                    <p class="mm-subtitulo" id="lblDestinoCargo"></p>
                 </div>
-                <div class="form-group mt-10">
-                    <label for="inputMontoCargo">Monto (Bs):</label>
-                    <input type="number" id="inputMontoCargo" class="input-text" step="0.50" min="0.50">
-                </div>
+                <button type="button" class="mm-cerrar" title="Cerrar" onclick="gestorUI.cerrarModalCargo()"><i class="material-icons">close</i></button>
             </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="document.getElementById('modalAgregarCargo').classList.add('hidden')">Cancelar</button>
-                <button class="btn-primary" onclick="gestorUI.confirmarCargo()">Agregar</button>
+            <div class="mm-body">
+                <div class="mm-etiqueta">Toque un concepto para sumarlo</div>
+                <div class="cargo-conceptos" id="listaConceptosCargo"></div>
+
+                <div class="cargo-otro hidden" id="formCargoOtro">
+                    <input type="text" id="inputDescripcionCargo" class="mm-input" maxlength="150" placeholder="Descripción (ej: ventana del baño)">
+                    <div class="cargo-otro-fila">
+                        <span class="mm-monto-campo">
+                            <input type="number" id="inputMontoCargo" inputmode="decimal" step="0.50" min="0.50" placeholder="0.00">
+                            <span>Bs</span>
+                        </span>
+                        <button type="button" class="mm-btn mm-btn-cargo" onclick="gestorUI.agregarCargoOtro()"><i class="material-icons">add</i>Sumar</button>
+                    </div>
+                </div>
+
+                <div class="mm-etiqueta">Cargos a agregar</div>
+                <div class="cargo-lista" id="listaCargosModal"></div>
+            </div>
+            <div class="mm-footer mm-footer-total">
+                <div class="mm-footer-suma"><span>Total cargos</span><strong id="lblTotalCargosModal">0.00 Bs</strong></div>
+                <button type="button" class="mm-btn mm-btn-sec" onclick="gestorUI.cerrarModalCargo()">Cancelar</button>
+                <button type="button" id="btnConfirmarCargos" class="mm-btn mm-btn-cargo" onclick="gestorUI.confirmarCargo()" disabled><i class="material-icons">add_shopping_cart</i><span id="lblBotonCargos">Agregar</span></button>
             </div>
         </div>
     </div>

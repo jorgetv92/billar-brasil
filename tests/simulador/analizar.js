@@ -109,7 +109,7 @@ for (const j of R.jornadas) {
   const filasMesas = d0.mesas.filas.reduce((s, f) => s + +f.total, 0);
   const filasProductos = d0.productos.filas.reduce((s, f) => s + +f.total, 0);
   // Lo cobrado por tiempo: el tiempo de cada venta más su redondeo (las ventas nuevas cuadran al centavo).
-  // Lo pagado por la hora gratis también es tiempo de mesa.
+  // Lo pagado por la hora con descuento también es tiempo de mesa.
   const tiempoCobrado = +q(`SELECT COALESCE(SUM(x.m + x.h + IF(x.m + x.h > 0, x.r, 0)), 0) t FROM (SELECT v.subtotal_mesas m, v.redondeo r, COALESCE((SELECT SUM(c.monto) FROM cargos_venta c WHERE c.id_venta = v.id_venta AND c.tipo = 'hora_gratis'), 0) h FROM ventas v WHERE v.id_jornada=${j.id}) x`)[0].t;
   const t = j.textoFinal.replace(/\s+/g, ' ');
   const cierre = t.match(/Rendimiento de Mesas ([\d:]+) hrs jugadas (-?[\d.]+) Bs Rendimiento de Productos (\d+) uds vendidas (-?[\d.]+) Bs (?:Otros Cargos \(roturas, daños\) (-?[\d.]+) Bs )?Total Recaudado \(Limpio de Egresos\) (-?[\d.]+)/i);

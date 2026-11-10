@@ -3,7 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const { BASE, DIR_RESULTADOS } = require('./config');
-const { Sim, abrirNavegador, q } = require('./lib');
+const { Sim, abrirNavegador, apiAdmin, q } = require('./lib');
+const { CLAVE_ADMIN_SIM } = require('./preparar');
 
 const P = { Macanuda: 1, Corona: 6, SodaPop: 12 };
 
@@ -13,19 +14,11 @@ function comprobar(nombre, ok, detalle = '') {
   console.log(`${ok ? '✓' : '✗'} ${nombre}${detalle ? ` | ${detalle}` : ''}`);
 }
 
-async function llamar(metodo, ruta, cuerpo) {
-  const r = await fetch(`${BASE}/backend/api/${ruta}`, {
-    method: metodo,
-    headers: { 'Content-Type': 'application/json' },
-    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
-  });
-  const texto = await r.text();
-  try {
-    return JSON.parse(texto);
-  } catch (e) {
-    return { status: 'no_json', raw: texto.slice(0, 300) };
-  }
-}
+// Las correcciones las hace un supervisor con su sesión (el cajero necesita su autorización).
+const llamar = (metodo, ruta, cuerpo, usuario = 'sim_supervisor') => apiAdmin(metodo, ruta, cuerpo, { usuario });
+const comoNadie = (metodo, ruta, cuerpo) => apiAdmin(metodo, ruta, cuerpo, { sesion: false });
+const comoCaja = (metodo, ruta, cuerpo) => apiAdmin(metodo, ruta, cuerpo, { usuario: 'sim_caja' });
+const idUsuario = (usuario) => q(`SELECT id_usuario i FROM usuarios WHERE usuario='${usuario}'`)[0].i;
 const editar = (idDetalle, cantidad) => llamar('PUT', 'jornada.php?action=editar_detalle_venta', { id_detalle: idDetalle, nueva_cantidad: cantidad, id_usuario: 4 });
 const borrar = (idDetalle) => llamar('DELETE', `jornada.php?action=eliminar_detalle_venta&id_detalle=${idDetalle}&id_usuario=4`);
 
@@ -116,10 +109,55 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   comprobar('Bajar una soda: 16,25 + 8 = 24,25 → 24,50 y devuelve 8', +v.subtotal_mesas === tiempo && +v.total_pagar === 24.5 && +v.redondeo === 0.25 && cuadra(v), `${resumen(v)} | ${r.mensaje_caja}`);
   comprobar('"Mis ventas" muestra los productos de la venta de mesa', r.importe === 8, `importe ${r.importe}`);
 
+  console.log('\n--- Quién ve y corrige las ventas (API)');
+  const idDet = detalleDe(vMesa, P.SodaPop);
+  const sinSesion = await comoNadie('GET', 'jornada.php?action=ventas_jornada');
+  const sinSesionEditar = await comoNadie('PUT', 'jornada.php?action=editar_detalle_venta', { id_detalle: idDet, nueva_cantidad: 5 });
+  comprobar('Sin sesión no se ven ni se corrigen las ventas', sinSesion.http === 403 && sinSesion.codigo === 'requiere_supervisor' && sinSesionEditar.http === 403 && +venta(vMesa).total_pagar === 24.5, `${sinSesion.http} / ${sinSesionEditar.http}`);
+  const caja = await comoCaja('GET', 'jornada.php?action=ventas_jornada');
+  const cajaBorrar = await comoCaja('DELETE', `jornada.php?action=eliminar_detalle_venta&id_detalle=${idDet}`);
+  comprobar('Un usuario de atención, con su sesión, tampoco', caja.http === 403 && cajaBorrar.http === 403 && +venta(vMesa).total_pagar === 24.5, `${caja.http} / ${cajaBorrar.http}`);
+  const estadoCaja = await comoCaja('GET', 'autorizacion.php');
+  const estadoSup = await llamar('GET', 'autorizacion.php');
+  comprobar('El estado distingue al supervisor del cajero', estadoCaja.es_supervisor === false && estadoCaja.rol === 'atencion' && estadoSup.es_supervisor === true && estadoSup.rol === 'supervisor', JSON.stringify([estadoCaja, estadoSup]));
+  const conCaja = await comoCaja('POST', 'autorizacion.php', { usuario: 'sim_caja', password: CLAVE_ADMIN_SIM });
+  const malaClave = await comoCaja('POST', 'autorizacion.php', { usuario: 'sim_supervisor', password: 'equivocada' });
+  comprobar('Un cajero no puede autorizar, y una contraseña equivocada tampoco', conCaja.http === 403 && malaClave.http === 401 && (await comoCaja('GET', 'jornada.php?action=ventas_jornada')).http === 403, `${conCaja.message} / ${malaClave.message}`);
+  const autorizo = await comoCaja('POST', 'autorizacion.php', { usuario: 'sim_supervisor', password: CLAVE_ADMIN_SIM });
+  const autorizado = await comoCaja('GET', 'jornada.php?action=ventas_jornada');
+  comprobar('Con la autorización del supervisor el cajero ve las ventas', autorizo.status === 'success' && autorizo.supervisor === 'Sim Supervisor' && autorizado.status === 'success' && autorizado.ventas.length > 0, autorizo.message);
+  await comoCaja('DELETE', 'autorizacion.php');
+  comprobar('Al retirar la autorización vuelve a pedirla', (await comoCaja('GET', 'jornada.php?action=ventas_jornada')).http === 403);
+  const admin = await llamar('GET', 'jornada.php?action=ventas_jornada', null, 'sim_admin');
+  comprobar('Un administrador las ve con su sesión', admin.status === 'success');
+
   console.log('\n--- Pantalla "Mis ventas"');
   const idSoda = detalleDe(vMesa, P.SodaPop);
   await s.vista('dashboard_atencion.html', '#jornadaContainer');
+  const panel = () => page.evaluate(() => ({
+    login: getComputedStyle(document.getElementById('misVentasLogin')).display !== 'none',
+    ventas: getComputedStyle(document.getElementById('misVentasContenido')).display !== 'none',
+    filas: document.querySelectorAll('#misVentasTbody .btn-accion-editar').length,
+    error: document.getElementById('supError').textContent,
+    supervisor: getComputedStyle(document.getElementById('lblSupervisorVentas')).display === 'none' ? '' : document.querySelector('#lblSupervisorVentas span').textContent,
+  }));
+  const ingresar = async (usuario, clave) => {
+    await page.fill('#supUsuario', usuario);
+    await page.fill('#supPassword', clave);
+    await page.click('#supAutorizar');
+    await page.waitForTimeout(700);
+  };
+  // El portal de prueba no inició sesión: es como un cajero.
   await page.evaluate(() => abrirModalMisVentas());
+  await page.waitForTimeout(500);
+  let p = await panel();
+  comprobar('Cajero: "Mis ventas" muestra primero el login de supervisor, sin ventas', p.login && !p.ventas && p.filas === 0, JSON.stringify(p));
+  await ingresar('sim_caja', CLAVE_ADMIN_SIM);
+  p = await panel();
+  comprobar('Cajero: si ingresa un usuario de atención, avisa y no muestra ventas', p.login && !p.ventas && p.error.includes('no es supervisor'), JSON.stringify(p));
+  await ingresar('sim_supervisor', CLAVE_ADMIN_SIM);
+  p = await panel();
+  comprobar('Cajero: con los datos del supervisor se muestran las ventas y quién autorizó', !p.login && p.ventas && p.filas > 0 && p.supervisor === 'Autorizó: Sim Supervisor', JSON.stringify(p));
   await page.waitForSelector(`.btn-accion-editar[data-id="${idSoda}"]`, { state: 'attached', timeout: 15000 });
   await page.evaluate((id) => document.querySelector(`.btn-accion-editar[data-id="${id}"]`).click(), idSoda);
   await page.evaluate((id) => {
@@ -132,14 +170,31 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   v = venta(vMesa);
   comprobar('Editar desde la pantalla avisa al cajero cuánto cobrar', aviso && aviso.t === 'warning' && aviso.m.includes('Cobrar al cliente 8.00 Bs en efectivo.'), aviso && aviso.m);
   comprobar('La fila muestra el importe nuevo y la venta cuadra', importePantalla === '16.00 Bs' && +v.total_pagar === 32.5 && cuadra(v), `${importePantalla} | ${resumen(v)}`);
-  await page.evaluate(() => {
-    document.getElementById('modalMisVentas').style.display = 'none';
-  });
+  await page.click('#btnCerrarMisVentas2');
+  await page.waitForTimeout(300);
+  const trasCerrar = await page.evaluate(async () => (await fetch('../backend/api/jornada.php?action=ventas_jornada')).status);
+  comprobar('Cajero: al cerrar el modal la autorización termina', trasCerrar === 403, `HTTP ${trasCerrar}`);
+  await page.evaluate(() => abrirModalMisVentas());
+  await page.waitForTimeout(500);
+  p = await panel();
+  comprobar('Cajero: al volver a abrir pide otra vez al supervisor', p.login && !p.ventas && p.filas === 0, JSON.stringify(p));
+  await page.click('#btnCerrarMisVentas');
+
+  // Un supervisor que inició sesión atiende igual y ve las ventas directo.
+  const login = await page.request.post(`${BASE}/backend/api/login.php`, { data: { usuario: 'sim_supervisor', password: CLAVE_ADMIN_SIM } });
+  await page.evaluate(() => abrirModalMisVentas());
+  await page.waitForTimeout(700);
+  p = await panel();
+  comprobar('Supervisor con sesión: ve las ventas sin login', login.ok() && !p.login && p.ventas && p.filas > 0 && p.supervisor === '', JSON.stringify(p));
+  await page.click('#btnCerrarMisVentas2');
+  await page.waitForTimeout(200);
+  const sigueSupervisor = await page.evaluate(async () => (await fetch('../backend/api/jornada.php?action=ventas_jornada')).status);
+  comprobar('Supervisor con sesión: cerrar el modal no le quita el acceso', sigueSupervisor === 200, `HTTP ${sigueSupervisor}`);
 
   const bitacora = q(`SELECT * FROM ajustes_venta WHERE id_venta=${vMixto} ORDER BY id_ajuste`);
   comprobar(
     'Cada corrección queda en la bitácora con lo que se movió',
-    bitacora.length === 3 && +bitacora[0].ajuste_efectivo === -10 && +bitacora[0].ajuste_qr === -14 && +bitacora[2].cantidad_nueva === 0 && bitacora[2].id_usuario === '4',
+    bitacora.length === 3 && +bitacora[0].ajuste_efectivo === -10 && +bitacora[0].ajuste_qr === -14 && +bitacora[2].cantidad_nueva === 0 && bitacora[2].id_usuario === '4' && bitacora.every((b) => b.id_autorizo === idUsuario('sim_supervisor')),
     JSON.stringify(bitacora.map((b) => [b.cantidad_anterior, b.cantidad_nueva, b.total_anterior, b.total_nuevo, b.ajuste_efectivo, b.ajuste_qr])),
   );
 
@@ -157,14 +212,14 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   const cerrada = await editar(detalleDe(vMesa, P.SodaPop), 2);
   comprobar('Una venta de una jornada cerrada no se puede corregir', cerrada.codigo === 'jornada_cerrada' && venta(vMesa).total_pagar === antes.total_pagar, `${cerrada.message} (jornada ${idJornadaCerrada})`);
 
-  // ---------- SÁBADO: hora gratis por 4 Corona ----------
+  // ---------- SÁBADO: hora con descuento por 4 Corona ----------
   await s.at('2026-12-12 14:00:00');
   await s.cargarPortal();
   await s.abrirJornada(100);
-  const vHora = (await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #2', caso: 'hora gratis' })).id_venta;
+  const vHora = (await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #2', caso: 'hora con descuento' })).id_venta;
   const hora = await editar(detalleDe(vHora, P.Corona), 3);
   const conHora = venta(vHora);
-  comprobar('Corregir una venta con hora gratis conserva el cargo de la hora (3 Corona + 5 = 77)', hora.status === 'success' && +conHora.total_pagar === 77 && +conHora.subtotal_cargos === 5 && cuadra(conHora), `${resumen(conHora)} | ${hora.mensaje_caja}`);
+  comprobar('Corregir una venta con hora con descuento conserva el cargo de la hora (3 Corona + 5 = 77)', hora.status === 'success' && +conHora.total_pagar === 77 && +conHora.subtotal_cargos === 5 && cuadra(conHora), `${resumen(conHora)} | ${hora.mensaje_caja}`);
 
   comprobar('Sin errores de JavaScript', errores.length === 0, errores.join(' / '));
   await navegador.close();

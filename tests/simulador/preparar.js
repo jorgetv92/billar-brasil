@@ -17,6 +17,7 @@ const MIGRACIONES = [
   { archivo: path.join('backend', 'config', 'migracion_productos_cargos_combos.sql'), aplicada: "SHOW TABLES LIKE 'cargos_venta'" },
   { archivo: path.join('backend', 'config', 'migracion_cargas_jornada.sql'), aplicada: "SHOW COLUMNS FROM cargas LIKE 'id_jornada'" },
   { archivo: path.join('backend', 'config', 'migracion_combos.sql'), aplicada: "SHOW TABLES LIKE 'combos'" },
+  { archivo: path.join('backend', 'config', 'migracion_rol_supervisor.sql'), aplicada: "SHOW COLUMNS FROM ajustes_venta LIKE 'id_autorizo'" },
 ];
 
 // Por defecto se clona la base del entorno local (backend/config/entornos/local.php). BILLAR_BD_ORIGEN
@@ -118,7 +119,11 @@ function clonarBd(origen, { reset }) {
       ['-r', `echo password_hash('${CLAVE_ADMIN_SIM}', PASSWORD_BCRYPT);`],
       { encoding: 'utf8' },
     ).trim();
-    mysql([BD_SIM], `INSERT INTO usuarios (nombres, apellidos, usuario, password, rol) VALUES ('Sim','Admin','sim_admin','${hash}','administrador');`);
+    // Los tres roles, con la misma contraseña de prueba.
+    mysql([BD_SIM], `INSERT INTO usuarios (nombres, apellidos, usuario, password, rol) VALUES
+      ('Sim','Admin','sim_admin','${hash}','administrador'),
+      ('Sim','Supervisor','sim_supervisor','${hash}','supervisor'),
+      ('Sim','Caja','sim_caja','${hash}','atencion');`);
   }
 }
 

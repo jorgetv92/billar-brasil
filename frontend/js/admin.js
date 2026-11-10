@@ -2098,7 +2098,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
 
                         listaUsuariosGlobal.forEach(u => {
-                            const badgeColor = u.role === 'administrador' ? 'var(--primary)' : '#2196f3';
+                            const badgeColor = { administrador: 'var(--primary)', supervisor: '#7c3aed' }[u.rol] || '#2196f3';
                             tbody.innerHTML += `
                         <tr>
                             <td>${u.nombres}</td>
@@ -3036,7 +3036,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         </tr></tbody>
                      </table>`;
 
-            // Otros cargos (rotura de vaso, daños). La hora gratis se cuenta en mesas.
+            // Otros cargos (rotura de vaso, daños). La hora con descuento se cuenta en mesas.
             if (d.cargos && d.cargos.filas.length) {
                 const totalCg = parseFloat(d.cargos.resumen.efectivo) + parseFloat(d.cargos.resumen.qr);
                 html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #8b5cf6;">Otros Cargos</h3>`;

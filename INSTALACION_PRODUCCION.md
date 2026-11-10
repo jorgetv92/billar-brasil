@@ -57,7 +57,8 @@ Debe terminar sin errores y dejar 23 tablas. Si alguna tabla ya existía, se det
    - Ajustar el stock con una carga si hace falta: el stock copiado es el de la base anterior al 2026-11-09.
    - Revisar los insumos.
    - Crear los productos preparados (vasos y tragos), los combos (sección "Combos", debajo de Inventario; ej. "Fernet combo" = 1 Fernet + 2 Coca Cola) y las promociones que se vayan a usar.
-   - Las promociones "Producto 2x1" y la hora gratis no se aplican solas: el cajero las elige en el buscador escribiendo "promo".
+   - Las promociones "Producto 2x1" y la hora con descuento no se aplican solas: el cajero las elige en el buscador escribiendo "promo".
+   - En "Usuarios", dar el rol "Supervisor" a quienes autorizan las correcciones de ventas. El supervisor atiende igual que atención y además ve "Mis ventas" sin pedir autorización; a un usuario de atención, "Mis ventas" le pide primero los datos de un supervisor.
 3. En atención:
    - Abrir la jornada, ocupar una mesa, agregar un producto y cobrar.
    - Registrar un egreso y un gasto de insumo.

@@ -117,24 +117,24 @@ const P = { Macanuda: 1, Corona: 6, Gordita: 7, Palito: 9, SodaPop: 12, CigBohem
   await s.at('2026-11-18 00:20:00'); await s.cobrarMesa('Cachos #1', { caso: 'T2 Cachos 50m cruzando medianoche' });
   await s.at('2026-11-18 00:30:00'); await s.cerrarJornada();
 
-  // ================= TURNO 3 - SABADO: incentivo mesa, incentivo producto (hora gratis), doble ocupacion =================
+  // ================= TURNO 3 - SABADO: incentivo mesa, incentivo producto (hora con descuento), doble ocupacion =================
   await s.at('2026-11-21 13:58:00'); await s.cargarPortal();
   await s.at('2026-11-21 14:00:00'); await s.abrirJornada(150);
   await s.at('2026-11-21 14:10:00'); await s.abrirMesa('Privada #1');
-  await s.at('2026-11-21 14:20:00'); await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #1', caso: 'T3 barra 4 Corona + hora gratis Billar #1' });
+  await s.at('2026-11-21 14:20:00'); await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #1', caso: 'T3 barra 4 Corona + hora con descuento Billar #1' });
   await s.at('2026-11-21 14:30:00'); await s.abrirMesa('Billar #2');
   await s.at('2026-11-21 14:35:00'); await s.consumo('Billar #2', P.Corona, 4, { incentivo: 'si' });
-  await s.at('2026-11-21 15:40:00'); await s.cobrarMesa('Billar #1', { caso: 'T3 hora gratis 80m: paga 20m' });
-  await s.at('2026-11-21 16:05:00'); await s.cobrarMesa('Billar #2', { metodo: 'qr', caso: 'T3 hora gratis por consumo en mesa 95m QR' });
+  await s.at('2026-11-21 15:40:00'); await s.cobrarMesa('Billar #1', { caso: 'T3 hora con descuento 80m: paga 20m' });
+  await s.at('2026-11-21 16:05:00'); await s.cobrarMesa('Billar #2', { metodo: 'qr', caso: 'T3 hora con descuento por consumo en mesa 95m QR' });
   await s.at('2026-11-21 16:10:00'); await s.cobrarMesa('Privada #1', { caso: 'T3 incentivo mesa 2h exactas' });
   await s.at('2026-11-21 16:15:00'); await s.abrirMesa('Privada #1');
-  await s.at('2026-11-21 16:20:00'); await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #3', caso: 'T3 barra 4 Corona + hora gratis Billar #3' });
+  await s.at('2026-11-21 16:20:00'); await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #3', caso: 'T3 barra 4 Corona + hora con descuento Billar #3' });
   await s.at('2026-11-21 16:50:00'); await s.transferir('Billar #3', 'Cachos #1');
-  await s.at('2026-11-21 17:20:00'); await s.cobrarMesa('Cachos #1', { caso: 'T3 hora gratis Billar transferida a Cachos' });
+  await s.at('2026-11-21 17:20:00'); await s.cobrarMesa('Cachos #1', { caso: 'T3 hora con descuento Billar transferida a Cachos' });
   await s.at('2026-11-21 17:45:00'); await s.cobrarMesa('Privada #1', { caso: 'T3 incentivo mesa NO alcanza 2h (90m)' });
   await s.at('2026-11-21 18:00:00'); await s.abrirMesa('Privada #1');
-  await s.at('2026-11-21 18:05:00'); await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #5', caso: 'T3 barra 4 Corona + hora gratis Billar #5' });
-  await s.at('2026-11-21 18:35:00'); await s.cobrarMesa('Billar #5', { caso: 'T3 hora gratis jugó solo 30m: paga 0' });
+  await s.at('2026-11-21 18:05:00'); await barra([[P.Corona, 4]], { incentivo: 'si', mesaIncentivo: 'Billar #5', caso: 'T3 barra 4 Corona + hora con descuento Billar #5' });
+  await s.at('2026-11-21 18:35:00'); await s.cobrarMesa('Billar #5', { caso: 'T3 hora con descuento jugó solo 30m: paga 0' });
   await s.at('2026-11-21 19:00:00'); await s.abrirMesa('Billar #6'); await s.consumo('Billar #6', P.Corona, 4, { incentivo: 'no' });
   await s.at('2026-11-21 19:10:00'); await s.abrirMesa('Billar #7');
   res.dobleOcupacion = await s.api('POST', 'atencion_barra.php', { accion: 'ocupar_mesa', id_mesa: await s.mesaAttr('Billar #7', 'data-id'), id_usuario: 4 });
@@ -149,7 +149,7 @@ const P = { Macanuda: 1, Corona: 6, Gordita: 7, Palito: 9, SodaPop: 12, CigBohem
   await s.at('2026-11-21 20:30:00'); await s.cobrarMixto('Privada #1', { caso: 'T3 incentivo mesa 2h30 pago mixto' });
   await s.at('2026-11-21 20:40:00'); await s.abrirMesa('Billar #1'); await s.consumo('Billar #1', P.Corona, 4, { incentivo: 'si' });
   await s.at('2026-11-21 20:50:00'); await s.quitarHoraGratis('Billar #1');
-  await s.at('2026-11-21 21:10:00'); await s.cobrarMesa('Billar #1', { caso: 'T3 quita Hora Promo: se revierte la hora gratis' });
+  await s.at('2026-11-21 21:10:00'); await s.cobrarMesa('Billar #1', { caso: 'T3 quita Hora Promo: se revierte la hora con descuento' });
   await s.at('2026-11-21 22:00:00'); await s.cerrarJornada();
 
   // ================= TURNO 4 - DOMINGO: aleatorio con semilla, sin promociones, mide frecuencia =================

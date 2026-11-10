@@ -69,7 +69,7 @@ test('incentivo en producto: una hora sin cobrar', () => {
   assert.equal(total('11:20:00'), 5, 'paga los 20 minutos restantes');
 });
 
-test('incentivo en producto: la hora gratis usa la tarifa real si la mesa se transfiere', () => {
+test('incentivo en producto: la hora con descuento usa la tarifa real si la mesa se transfiere', () => {
   const tramos = [tramo(2, '10:00:00', '10:30:00'), tramo(3, '10:30:00', '11:00:00')];
   assert.equal(liquidar({ tramos, gratis: true }, ctx()).tiempo, 0);
 });

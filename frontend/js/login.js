@@ -42,9 +42,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const rol = result.data.rol;
                 localStorage.setItem("id_usuario", result.data.id_usuario);
                 localStorage.setItem("usuario_nombre", result.data.nombres + " " + result.data.apellidos);
+                localStorage.setItem("usuario_rol", rol);
                 if (rol === "administrador") {
                     window.location.href = "frontend/portal_admin.html";
-                } else if (rol === "atencion") {
+                } else if (rol === "atencion" || rol === "supervisor") {
+                    // El supervisor atiende igual; además ve "Ventas de la jornada" sin pedir autorización.
                     window.location.href = "frontend/portal_atencion.html";
                 }
             } else {

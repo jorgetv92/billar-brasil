@@ -6,6 +6,7 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
 include_once '../config/database.php'; 
 include_once '../models/Liquidacion.php';
 include_once '../models/ResumenJornada.php';
+include_once '../models/Supervisor.php';
 $database = new Database();
 $pdo = $database->getConnection();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -126,6 +127,8 @@ if ($method === 'GET') {
         }
 
         if ($action === 'ventas_jornada') {
+            // Solo un supervisor (con su sesión o autorizando a quien atiende) ve las ventas de la jornada.
+            Supervisor::exigir();
             // Traer todas las ventas de la jornada que tengan al menos un producto vendido
             $stmtVentas = $pdo->prepare("
                 SELECT 
@@ -381,7 +384,7 @@ if ($method === 'POST') {
 // La venta se recalcula con el motor de cobro (2x1, promos, redondeo), los pagos se ajustan para que
 // sigan sumando el total y el cambio queda en ajustes_venta. Solo con la jornada de la venta abierta:
 // una jornada cerrada ya cuadró su caja.
-function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
+function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario, $idAutorizo = null) {
     $pdo->beginTransaction();
     try {
         $stmt = $pdo->prepare("SELECT d.id_venta, d.id_producto, d.cantidad, d.id_promocion, d.id_combo, p.tipo FROM detalle_venta_productos d JOIN productos p ON p.id_producto = d.id_producto WHERE d.id_detalle_prod = ? FOR UPDATE");
@@ -437,11 +440,11 @@ function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
 
         $pdo->prepare("
             INSERT INTO ajustes_venta (id_venta, id_detalle_prod, id_producto, cantidad_anterior, cantidad_nueva,
-                                       total_anterior, total_nuevo, ajuste_efectivo, ajuste_qr, id_usuario, fecha_hora)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                                       total_anterior, total_nuevo, ajuste_efectivo, ajuste_qr, id_usuario, id_autorizo, fecha_hora)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ")->execute([
             $venta['id_venta'], $idDetalle, $detalle['id_producto'], $anterior, $nuevaCantidad,
-            $venta['total_pagar'], $liq['total'], $movimientos['efectivo'] / 100, $movimientos['qr'] / 100, $idUsuario ?: null,
+            $venta['total_pagar'], $liq['total'], $movimientos['efectivo'] / 100, $movimientos['qr'] / 100, $idUsuario ?: null, $idAutorizo,
         ]);
 
         $pdo->commit();
@@ -530,6 +533,7 @@ function responderErrorCorreccion(Exception $e, $prefijo) {
 if ($method === 'PUT') {
     $action = $_GET['action'] ?? '';
     if ($action === 'editar_detalle_venta') {
+        $idAutorizo = Supervisor::exigir();
         $data = json_decode(file_get_contents("php://input"), true);
         $id_detalle = filter_var($data['id_detalle'] ?? null, FILTER_VALIDATE_INT);
         $nueva_cantidad = filter_var($data['nueva_cantidad'] ?? null, FILTER_VALIDATE_INT);
@@ -540,7 +544,7 @@ if ($method === 'PUT') {
         }
 
         try {
-            $resultado = corregirDetalleVenta($pdo, $id_detalle, $nueva_cantidad, $data['id_usuario'] ?? null);
+            $resultado = corregirDetalleVenta($pdo, $id_detalle, $nueva_cantidad, $data['id_usuario'] ?? null, $idAutorizo);
             responderCorreccion($resultado, "Cantidad actualizada correctamente.");
         } catch (Exception $e) {
             responderErrorCorreccion($e, "Error al editar: ");
@@ -557,6 +561,7 @@ if ($method === 'PUT') {
 if ($method === 'DELETE') {
     $action = $_GET['action'] ?? '';
     if ($action === 'eliminar_detalle_venta') {
+        $idAutorizo = Supervisor::exigir();
         $id_detalle = filter_var($_GET['id_detalle'] ?? null, FILTER_VALIDATE_INT);
 
         if (!$id_detalle) {
@@ -565,7 +570,7 @@ if ($method === 'DELETE') {
         }
 
         try {
-            $resultado = corregirDetalleVenta($pdo, $id_detalle, 0, $_GET['id_usuario'] ?? null);
+            $resultado = corregirDetalleVenta($pdo, $id_detalle, 0, $_GET['id_usuario'] ?? null, $idAutorizo);
             responderCorreccion($resultado, "Producto eliminado de la venta y stock restaurado.");
         } catch (Exception $e) {
             responderErrorCorreccion($e, "Error al eliminar: ");
