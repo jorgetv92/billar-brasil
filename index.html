@@ -3,36 +3,54 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Billar Brasil</title>
-    <link rel="stylesheet" href="frontend/css/login.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f2f2f7">
+    <title>Iniciar sesión · Billar Brasil</title>
+    <script src="frontend/js/tema.js?v=2026111501"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/css/login.css?v=2026111501">
+    <link rel="icon" type="image/png" href="frontend/assets/logo_icono.png">
 </head>
 
 <body>
-    <div class="login-container">
+    <main class="login-container">
         <div class="login-card">
             <div class="login-header">
+                <span class="login-icono"><img src="frontend/assets/logo_icono.png" alt=""></span>
                 <h1>Billar Brasil</h1>
-                <p>Ingresa tus credenciales</p>
+                <p>Inicia sesión con tu usuario</p>
             </div>
 
             <form id="loginForm">
-                <div class="input-group">
-                    <label for="usuario">Usuario</label>
-                    <input type="text" id="usuario" name="usuario" placeholder="Ej: admin" required autocomplete="off">
+                <div class="campos">
+                    <div class="input-group">
+                        <label for="usuario">Usuario</label>
+                        <input type="text" id="usuario" name="usuario" placeholder="Ej: admin" required autocomplete="off" autocapitalize="none" spellcheck="false">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" name="password" placeholder="Contraseña" required>
+                    </div>
                 </div>
 
-                <div class="input-group">
-                    <label for="password">Contraseña</label>
-                    <input type="password" id="password" name="password" placeholder="••••••••" required>
-                </div>
-
-                <div id="errorMessage" class="error-message" style="display: none;"></div>
+                <div id="errorMessage" class="error-message" role="alert" style="display: none;"></div>
 
                 <button type="submit" id="btnSubmit" class="btn-primary">Iniciar Sesión</button>
             </form>
         </div>
-    </div>
+
+        <footer class="login-pie">
+            <span>Billar Brasil · Resto Bar</span>
+            <div class="selector-tema" role="group" aria-label="Apariencia">
+                <button type="button" data-tema-opcion="claro">Claro</button>
+                <button type="button" data-tema-opcion="oscuro">Oscuro</button>
+                <button type="button" data-tema-opcion="auto" title="Sigue la apariencia del sistema">Auto</button>
+            </div>
+        </footer>
+    </main>
 
     <script src="frontend/js/login.js?v=2026111201"></script>
 </body>

@@ -3,19 +3,30 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atención - Billar Brasil</title>
-    <link rel="stylesheet" href="css/atencion.css?v=2026111301">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f2f2f7">
+    <title>Atención · Billar Brasil</title>
+    <script src="js/tema.js?v=2026111501"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..0&display=block" rel="stylesheet">
+    <link rel="stylesheet" href="css/atencion.css?v=2026111501">
+    <link rel="icon" type="image/png" href="assets/logo_icono.png">
 </head>
 
 <body>
 
     <header class="appbar">
         <div class="appbar-left">
-            <button id="menuToggle" class="icon-btn"><i class="material-icons">menu</i></button>
-            <h2 class="app-title">Billar Brasil <span style="font-size: 0.8rem; font-weight: normal; color: #64748b;">|
-                    Atención</span></h2>
+            <button id="menuToggle" class="icon-btn" title="Mostrar u ocultar el menú" aria-label="Mostrar u ocultar el menú"><i class="material-icons">side_navigation</i></button>
+            <div class="brand">
+                <img src="assets/logo_icono.png" alt="" class="brand-logo">
+                <div class="brand-text">
+                    <span class="brand-name">Billar Brasil</span>
+                    <span class="brand-sub">Atención</span>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -23,16 +34,18 @@
 
     <aside id="sidebar" class="sidebar">
         <div class="sidebar-profile">
-            <div class="avatar"><i class="material-icons">support_agent</i></div>
-            <h3 id="sidebarUserName">Cargando...</h3>
-            <span class="role-badge" id="sidebarRol" style="background: #2196f3;">Atención</span>
+            <div class="avatar"><i class="material-icons is-fill">support_agent</i></div>
+            <div class="sidebar-profile-texto">
+                <h3 id="sidebarUserName">Cargando...</h3>
+                <span class="role-badge" id="sidebarRol">Atención</span>
+            </div>
         </div>
         <nav class="sidebar-nav">
             <button class="nav-item active" data-page="dashboard_atencion.html">
                 <i class="material-icons">home</i> Dashboard
             </button>
             <button class="nav-item" data-page="atencion.html">
-                <i class="material-icons">assignment</i> Atencion
+                <i class="material-icons">point_of_sale</i> Atención
             </button>
             <button class="nav-item" data-page="gastos_productos.html">
                 <i class="material-icons">liquor</i> Gasto de producto
@@ -41,7 +54,7 @@
                 <i class="material-icons">outbox</i> Egresos
             </button>
             <button class="nav-item" data-page="gastos_insumos.html">
-                <i class="material-icons">output</i> Gasto insumos
+                <i class="material-icons">inventory</i> Gasto insumos
             </button>
             <button class="nav-item" data-page="configuracion_atencion.html">
                 <i class="material-icons">settings</i> Configuración
@@ -54,6 +67,14 @@
                 <i class="material-icons">logout</i> Cerrar Sesión
             </button>
         </nav>
+        <div class="sidebar-pie">
+            <span class="sidebar-pie-titulo" id="tituloApariencia">Apariencia</span>
+            <div class="selector-tema" role="group" aria-labelledby="tituloApariencia">
+                <button type="button" data-tema-opcion="claro" title="Apariencia clara"><i class="material-icons">light_mode</i>Claro</button>
+                <button type="button" data-tema-opcion="oscuro" title="Apariencia oscura"><i class="material-icons">dark_mode</i>Oscuro</button>
+                <button type="button" data-tema-opcion="auto" title="Sigue la apariencia del sistema"><i class="material-icons">contrast</i>Auto</button>
+            </div>
+        </div>
     </aside>
 
     <main id="router-outlet" class="main-content">
@@ -64,8 +85,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="js/fechas.js?v=2026111101"></script>
     <script src="js/impresion.js?v=2026111101"></script>
-    <script src="js/atencion.js?v=2026111401"></script>
-    <script src="js/atencion_barra.js?v=2026111202"></script>
+    <script src="js/atencion.js?v=2026111501"></script>
+    <script src="js/atencion_barra.js?v=2026111501"></script>
 </body>
 
 </html>

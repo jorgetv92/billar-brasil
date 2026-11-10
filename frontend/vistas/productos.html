@@ -1,5 +1,5 @@
 <style>
-    .input-group .opcion-producto { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--beige-borde, #e2e8f0); border-radius: 7px; margin-bottom: 8px; cursor: pointer; font-weight: normal; font-size: 0.88rem; line-height: 1.4; }
+    .input-group .opcion-producto { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--beige-borde, var(--separator)); border-radius: var(--r-md); margin-bottom: 8px; cursor: pointer; font-weight: normal; font-size: 0.88rem; line-height: 1.4; }
     .input-group .opcion-producto input { width: 18px; height: 18px; padding: 0; margin-top: 2px; flex-shrink: 0; accent-color: var(--dorado, #c9a45c); }
     .input-group .opcion-producto:has(input:checked) { border-color: var(--dorado, #c9a45c); background: #fdfaf3; }
 </style>
@@ -44,7 +44,7 @@
             <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
         </div>
         <div class="modal-body">
-            <div style="background: #e0f2fe; color: #0284c7; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.85rem; display: flex; gap: 10px; align-items: flex-start;">
+            <div style="background: var(--blue-bg); color: var(--blue-text); padding: 12px; border-radius: var(--r-sm); margin-bottom: 15px; font-size: 0.85rem; display: flex; gap: 10px; align-items: flex-start;">
                 <i class="material-icons" style="font-size: 1.2rem;">info</i>
                 <p>El <b>Stock</b> no se edita aquí. Inicia en 0 y se aumenta utilizando el módulo de <i>"Carga de mercadería"</i>.</p>
             </div>

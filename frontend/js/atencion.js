@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const badgeRol = document.getElementById("sidebarRol");
     if (badgeRol && localStorage.getItem("usuario_rol") === "supervisor") {
         badgeRol.textContent = "Supervisor";
-        badgeRol.style.background = "#7c3aed";
+        badgeRol.classList.add("tono-indigo");
     }
 
     // --- 2. ENRUTAMIENTO (MÉTODO SPA ACTUALIZADO CON COUPLING) ---
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (btnPreCierre) {
                         document.getElementById("modalPreCierre").style.display = "flex";
                         const infoContainer = document.getElementById("infoPreCierre");
-                        infoContainer.innerHTML = `<p class="text-center" style="color: #94a3b8;">Calculando balances...</p>`;
+                        infoContainer.innerHTML = `<p class="text-center" style="color: var(--gray);">Calculando balances...</p>`;
 
                         try {
                             const res = await fetch("../backend/api/jornada.php?action=precierre");
@@ -95,40 +95,40 @@ document.addEventListener("DOMContentLoaded", () => {
                                 const ingresos_totales = c.ingresos_efectivo + c.ingresos_qr;
 
                                 let htmlTablas = `
-                                    <h4 style="color:#1e293b; margin-bottom:10px; border-left:3px solid var(--primary, #2196f3); padding-left:8px;">1. Cuadre de Caja (Efectivo y QR)</h4>
+                                    <h4 style="color:var(--label); margin-bottom:10px; border-left:3px solid var(--primary, var(--blue)); padding-left:8px;">1. Cuadre de Caja (Efectivo y QR)</h4>
                                     <div style="overflow-x:auto; margin-bottom:25px;">
                                         <table style="width:100%; border-collapse:collapse; text-align:right; font-size:0.9rem;">
                                             <thead>
-                                                <tr style="background:#f1f5f9; color:#475569;">
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Monto de apertura</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Ingresos efectivo</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Egresos</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; background:#fef2f2; color:#ef4444; text-align:right;">Efectivo en caja</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Ingresos qr</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; background:#f0fdf4; color:#16a34a; text-align:right;">Ingresos totales</th>
+                                                <tr style="background:var(--gray6); color:var(--label-2);">
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Monto de apertura</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Ingresos efectivo</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Egresos</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); background:var(--red-bg); color:var(--red-text); text-align:right;">Efectivo en caja</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Ingresos qr</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); background:var(--green-bg); color:var(--green-text); text-align:right;">Ingresos totales</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr style="font-weight:bold; color:#1e293b;">
-                                                    <td style="padding:10px; border:1px solid #cbd5e1;">${c.monto_apertura.toFixed(2)} Bs</td>
-                                                    <td style="padding:10px; border:1px solid #cbd5e1;">${c.ingresos_efectivo.toFixed(2)} Bs</td>
-                                                    <td style="padding:10px; border:1px solid #cbd5e1; color:#ef4444;">-${c.egresos.toFixed(2)} Bs</td>
-                                                    <td style="padding:10px; border:1px solid #cbd5e1; background:#f9fafb;">${efectivo_en_caja.toFixed(2)} Bs</td>
-                                                    <td style="padding:10px; border:1px solid #cbd5e1;">${c.ingresos_qr.toFixed(2)} Bs</td>
-                                                    <td style="padding:10px; border:1px solid #cbd5e1; background:#f9fafb;">${ingresos_totales.toFixed(2)} Bs</td>
+                                                <tr style="font-weight:bold; color:var(--label);">
+                                                    <td style="padding:10px; border:1px solid var(--separator-strong);">${c.monto_apertura.toFixed(2)} Bs</td>
+                                                    <td style="padding:10px; border:1px solid var(--separator-strong);">${c.ingresos_efectivo.toFixed(2)} Bs</td>
+                                                    <td style="padding:10px; border:1px solid var(--separator-strong); color:var(--red-text);">-${c.egresos.toFixed(2)} Bs</td>
+                                                    <td style="padding:10px; border:1px solid var(--separator-strong); background:var(--bg-alt);">${efectivo_en_caja.toFixed(2)} Bs</td>
+                                                    <td style="padding:10px; border:1px solid var(--separator-strong);">${c.ingresos_qr.toFixed(2)} Bs</td>
+                                                    <td style="padding:10px; border:1px solid var(--separator-strong); background:var(--bg-alt);">${ingresos_totales.toFixed(2)} Bs</td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
 
-                                    <h4 style="color:#1e293b; margin-bottom:10px; border-left:3px solid #ef4444; padding-left:8px; margin-top:20px;">2. Detalle de Egresos</h4>
+                                    <h4 style="color:var(--label); margin-bottom:10px; border-left:3px solid var(--red); padding-left:8px; margin-top:20px;">2. Detalle de Egresos</h4>
                                     <div style="overflow-x:auto; margin-bottom:25px;">
                                         <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
                                             <thead>
-                                                <tr style="background:#f1f5f9; color:#475569; text-align:left;">
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;">Fecha/Hora</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;">Concepto</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Monto</th>
+                                                <tr style="background:var(--gray6); color:var(--label-2); text-align:left;">
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong);">Fecha/Hora</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong);">Concepto</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Monto</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -139,32 +139,32 @@ document.addEventListener("DOMContentLoaded", () => {
                                         const fechaFmt = fechaHoraDMA(e.fecha_hora);
                                         
                                         htmlTablas += `
-                                            <tr style="color:#334155;">
-                                                <td style="padding:10px; border:1px solid #cbd5e1;">${fechaFmt}</td>
-                                                <td style="padding:10px; border:1px solid #cbd5e1;">${e.concepto}</td>
-                                                <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:bold; color:#ef4444;">${parseFloat(e.monto).toFixed(2)} Bs</td>
+                                            <tr style="color:var(--label);">
+                                                <td style="padding:10px; border:1px solid var(--separator-strong);">${fechaFmt}</td>
+                                                <td style="padding:10px; border:1px solid var(--separator-strong);">${e.concepto}</td>
+                                                <td style="padding:10px; border:1px solid var(--separator-strong); text-align:right; font-weight:bold; color:var(--red-text);">${parseFloat(e.monto).toFixed(2)} Bs</td>
                                             </tr>
                                         `;
                                     });
                                 } else {
-                                    htmlTablas += `<tr><td colspan="3" style="padding:10px; border:1px solid #cbd5e1; text-align:center; color:#94a3b8;">No hay egresos registrados</td></tr>`;
+                                    htmlTablas += `<tr><td colspan="3" style="padding:10px; border:1px solid var(--separator-strong); text-align:center; color:var(--gray);">No hay egresos registrados</td></tr>`;
                                 }
                                 htmlTablas += `</tbody></table></div>`;
 
                                 htmlTablas += `
-                                    <h4 style="color:#1e293b; margin-bottom:10px; border-left:3px solid var(--success, #10b981); padding-left:8px;">3. Cuadre de Inventario (Bebidas y Snacks)</h4>
+                                    <h4 style="color:var(--label); margin-bottom:10px; border-left:3px solid var(--success, var(--green)); padding-left:8px;">3. Cuadre de Inventario (Bebidas y Snacks)</h4>
                                     <div style="overflow-x:auto;">
                                         <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
                                             <thead>
-                                                <tr style="background:#f1f5f9; color:#475569; text-align:center;">
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:left;">Producto</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;">Stock inicial</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;">Cargas</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;">Vendido</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1;" title="Productos no vendibles gastados al preparar">Gasto</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Precio unitario</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Sub total</th>
-                                                    <th style="padding:10px; border:1px solid #cbd5e1; background:#f8fafc;">Stock final</th>
+                                                <tr style="background:var(--gray6); color:var(--label-2); text-align:center;">
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:left;">Producto</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong);">Stock inicial</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong);">Cargas</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong);">Vendido</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong);" title="Productos no vendibles gastados al preparar">Gasto</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Precio unitario</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">Sub total</th>
+                                                    <th style="padding:10px; border:1px solid var(--separator-strong); background:var(--bg-alt);">Stock final</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -173,15 +173,15 @@ document.addEventListener("DOMContentLoaded", () => {
                                 data.inventario.forEach(p => {
                                     const f = filaInventario(p);
                                     htmlTablas += `
-                                        <tr style="color:#334155; text-align:center;">
-                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:left; font-weight:500;">${p.nombre_producto}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1;">${p.stock_inicial}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1;">${f.cargas}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; color:var(--success, #10b981);">${textoVendido(f)}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1;">${f.gastado || '—'}</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">${f.precio.toFixed(2)} Bs</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:bold;">${f.importe.toFixed(2)} Bs</td>
-                                            <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; background:#f8fafc;">${textoStockFinal(p, f)}</td>
+                                        <tr style="color:var(--label); text-align:center;">
+                                            <td style="padding:10px; border:1px solid var(--separator-strong); text-align:left; font-weight:500;">${p.nombre_producto}</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong);">${p.stock_inicial}</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong);">${f.cargas}</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong); font-weight:bold; color:var(--success, var(--green-text));">${textoVendido(f)}</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong);">${f.gastado || '—'}</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong); text-align:right;">${f.precio.toFixed(2)} Bs</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong); text-align:right; font-weight:bold;">${f.importe.toFixed(2)} Bs</td>
+                                            <td style="padding:10px; border:1px solid var(--separator-strong); font-weight:bold; background:var(--bg-alt);">${textoStockFinal(p, f)}</td>
                                         </tr>
                                     `;
                                 });
@@ -243,7 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 });*/
                 // Listener para confirmar el cierre definitivo de caja (CON DEPURACIÓN E INYECCIÓN DE CONTROL)
                 document.getElementById("btnConfirmarCierre").addEventListener("click", async() => {
-                    console.log("%c[DEBUG PRECIE RE] 1. Click detectado en el botón Confirmar Cierre.", "color: #2196f3; font-weight: bold;");
+                    console.log("%c[DEBUG PRECIE RE] 1. Click detectado en el botón Confirmar Cierre.", "color: var(--blue-text); font-weight: bold;");
 
                     try {
                         console.log("[DEBUG PRECIERRE] 2. Enviando petición POST para cerrar jornada...");
@@ -301,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             window.mostrarToast(data.message, "error");
                         }
                     } catch (err) {
-                        console.error("%c[DEBUG PRECIERRE CRÍTICO] Capturado en el bloque catch. Detalles del error:", "color: #ef4444; font-weight: bold;", err);
+                        console.error("%c[DEBUG PRECIERRE CRÍTICO] Capturado en el bloque catch. Detalles del error:", "color: var(--red-text); font-weight: bold;", err);
                         console.error("Stack trace del error:", err.stack);
                         window.mostrarToast("Error crítico al procesar el cierre definitivo.", "error");
                     }
@@ -375,13 +375,13 @@ document.addEventListener("DOMContentLoaded", () => {
                                     const tbody = document.getElementById("raInventarioBody");
                                     if (dataInv.inventario && dataInv.inventario.length > 0) {
                                         tbody.innerHTML = dataInv.inventario.map(p => `
-                                            <tr style="border-bottom: 1px solid #f1f5f9;">
-                                                <td style="padding: 4px 8px; color:#334155;">${p.nombre_producto}</td>
-                                                <td style="padding: 4px 8px; text-align:right; font-weight:600; color:#1e293b;">${p.stock_apertura}</td>
+                                            <tr style="border-bottom: 1px solid var(--separator);">
+                                                <td style="padding: 4px 8px; color:var(--label);">${p.nombre_producto}</td>
+                                                <td style="padding: 4px 8px; text-align:right; font-weight:600; color:var(--label);">${p.stock_apertura}</td>
                                             </tr>
                                         `).join('');
                                     } else {
-                                        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#94a3b8; padding:10px;">Sin productos registrados</td></tr>`;
+                                        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--gray); padding:10px;">Sin productos registrados</td></tr>`;
                                     }
                                 }
                             } catch (errInv) {
@@ -512,32 +512,34 @@ function renderizarJornadaAbierta(jornada) {
 
     const esOtroUsuario = (jornada.id_usuario_apertura != idUsuarioActual);
     const avisoBloqueo = esOtroUsuario ?
-        `<div style="color: #ef4444; font-weight: bold; margin-top: 10px; font-size: 0.9rem;">
-            <i class="material-icons" style="vertical-align: bottom; font-size:1.2rem;">warning</i> Operación restringida. Jornada activa por: ${nombreEncargado}
+        `<div class="jornada-aviso">
+            <i class="material-icons is-fill">warning</i> Operación restringida. Jornada activa por: ${nombreEncargado}
          </div>` : '';
 
     container.innerHTML = `
-        <div class="card text-center" style="padding: 30px 20px; border-left: 5px solid var(--success, #10b981); height: 100%; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
-            <i class="material-icons text-success" style="font-size: 3rem; margin-bottom: 10px;">check_circle</i>
-            <h3 style="margin-bottom: 5px;">Jornada de Caja Activa</h3>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; background: #f8fafc; padding: 15px; border-radius: 6px; text-align: left; margin: 15px auto; width: 100%; box-sizing: border-box;">
-                <div><strong>Encargado:</strong> ${nombreEncargado}</div>
-                <div><strong>Apertura:</strong> ${fechaFormateada}</div>
-                <div><strong>Monto de apertura:</strong> ${parseFloat(jornada.monto_inicial_caja).toFixed(2)} Bs.</div>
-                <div><strong>Estado:</strong> <span class="badge" style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">Abierta</span></div>
+        <div class="card jornada-card">
+            <div class="jornada-cabecera">
+                <span class="jornada-icono" style="background: var(--green);"><i class="material-icons is-fill">check_circle</i></span>
+                <h3>Jornada de Caja Activa</h3>
+                <span class="estado-badge libre">Abierta</span>
+            </div>
+
+            <div class="jornada-datos">
+                <div><span>Encargado</span><strong>${nombreEncargado}</strong></div>
+                <div><span>Apertura</span><strong>${fechaFormateada}</strong></div>
+                <div><span>Monto de apertura</span><strong>${parseFloat(jornada.monto_inicial_caja).toFixed(2)} Bs.</strong></div>
             </div>
 
             ${!esOtroUsuario ? `
-            <div style="margin-top: 5px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button class="btn-primary" id="btnAbrirMisVentas" style="background-color: #6366f1; border: none; padding: 10px 25px; font-size: 1rem; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 8px;">
+            <div class="jornada-acciones">
+                <button class="btn-primary" id="btnAbrirMisVentas">
                     <i class="material-icons">point_of_sale</i> Mis Ventas
                 </button>
-                <button class="btn-primary" id="btnAbrirPreCierre" style="background-color: var(--danger, #ef4444); border: none; padding: 10px 25px; font-size: 1rem; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; gap: 8px;">
+                <button class="btn-danger" id="btnAbrirPreCierre">
                     <i class="material-icons">lock</i> Cierre de Jornada
                 </button>
             </div>` : ''}
-            
+
             ${avisoBloqueo}
         </div>
     `;
@@ -546,12 +548,12 @@ function renderizarJornadaAbierta(jornada) {
 function renderizarJornadaCerrada(bloquearBoton) {
     const container = document.getElementById("jornadaContainer");
     container.innerHTML = `
-        <div class="card text-center" style="padding: 40px 20px; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
-            <i class="material-icons text-warning" style="font-size: 3.5rem; margin-bottom: 10px;">lock_clock</i>
+        <div class="card jornada-card jornada-cerrada">
+            <span class="jornada-icono jornada-icono-grande" style="background: var(--orange);"><i class="material-icons is-fill">lock_clock</i></span>
             <h3>Jornada Cerrada</h3>
-            <p style="color: #64748b; margin-bottom: 20px; max-width: 400px;">Debes abrir caja para comenzar a atender mesas y vender productos.</p>
-            <button class="btn-primary" id="btnAbrirJornadaTemp" style="font-size: 1.1rem; padding: 12px 25px;" ${bloquearBoton ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
-                <i class="material-icons" style="vertical-align: middle; margin-right: 5px;">play_circle</i> Abrir Jornada
+            <p>Debes abrir caja para comenzar a atender mesas y vender productos.</p>
+            <button class="btn-primary btn-grande" id="btnAbrirJornadaTemp" ${bloquearBoton ? 'disabled' : ''}>
+                <i class="material-icons">play_circle</i> Abrir Jornada
             </button>
         </div>
     `;
@@ -562,14 +564,14 @@ function pintarKpisDashboard(kpis) {
     if (listContainer) {
         if (!kpis.mesas_disponibles || kpis.mesas_disponibles.length === 0) {
             listContainer.innerHTML = `
-                <div style="text-align:center; color:#94a3b8; font-size:0.9rem; padding: 10px 0;">
+                <div style="text-align:center; color:var(--gray); font-size:0.9rem; padding: 10px 0;">
                     No hay mesas operativas o caja cerrada.
                 </div>`;
         } else {
             listContainer.innerHTML = kpis.mesas_disponibles.map(item => `
-                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; font-size: 0.95rem;">
-                    <span style="color:#64748b; text-transform: capitalize;">${item.tipo}:</span> 
-                    <strong style="color:var(--primary, #2196f3); font-size:1.1rem;">${item.disponibles}</strong>
+                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--separator); padding-bottom: 5px; font-size: 0.95rem;">
+                    <span style="color:var(--label-2); text-transform: capitalize;">${item.tipo}:</span> 
+                    <strong style="color:var(--primary, var(--blue-text)); font-size:1.1rem;">${item.disponibles}</strong>
                 </div>
             `).join('');
         }
@@ -584,13 +586,13 @@ function pintarKpisDashboard(kpis) {
         const titulo = titleEl.innerText.trim().toLowerCase();
         if (titulo === "horas jugadas") {
             const horas = parseFloat(kpis.horas_jugadas || 0).toFixed(2);
-            valEl.innerHTML = `${horas} <span style="font-size:1rem;color:#94a3b8;">hrs</span>`;
+            valEl.innerHTML = `${horas} <span style="font-size:1rem;color:var(--gray);">hrs</span>`;
         } else if (titulo === "productos vendidos") {
             const unidades = parseInt(kpis.productos_vendidos || 0, 10);
-            valEl.innerHTML = `${unidades} <span style="font-size:1rem;color:#94a3b8;">uds</span>`;
+            valEl.innerHTML = `${unidades} <span style="font-size:1rem;color:var(--gray);">uds</span>`;
         } else if (titulo === "total egresos") {
             const egresos = parseFloat(kpis.total_egresos || 0).toFixed(2);
-            valEl.innerHTML = `${egresos} <span style="font-size:1rem;color:#94a3b8;">Bs</span>`;
+            valEl.innerHTML = `${egresos} <span style="font-size:1rem;color:var(--gray);">Bs</span>`;
         }
     });
 }
@@ -613,13 +615,13 @@ function filaInventario(p) {
 }
 
 function textoVendido(f) {
-    return f.enMesas ? `${f.vendido} <small style="color:#64748b;">(+${f.enMesas} en mesas abiertas)</small>` : `${f.vendido}`;
+    return f.enMesas ? `${f.vendido} <small style="color:var(--label-2);">(+${f.enMesas} en mesas abiertas)</small>` : `${f.vendido}`;
 }
 
 // Stock final; si no cuadra con inicial + cargas - vendido - gastado, se marca la diferencia (por ejemplo, un ajuste manual).
 function textoStockFinal(p, f) {
     if (!f.ajuste) return `${p.stock_final}`;
-    return `${p.stock_final} <span style="color:#dc2626;" title="Diferencia que no explican las ventas, las cargas ni los gastos">(dif. ${f.ajuste > 0 ? '+' : ''}${f.ajuste})</span>`;
+    return `${p.stock_final} <span style="color:var(--red-text);" title="Diferencia que no explican las ventas, las cargas ni los gastos">(dif. ${f.ajuste > 0 ? '+' : ''}${f.ajuste})</span>`;
 }
 
 function abrirReporteFinal(precierre, kpiBase) {
@@ -644,15 +646,15 @@ function abrirReporteFinal(precierre, kpiBase) {
         const f = filaInventario(p);
         totalVendidoProductos += f.importe;
         htmlInventarioFilas += `
-            <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+            <tr style="border-bottom: 1px solid var(--separator); color: var(--label);">
                 <td style="padding: 4px 8px; font-weight: 500;">${p.nombre_producto}</td>
                 <td style="padding: 4px 8px; text-align: center;">${p.stock_inicial}</td>
                 <td style="padding: 4px 8px; text-align: center;">${f.cargas}</td>
-                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${textoVendido(f)}</td>
+                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: var(--green-text);">${textoVendido(f)}</td>
                 <td style="padding: 4px 8px; text-align: center;">${f.gastado || '—'}</td>
                 <td style="padding: 4px 8px; text-align: right;">${f.precio.toFixed(2)}</td>
                 <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${f.importe.toFixed(2)}</td>
-                <td style="padding: 4px 8px; text-align: center; font-weight: 600; background: #f8fafc;">${textoStockFinal(p, f)}</td>
+                <td style="padding: 4px 8px; text-align: center; font-weight: 600; background: var(--bg-alt);">${textoStockFinal(p, f)}</td>
             </tr>
         `;
     });
@@ -662,15 +664,15 @@ function abrirReporteFinal(precierre, kpiBase) {
         const importe = parseFloat(p.importe_vendido) || 0;
         totalVendidoProductos += importe;
         htmlInventarioFilas += `
-            <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
-                <td style="padding: 4px 8px; font-weight: 500;">${p.nombre_producto} <small style="color:#64748b;">(preparado)</small></td>
+            <tr style="border-bottom: 1px solid var(--separator); color: var(--label);">
+                <td style="padding: 4px 8px; font-weight: 500;">${p.nombre_producto} <small style="color:var(--label-2);">(preparado)</small></td>
                 <td style="padding: 4px 8px; text-align: center;">—</td>
                 <td style="padding: 4px 8px; text-align: center;">—</td>
-                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${p.vendido}</td>
+                <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: var(--green-text);">${p.vendido}</td>
                 <td style="padding: 4px 8px; text-align: center;">—</td>
                 <td style="padding: 4px 8px; text-align: right;">${(p.vendido ? importe / p.vendido : 0).toFixed(2)}</td>
                 <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${importe.toFixed(2)}</td>
-                <td style="padding: 4px 8px; text-align: center; background: #f8fafc;">—</td>
+                <td style="padding: 4px 8px; text-align: center; background: var(--bg-alt);">—</td>
             </tr>
         `;
     });
@@ -682,7 +684,7 @@ function abrirReporteFinal(precierre, kpiBase) {
     const promosYRedondeo = ingresosProductos - totalVendidoProductos;
     if (Math.abs(promosYRedondeo) >= 0.005) {
         htmlInventarioFilas += `
-            <tr style="color: #047857; font-weight: 600;">
+            <tr style="color: var(--green-text); font-weight: 600;">
                 <td colspan="5" style="padding: 4px 8px; text-align: right;">Promociones (2x1, incentivos) y redondeo</td>
                 <td style="padding: 4px 8px; text-align: right;">${promosYRedondeo > 0 ? '+' : ''}${promosYRedondeo.toFixed(2)}</td>
                 <td></td>
@@ -692,45 +694,45 @@ function abrirReporteFinal(precierre, kpiBase) {
     const totalRecaudadoLimpio = ingresosTotales - c.egresos;
 
     const layoutReporteVisual = `
-        <div style="font-family: 'Inter', 'Segoe UI', sans-serif; color: #334155; line-height: 1.3; padding: 15px; max-width: 850px; margin: 0 auto; background: #ffffff; border-radius: 8px;">
+        <div style="font-family: 'Inter', 'Segoe UI', sans-serif; color: var(--label); line-height: 1.3; padding: 15px; max-width: 850px; margin: 0 auto; background: #ffffff; border-radius: var(--r-md);">
             
             <!-- Encabezado del Reporte -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--separator); padding-bottom: 8px; margin-bottom: 12px;">
                 <div>
-                    <h2 style="margin: 0; color: #0f172a; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;">Reporte de Cierre de Jornada</h2>
-                    <p style="margin: 2px 0 0 0; color: #64748b; font-size: 0.8rem;">ID de Jornada: <strong style="color: #0f172a;">#${j.id_jornada}</strong> &nbsp;|&nbsp; Apertura: <strong style="color: #0f172a;">${fechaHoraDMA(j.fecha_hora_apertura)}</strong></p>
+                    <h2 style="margin: 0; color: var(--label); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;">Reporte de Cierre de Jornada</h2>
+                    <p style="margin: 2px 0 0 0; color: var(--label-2); font-size: 0.8rem;">ID de Jornada: <strong style="color: var(--label);">#${j.id_jornada}</strong> &nbsp;|&nbsp; Apertura: <strong style="color: var(--label);">${fechaHoraDMA(j.fecha_hora_apertura)}</strong></p>
                 </div>
                 <div>
-                    <span style="background: #ef4444; color: #ffffff; padding: 4px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">Jornada Cerrada</span>
+                    <span style="background: var(--red); color: #ffffff; padding: 4px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">Jornada Cerrada</span>
                 </div>
             </div>
 
             <!-- Sección: Estado de Caja -->
             <div style="margin-bottom: 12px;">
-                <h3 style="margin: 0 0 6px 0; font-size: 0.95rem; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 4px; height: 14px; background: #3b82f6; border-radius: 2px;"></span>
+                <h3 style="margin: 0 0 6px 0; font-size: 0.95rem; color: var(--label); display: flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 4px; height: 14px; background: var(--blue); border-radius: var(--r-sm);"></span>
                     Resumen de Caja
                 </h3>
-                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <div style="overflow-x: auto; border: 1px solid var(--separator); border-radius: var(--r-sm);">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: right;">
                         <thead>
-                            <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0;">
+                            <tr style="background: var(--bg-alt); color: var(--label-2); border-bottom: 2px solid var(--separator);">
                                 <th style="padding: 6px 8px; font-weight: 600;">Monto Apertura</th>
                                 <th style="padding: 6px 8px; font-weight: 600;">Ingresos Efectivo</th>
-                                <th style="padding: 6px 8px; font-weight: 600; color: #ef4444;">Egresos</th>
+                                <th style="padding: 6px 8px; font-weight: 600; color: var(--red-text);">Egresos</th>
                                 <th style="padding: 6px 8px; font-weight: 600;">Caja Real (Efectivo)</th>
                                 <th style="padding: 6px 8px; font-weight: 600;">Ingresos QR</th>
-                                <th style="padding: 6px 8px; font-weight: 700; color: #0f172a;">Ingresos Totales</th>
+                                <th style="padding: 6px 8px; font-weight: 700; color: var(--label);">Ingresos Totales</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td style="padding: 6px 8px;">${c.monto_apertura.toFixed(2)} Bs</td>
                                 <td style="padding: 6px 8px;">${c.ingresos_efectivo.toFixed(2)} Bs</td>
-                                <td style="padding: 6px 8px; color: #ef4444;">-${c.egresos.toFixed(2)} Bs</td>
-                                <td style="padding: 6px 8px; font-weight: 600; background: #f0fdf4; color: #166534;">${totalCajaEfectivo.toFixed(2)} Bs</td>
+                                <td style="padding: 6px 8px; color: var(--red-text);">-${c.egresos.toFixed(2)} Bs</td>
+                                <td style="padding: 6px 8px; font-weight: 600; background: var(--green-bg); color: var(--green-text);">${totalCajaEfectivo.toFixed(2)} Bs</td>
                                 <td style="padding: 6px 8px;">${c.ingresos_qr.toFixed(2)} Bs</td>
-                                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; background: #f8fafc;">${ingresosTotales.toFixed(2)} Bs</td>
+                                <td style="padding: 6px 8px; font-weight: 700; color: var(--label); background: var(--bg-alt);">${ingresosTotales.toFixed(2)} Bs</td>
                             </tr>
                         </tbody>
                     </table>
@@ -739,14 +741,14 @@ function abrirReporteFinal(precierre, kpiBase) {
 
             <!-- Sección: Estado de Inventario -->
             <div style="margin-bottom: 12px;">
-                <h3 style="margin: 0 0 6px 0; font-size: 0.95rem; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 4px; height: 14px; background: #10b981; border-radius: 2px;"></span>
+                <h3 style="margin: 0 0 6px 0; font-size: 0.95rem; color: var(--label); display: flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 4px; height: 14px; background: var(--green-text); border-radius: var(--r-sm);"></span>
                     Detalle de Inventario y Ventas
                 </h3>
-                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <div style="overflow-x: auto; border: 1px solid var(--separator); border-radius: var(--r-sm);">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
                         <thead>
-                            <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; text-align: left;">
+                            <tr style="background: var(--bg-alt); color: var(--label-2); border-bottom: 2px solid var(--separator); text-align: left;">
                                 <th style="padding: 6px 8px; font-weight: 600;">Producto</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Stock Inicial</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Cargas</th>
@@ -766,31 +768,31 @@ function abrirReporteFinal(precierre, kpiBase) {
 
             <!-- Métricas Clave (KPIs) -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px; font-weight: 500;">Rendimiento de Mesas</div>
+                <div style="background: #ffffff; border: 1px solid var(--separator); border-radius: var(--r-sm); padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.75rem; color: var(--label-2); margin-bottom: 4px; font-weight: 500;">Rendimiento de Mesas</div>
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <span style="font-size: 1.1rem; font-weight: 600; color: #0f172a;">${tiempoFormateado} <span style="font-size: 0.75rem; font-weight: 400; color: #64748b;">hrs jugadas</span></span>
-                        <span style="font-size: 1.1rem; font-weight: 600; color: #3b82f6;">${totalHorasImporte.toFixed(2)} Bs</span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: var(--label);">${tiempoFormateado} <span style="font-size: 0.75rem; font-weight: 400; color: var(--label-2);">hrs jugadas</span></span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: var(--blue-text);">${totalHorasImporte.toFixed(2)} Bs</span>
                     </div>
                 </div>
-                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 4px; font-weight: 500;">Rendimiento de Productos</div>
+                <div style="background: #ffffff; border: 1px solid var(--separator); border-radius: var(--r-sm); padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.75rem; color: var(--label-2); margin-bottom: 4px; font-weight: 500;">Rendimiento de Productos</div>
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <span style="font-size: 1.1rem; font-weight: 600; color: #0f172a;">${k.productos_vendidos} <span style="font-size: 0.75rem; font-weight: 400; color: #64748b;">uds vendidas</span></span>
-                        <span style="font-size: 1.1rem; font-weight: 600; color: #10b981;">${ingresosProductos.toFixed(2)} Bs</span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: var(--label);">${k.productos_vendidos} <span style="font-size: 0.75rem; font-weight: 400; color: var(--label-2);">uds vendidas</span></span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: var(--green-text);">${ingresosProductos.toFixed(2)} Bs</span>
                     </div>
                 </div>
             </div>
             ${ingresosCargos > 0 ? `
-            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: baseline;">
-                <span style="font-size: 0.75rem; color: #64748b; font-weight: 500;">Otros Cargos <small>(roturas, daños)</small></span>
-                <span style="font-size: 1.1rem; font-weight: 600; color: #8b5cf6;">${ingresosCargos.toFixed(2)} Bs</span>
+            <div style="background: #ffffff; border: 1px solid var(--separator); border-radius: var(--r-sm); padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="font-size: 0.75rem; color: var(--label-2); font-weight: 500;">Otros Cargos <small>(roturas, daños)</small></span>
+                <span style="font-size: 1.1rem; font-weight: 600; color: var(--indigo-text);">${ingresosCargos.toFixed(2)} Bs</span>
             </div>` : ''}
 
             <!-- Total Recaudado (Limpio) -->
-            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; border-radius: 6px; padding: 15px; text-align: center; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.3);">
-                <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">Total Recaudado (Limpio de Egresos)</div>
-                <div style="font-size: 1.8rem; font-weight: 700; color: #38bdf8; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">
+            <div style="background: linear-gradient(135deg, var(--ink) 0%, var(--ink-2) 100%); color: #ffffff; border-radius: var(--r-sm); padding: 15px; text-align: center; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.3);">
+                <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray); margin-bottom: 6px; font-weight: 600;">Total Recaudado (Limpio de Egresos)</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: var(--cyan); text-shadow: 0 1px 2px rgba(0,0,0,0.2);">
                     ${totalRecaudadoLimpio.toFixed(2)} Bs
                 </div>
             </div>
@@ -883,10 +885,10 @@ if (!document.getElementById("estilosTablaExpandida")) {
             display: grid !important;
             grid-template-columns: 1fr auto auto !important;
             gap: 10px !important;
-            background: #fff !important;
+            background: var(--bg) !important;
             padding: 7px 8px !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 8px !important;
+            border: 1px solid var(--separator-strong) !important;
+            border-radius: var(--r-md) !important;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05) !important;
         }
         .modal-expandido-grid td {
@@ -899,14 +901,14 @@ if (!document.getElementById("estilosTablaExpandida")) {
         /* Celda 1: Producto */
         .modal-expandido-grid td:nth-child(1) {
             font-weight: 600 !important;
-            color: #1e293b !important;
+            color: var(--label) !important;
             font-size: 0.9rem !important;
         }
         /* Celda 2: Stock (Con etiqueta dinámica) */
         .modal-expandido-grid td:nth-child(2)::before {
             content: "Stock: " !important;
             font-size: 0.7rem !important;
-            color: #64748b !important;
+            color: var(--label-2) !important;
             margin-right: 5px !important;
             font-weight: normal !important;
             text-transform: uppercase !important;
@@ -914,17 +916,17 @@ if (!document.getElementById("estilosTablaExpandida")) {
         }
         .modal-expandido-grid td:nth-child(2) {
             justify-content: flex-end !important;
-            color: #059669 !important;
+            color: var(--green-text) !important;
             font-weight: 700 !important;
-            background: #edfdf6 !important;
+            background: var(--green-bg) !important;
             padding: 2px 8px !important;
-            border-radius: 4px !important;
+            border-radius: var(--r-sm) !important;
         }
         /* Celda 3: Precio (Con etiqueta dinámica) */
         .modal-expandido-grid td:nth-child(3)::before {
             content: "Precio: " !important;
             font-size: 0.7rem !important;
-            color: #64748b !important;
+            color: var(--label-2) !important;
             margin-right: 5px !important;
             font-weight: normal !important;
             text-transform: uppercase !important;
@@ -932,7 +934,7 @@ if (!document.getElementById("estilosTablaExpandida")) {
         }
         .modal-expandido-grid td:nth-child(3) {
             justify-content: flex-end !important;
-            color: #0f172a !important;
+            color: var(--label) !important;
             font-weight: 700 !important;
         }
         /* Caso especial: Fila de "Cargando..." o "Sin datos" */
@@ -977,11 +979,11 @@ document.addEventListener("click", (e) => {
         // Ajustamos textos
         if (tituloSeccion) {
             tituloSeccion.innerText = "Catálogo de Inventario (Vista Inteligente)";
-            tituloSeccion.style.color = "#10b981";
+            tituloSeccion.style.color = "var(--green-text)";
         }
         if (txtBtn) txtBtn.innerText = "Volver";
         if (iconoBtn) iconoBtn.innerText = "arrow_back";
-        btnToggle.style.background = "#e2e8f0";
+        btnToggle.style.background = "var(--gray5)";
 
         // Fullscreen físico de la tarjeta
         card.style.width = "100vw";
@@ -996,7 +998,7 @@ document.addEventListener("click", (e) => {
         
         // Espaciado y contraste para que las tarjetas resalten
         tablaContainer.style.maxHeight = "calc(100vh - 60px)";
-        tablaContainer.style.background = "#f1f5f9";
+        tablaContainer.style.background = "var(--gray6)";
         tablaContainer.style.padding = "10px";
         tablaContainer.style.border = "none";
 
@@ -1012,18 +1014,18 @@ document.addEventListener("click", (e) => {
         // Restauramos textos
         if (tituloSeccion) {
             tituloSeccion.innerText = "Inventario Inicial";
-            tituloSeccion.style.color = "#475569";
+            tituloSeccion.style.color = "";
         }
         if (txtBtn) txtBtn.innerText = "Expandir";
         if (iconoBtn) iconoBtn.innerText = "fullscreen";
-        btnToggle.style.background = "#f1f5f9";
+        btnToggle.style.background = "var(--fill-3)";
 
         // Restauramos el modal original
         card.style.width = "90%";
         card.style.maxWidth = "600px";
         card.style.height = "";
         card.style.maxHeight = "";
-        card.style.borderRadius = "10px";
+        card.style.borderRadius = "";
         modalApertura.style.padding = "20px 0";
 
         // Quitamos la clase del Grid Multicolumna (devuelve el formato clásico <table>)
@@ -1033,7 +1035,7 @@ document.addEventListener("click", (e) => {
         tablaContainer.style.maxHeight = "200px";
         tablaContainer.style.background = "transparent";
         tablaContainer.style.padding = "0";
-        tablaContainer.style.border = "1px solid #e2e8f0";
+        tablaContainer.style.border = "";
 
         modalApertura.dataset.modoExpandido = "false";
     }
@@ -1204,21 +1206,21 @@ function renderizarVentasModal(ventas, tbody) {
 
     const badgeModo = (modo) => {
         const cfg = modo === 'barra'
-            ? { bg: '#dbeafe', color: '#1d4ed8', icon: 'local_bar',        label: 'Barra' }
-            : { bg: '#dcfce7', color: '#15803d', icon: 'table_restaurant', label: 'Mesa'  };
-        return `<span style="background:${cfg.bg}; color:${cfg.color}; padding:3px 9px; border-radius:20px; font-size:0.78rem; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+            ? { bg: 'var(--blue-bg)', color: 'var(--blue-text)', icon: 'local_bar',        label: 'Barra' }
+            : { bg: 'var(--green-bg)', color: 'var(--green-text)', icon: 'table_restaurant', label: 'Mesa'  };
+        return `<span style="background:${cfg.bg}; color:${cfg.color}; padding:3px 10px; border-radius:var(--r-pill); font-size:0.78rem; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                     <i class="material-icons" style="font-size:0.85rem;">${cfg.icon}</i>${cfg.label}
                 </span>`;
     };
 
     const badgePago = (metodo) => {
         const mapa = {
-            'efectivo': { bg: '#fef9c3', color: '#854d0e', icon: 'payments',      label: 'Efectivo' },
-            'qr':       { bg: '#ede9fe', color: '#6d28d9', icon: 'qr_code_2',     label: 'QR'       },
-            'mixto':    { bg: '#fce7f3', color: '#9d174d', icon: 'compare_arrows', label: 'Mixto'    },
+            'efectivo': { bg: 'var(--yellow-bg)', color: 'var(--yellow-text)', icon: 'payments',      label: 'Efectivo' },
+            'qr':       { bg: 'var(--indigo-bg)', color: 'var(--indigo-text)', icon: 'qr_code_2',     label: 'QR'       },
+            'mixto':    { bg: 'var(--pink-bg)', color: 'var(--pink-text)', icon: 'compare_arrows', label: 'Mixto'    },
         };
-        const cfg = mapa[metodo] || { bg: '#f1f5f9', color: '#64748b', icon: 'help', label: metodo };
-        return `<span style="background:${cfg.bg}; color:${cfg.color}; padding:3px 9px; border-radius:20px; font-size:0.78rem; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+        const cfg = mapa[metodo] || { bg: 'var(--fill-3)', color: 'var(--label-2)', icon: 'help', label: metodo };
+        return `<span style="background:${cfg.bg}; color:${cfg.color}; padding:3px 10px; border-radius:var(--r-pill); font-size:0.78rem; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                     <i class="material-icons" style="font-size:0.85rem;">${cfg.icon}</i>${cfg.label}
                 </span>`;
     };
@@ -1237,18 +1239,18 @@ function renderizarVentasModal(ventas, tbody) {
         // ── Fila maestra ──────────────────────────────────────────────────
         const trMaestra = document.createElement("tr");
         trMaestra.setAttribute("data-venta-id", venta.id_venta);
-        trMaestra.style.cssText = `background: ${esImpar ? '#ffffff' : '#f8fafc'}; cursor: pointer; transition: background 0.15s;`;
+        trMaestra.style.cssText = `background: ${esImpar ? 'var(--bg)' : 'var(--bg-alt)'}; cursor: pointer; transition: background 0.15s;`;
         trMaestra.innerHTML = `
-            <td style="padding: 10px 14px; text-align: center; border-bottom: 1px solid #f1f5f9;">
-                <i class="material-icons icono-toggle-venta" style="font-size: 1.1rem; color: #6366f1; transition: transform 0.2s;">expand_more</i>
+            <td style="padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--separator);">
+                <i class="material-icons icono-toggle-venta" style="font-size: 1.1rem; color: var(--indigo-text); transition: transform 0.2s;">expand_more</i>
             </td>
-            <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;">
-                <span style="background: #ede9fe; color: #6d28d9; padding: 2px 8px; border-radius: 4px; font-size: 0.82rem;">#${venta.id_venta}</span>
+            <td style="padding: 10px 14px; border-bottom: 1px solid var(--separator); font-weight: 600; color: var(--label);">
+                <span style="background: var(--indigo-bg); color: var(--indigo-text); padding: 2px 8px; border-radius: var(--r-sm); font-size: 0.82rem;">#${venta.id_venta}</span>
             </td>
-            <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; white-space: nowrap;">${formatFecha(venta.fecha_hora)}</td>
-            <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">${badgeModo(venta.modo_venta)}</td>
-            <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">${badgePago(venta.metodo_pago)}</td>
-            <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 700; color: #059669;" id="importe-venta-${venta.id_venta}">${parseFloat(venta.importe).toFixed(2)} Bs</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid var(--separator); color: var(--label); white-space: nowrap;">${formatFecha(venta.fecha_hora)}</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid var(--separator); text-align: center;">${badgeModo(venta.modo_venta)}</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid var(--separator); text-align: center;">${badgePago(venta.metodo_pago)}</td>
+            <td style="padding: 10px 14px; border-bottom: 1px solid var(--separator); text-align: right; font-weight: 700; color: var(--green-text);" id="importe-venta-${venta.id_venta}">${parseFloat(venta.importe).toFixed(2)} Bs</td>
         `;
 
         // ── Fila acordeón con subtabla ─────────────────────────────────────
@@ -1256,17 +1258,17 @@ function renderizarVentasModal(ventas, tbody) {
         trDetalle.setAttribute("id", idDetalle);
         trDetalle.style.display = "none";
         trDetalle.innerHTML = `
-            <td colspan="6" style="padding: 0; background: #f8fafc; border-bottom: 2px solid #6366f1;">
+            <td colspan="6" style="padding: 0; background: var(--bg-alt); border-bottom: 2px solid var(--indigo);">
                 <div style="padding: 12px 20px 16px 44px;">
-                    <div style="overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);">
+                    <div style="overflow-x: auto; border-radius: var(--r-md); border: 1px solid var(--separator); box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);">
                         <table style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
                             <thead>
-                                <tr style="background: linear-gradient(to right, #ede9fe, #ddd6fe);">
-                                    <th style="padding: 8px 12px; text-align: left; color: #4c1d95; font-weight: 700; border-bottom: 1px solid #c4b5fd;">Producto</th>
-                                    <th style="padding: 8px 12px; text-align: right; color: #4c1d95; font-weight: 700; border-bottom: 1px solid #c4b5fd;">Precio Unitario</th>
-                                    <th style="padding: 8px 12px; text-align: center; color: #4c1d95; font-weight: 700; border-bottom: 1px solid #c4b5fd;">Cantidad</th>
-                                    <th style="padding: 8px 12px; text-align: right; color: #4c1d95; font-weight: 700; border-bottom: 1px solid #c4b5fd;">Subtotal</th>
-                                    <th style="padding: 8px 12px; text-align: center; color: #4c1d95; font-weight: 700; border-bottom: 1px solid #c4b5fd;">Acciones</th>
+                                <tr style="background: linear-gradient(to right, var(--indigo-bg), var(--indigo-bg));">
+                                    <th style="padding: 8px 12px; text-align: left; color: var(--indigo-text); font-weight: 700; border-bottom: 1px solid var(--indigo-line);">Producto</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: var(--indigo-text); font-weight: 700; border-bottom: 1px solid var(--indigo-line);">Precio Unitario</th>
+                                    <th style="padding: 8px 12px; text-align: center; color: var(--indigo-text); font-weight: 700; border-bottom: 1px solid var(--indigo-line);">Cantidad</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: var(--indigo-text); font-weight: 700; border-bottom: 1px solid var(--indigo-line);">Subtotal</th>
+                                    <th style="padding: 8px 12px; text-align: center; color: var(--indigo-text); font-weight: 700; border-bottom: 1px solid var(--indigo-line);">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tbody-detalle-${venta.id_venta}">
@@ -1296,21 +1298,21 @@ function renderizarVentasModal(ventas, tbody) {
  */
 function renderizarFilasDetalle(detalle, idVenta) {
     if (!detalle || detalle.length === 0) {
-        return `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:12px;">Sin productos en esta venta.</td></tr>`;
+        return `<tr><td colspan="5" style="text-align:center; color:var(--gray); padding:12px;">Sin productos en esta venta.</td></tr>`;
     }
 
     const btnStyle = (bg, border, color) =>
-        `background:${bg}; border:1px solid ${border}; color:${color}; border-radius:6px; padding:5px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-size:0.8rem; font-weight:600; transition:background 0.2s;`;
+        `background:${bg}; border:1px solid ${border}; color:${color}; border-radius:var(--r-pill); padding:6px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-size:0.8rem; font-weight:600; transition:background 0.2s;`;
 
     return detalle.map(item => {
         const subtotal = (parseFloat(item.precio_unitario_aplicado) * parseInt(item.cantidad)).toFixed(2);
         const nombreEsc = item.nombre_producto.replace(/"/g, '&quot;');
         return `
-            <tr id="fila-detalle-${item.id_detalle_prod}" style="border-bottom: 1px solid #f1f5f9;">
-                <td style="padding: 8px 12px; color: #334155; font-weight: 500;">${item.nombre_producto}</td>
-                <td style="padding: 8px 12px; text-align: right; color: #475569;">${parseFloat(item.precio_unitario_aplicado).toFixed(2)} Bs</td>
-                <td style="padding: 8px 12px; text-align: center; color: #1e293b; font-weight: 600;" id="celda-cantidad-${item.id_detalle_prod}">${item.cantidad}</td>
-                <td style="padding: 8px 12px; text-align: right; color: #059669; font-weight: 600;" id="celda-subtotal-${item.id_detalle_prod}">${subtotal} Bs</td>
+            <tr id="fila-detalle-${item.id_detalle_prod}" style="border-bottom: 1px solid var(--separator);">
+                <td style="padding: 8px 12px; color: var(--label); font-weight: 500;">${item.nombre_producto}</td>
+                <td style="padding: 8px 12px; text-align: right; color: var(--label-2);">${parseFloat(item.precio_unitario_aplicado).toFixed(2)} Bs</td>
+                <td style="padding: 8px 12px; text-align: center; color: var(--label); font-weight: 600;" id="celda-cantidad-${item.id_detalle_prod}">${item.cantidad}</td>
+                <td style="padding: 8px 12px; text-align: right; color: var(--green-text); font-weight: 600;" id="celda-subtotal-${item.id_detalle_prod}">${subtotal} Bs</td>
                 <td style="padding: 8px 12px; text-align: center;">
                     <div style="display:flex; gap:6px; justify-content:center;" id="acciones-${item.id_detalle_prod}">
                         <button class="btn-accion-editar"
@@ -1320,7 +1322,7 @@ function renderizarFilasDetalle(detalle, idVenta) {
                             data-id-venta="${idVenta}"
                             data-nombre="${nombreEsc}"
                             title="Editar cantidad"
-                            style="${btnStyle('#eff6ff','#bfdbfe','#1d4ed8')}">
+                            style="${btnStyle('var(--blue-bg)','transparent','var(--blue-text)')}">
                             <i class="material-icons" style="font-size:1rem;">edit</i>
                         </button>
                         <button class="btn-accion-eliminar"
@@ -1329,7 +1331,7 @@ function renderizarFilasDetalle(detalle, idVenta) {
                             data-cantidad="${item.cantidad}"
                             data-id-venta="${idVenta}"
                             title="Eliminar producto"
-                            style="${btnStyle('#fef2f2','#fecaca','#dc2626')}">
+                            style="${btnStyle('var(--red-bg)','transparent','var(--red-text)')}">
                             <i class="material-icons" style="font-size:1rem;">delete</i>
                         </button>
                     </div>
@@ -1366,8 +1368,8 @@ document.addEventListener("click", async (e) => {
         // Transformar celda en input texto (inputmode numeric, sin type=number para evitar e/E)
         celdaCantidad.innerHTML = `
             <input type="text" id="input-cantidad-${idDetalle}" value="${cantidadActual}"
-                style="width:70px; padding:4px 8px; border:2px solid #6366f1; border-radius:6px;
-                       text-align:center; font-size:0.9rem; font-weight:600; outline:none; color:#1e293b;"
+                style="width:70px; padding:4px 8px; border:2px solid var(--indigo); border-radius:var(--r-sm);
+                       text-align:center; font-size:0.9rem; font-weight:600; outline:none; color:var(--label);"
                 autocomplete="off" inputmode="numeric">
         `;
 
@@ -1389,17 +1391,17 @@ document.addEventListener("click", async (e) => {
 
         // Cambiar botones a check (confirmar) y x (cancelar)
         const bS = (bg, border, col) =>
-            `background:${bg}; border:1px solid ${border}; color:${col}; border-radius:6px; padding:5px 8px; cursor:pointer; display:inline-flex; align-items:center; font-size:0.8rem; font-weight:700; transition:background 0.2s;`;
+            `background:${bg}; border:1px solid ${border}; color:${col}; border-radius:var(--r-pill); padding:6px 11px; cursor:pointer; display:inline-flex; align-items:center; font-size:0.8rem; font-weight:700; transition:background 0.2s;`;
 
         accionesDiv.innerHTML = `
             <button class="btn-confirmar-edicion"
                 data-id="${idDetalle}" data-precio="${precio}" data-id-venta="${idVenta}"
-                title="Confirmar" style="${bS('#f0fdf4','#86efac','#16a34a')}">
+                title="Confirmar" style="${bS('var(--green-bg)','transparent','var(--green-text)')}">
                 <i class="material-icons" style="font-size:1.1rem;">check</i>
             </button>
             <button class="btn-cancelar-edicion"
                 data-id="${idDetalle}" data-cantidad-original="${cantidadActual}" data-precio="${precio}" data-id-venta="${idVenta}"
-                title="Cancelar" style="${bS('#fef2f2','#fca5a5','#dc2626')}">
+                title="Cancelar" style="${bS('var(--red-bg)','transparent','var(--red-text)')}">
                 <i class="material-icons" style="font-size:1.1rem;">close</i>
             </button>
         `;
@@ -1465,19 +1467,19 @@ document.addEventListener("click", async (e) => {
                 const filaEl = document.getElementById(`fila-detalle-${idDetalle}`);
                 const nombreEl = filaEl ? filaEl.querySelector("td:first-child").innerText : '';
                 const bS2 = (bg, border, col) =>
-                    `background:${bg}; border:1px solid ${border}; color:${col}; border-radius:6px; padding:5px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-size:0.8rem; font-weight:600; transition:background 0.2s;`;
+                    `background:${bg}; border:1px solid ${border}; color:${col}; border-radius:var(--r-pill); padding:6px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-size:0.8rem; font-weight:600; transition:background 0.2s;`;
                 document.getElementById(`acciones-${idDetalle}`).innerHTML = `
                     <button class="btn-accion-editar"
                         data-id="${idDetalle}" data-cantidad="${nuevaCantidad}"
                         data-precio="${precio}" data-id-venta="${idVenta}"
                         data-nombre="${nombreEl.replace(/"/g,'&quot;')}"
-                        title="Editar" style="${bS2('#eff6ff','#bfdbfe','#1d4ed8')}">
+                        title="Editar" style="${bS2('var(--blue-bg)','transparent','var(--blue-text)')}">
                         <i class="material-icons" style="font-size:1rem;">edit</i>
                     </button>
                     <button class="btn-accion-eliminar"
                         data-id="${idDetalle}" data-nombre="${nombreEl.replace(/"/g,'&quot;')}"
                         data-cantidad="${nuevaCantidad}" data-id-venta="${idVenta}"
-                        title="Eliminar" style="${bS2('#fef2f2','#fecaca','#dc2626')}">
+                        title="Eliminar" style="${bS2('var(--red-bg)','transparent','var(--red-text)')}">
                         <i class="material-icons" style="font-size:1rem;">delete</i>
                     </button>
                 `;
@@ -1507,19 +1509,19 @@ document.addEventListener("click", async (e) => {
         const filaEl  = document.getElementById(`fila-detalle-${idDetalle}`);
         const nombreEl = filaEl ? filaEl.querySelector("td:first-child").innerText : '';
         const bS3 = (bg, border, col) =>
-            `background:${bg}; border:1px solid ${border}; color:${col}; border-radius:6px; padding:5px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-size:0.8rem; font-weight:600; transition:background 0.2s;`;
+            `background:${bg}; border:1px solid ${border}; color:${col}; border-radius:var(--r-pill); padding:6px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-size:0.8rem; font-weight:600; transition:background 0.2s;`;
         document.getElementById(`acciones-${idDetalle}`).innerHTML = `
             <button class="btn-accion-editar"
                 data-id="${idDetalle}" data-cantidad="${cantidadOriginal}"
                 data-precio="${precio}" data-id-venta="${idVenta}"
                 data-nombre="${nombreEl.replace(/"/g,'&quot;')}"
-                title="Editar" style="${bS3('#eff6ff','#bfdbfe','#1d4ed8')}">
+                title="Editar" style="${bS3('var(--blue-bg)','transparent','var(--blue-text)')}">
                 <i class="material-icons" style="font-size:1rem;">edit</i>
             </button>
             <button class="btn-accion-eliminar"
                 data-id="${idDetalle}" data-nombre="${nombreEl.replace(/"/g,'&quot;')}"
                 data-cantidad="${cantidadOriginal}" data-id-venta="${idVenta}"
-                title="Eliminar" style="${bS3('#fef2f2','#fecaca','#dc2626')}">
+                title="Eliminar" style="${bS3('var(--red-bg)','transparent','var(--red-text)')}">
                 <i class="material-icons" style="font-size:1rem;">delete</i>
             </button>
         `;
@@ -1587,7 +1589,7 @@ document.addEventListener("click", async (e) => {
                 // Si el tbody quedó vacío, mostrar mensaje
                 const tbodyDet = document.getElementById(`tbody-detalle-${_idVentaParaEliminar}`);
                 if (tbodyDet && tbodyDet.children.length === 0) {
-                    tbodyDet.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:12px;">Sin productos en esta venta.</td></tr>`;
+                    tbodyDet.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--gray); padding:12px;">Sin productos en esta venta.</td></tr>`;
                 }
             } else {
                 window.mostrarToast(data.message || "Error al eliminar.", "error");

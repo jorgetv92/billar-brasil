@@ -112,15 +112,15 @@ window.gestorUI = {
                     let cssClass = esPausada ? 'pausada' : (esOcupada ? 'ocupada' : 'disponible');
                     let displayInfo = '';
                     let tieneGratis = (parseInt(m.primera_hora_gratis) === 1);
-                    let badgeGratis = tieneGratis ? `<span style="background:#8b5cf6; color:white; font-size:0.75rem; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold;">1ª H. c/ desc.</span>` : '';
+                    let badgeGratis = tieneGratis ? `<span class="chip-promo">1ª H. c/ desc.</span>` : '';
                     if (esOcupada || esPausada) {
                         displayInfo = `<div class="mesa-info-resumen">
-                            <span class="estado-badge" style="background: ${esPausada ? '#f59e0b' : '#ef4444'};">${esPausada ? 'Pausada' : 'Ocupada'}</span>
+                            <span class="estado-badge ${esPausada ? 'pausada' : 'ocupada'}">${esPausada ? 'Pausada' : 'Ocupada'}</span>
                             ${badgeGratis}
                         </div>`;
                         // La inyección dinámica de "horasV:minV" e importe total la hace iniciarMotorReloj() en vivo para las mesas ocupadas/pausadas
                     } else {
-                        displayInfo = `<span class="estado-badge" style="background:#10b981;color:white;padding:3px 8px;border-radius:10px;display:inline-block;margin-top:10px;">Disponible</span>`;
+                        displayInfo = `<span class="estado-badge libre">Disponible</span>`;
                     }
                     const retorno = `
                     <div class="mesa-card ${cssClass}" 
@@ -143,10 +143,10 @@ window.gestorUI = {
                     return retorno
                 }).join('');
 
-                const badgePromoHeader = tipo.tiene_promocion ? `<span style="background:#8b5cf6; color:white; font-size:0.75rem; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:bold;" title="${tipo.nombre_promocion}">🏷️ ${tipo.nombre_promocion}</span>` : '';
+                const badgePromoHeader = tipo.tiene_promocion ? `<span class="chip-promo" title="${tipo.nombre_promocion}"><i class="material-icons">sell</i>${tipo.nombre_promocion}</span>` : '';
 
                 contenedor.innerHTML += `
-                    <h3 class="tipo-mesa-titulo">${tipo.tipo_mesa} <small style="font-size: 0.8em; color: #64748b;">(${tipo.precio_hora} Bs/h)</small> ${badgePromoHeader}</h3>
+                    <h3 class="tipo-mesa-titulo">${tipo.tipo_mesa} <small class="tipo-mesa-tarifa">${tipo.precio_hora} Bs/h</small> ${badgePromoHeader}</h3>
                     <div class="grid-mesas">${mesasHTML}</div>
                 `;
             });
@@ -422,7 +422,7 @@ window.gestorUI = {
             console.warn('cargarHistorialTramos: #tablaHistorialTramos tbody no encontrado tras esperar.');
             return;
         }
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:var(--gray); padding: 10px;">Cargando historial...</td></tr>';
 
         try {
             const response = await fetch(`${this.apiURL}?accion=get_historial_tramos&id_mesa=${id_mesa}`);
@@ -464,7 +464,7 @@ window.gestorUI = {
                     });
                     tbodyActual.innerHTML = html;
                 } else {
-                    tbodyActual.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Sin historial de tiempo</td></tr>';
+                    tbodyActual.innerHTML = '<tr><td colspan="4" class="text-center" style="color:var(--gray); padding: 10px;">Sin historial de tiempo</td></tr>';
                 }
             } else {
                 tbodyActual.innerHTML = `<tr><td colspan="4" class="text-center text-danger" style="padding: 10px;">Error: ${data.message || 'Desconocido'}</td></tr>`;
@@ -485,7 +485,7 @@ window.gestorUI = {
             ? (fuente.cargos || []).find(c => c.tipo === 'hora_gratis')
             : null;
         if (this.itemsCarrito.length === 0 && !horaGratisBarra) {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color: #94a3b8; padding: 20px;">Carrito vacío</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center" style="color: var(--gray); padding: 20px;">Carrito vacío</td></tr>`;
             this.actualizarTotalesVista();
             return;
         }
@@ -496,12 +496,12 @@ window.gestorUI = {
                     <td class="text-center">${Number(precio).toFixed(2)}</td>
                     <td class="text-right">${Number(total).toFixed(2)}</td>
                     <td class="text-center">
-                        <button class="btn-icon" style="color: var(--danger); cursor: pointer; border: none; background: none;" onclick="gestorUI.eliminarDelCarrito(${index})">
-                            <i class="material-icons" style="font-size: 18px;">delete</i>
+                        <button class="btn-icon btn-quitar" title="Quitar" onclick="gestorUI.eliminarDelCarrito(${index})">
+                            <i class="material-icons">delete</i>
                         </button>
                     </td>
                 </tr>`;
-        const estiloCargo = 'background: #f5f3ff; color: #6d28d9;';
+        const estiloCargo = 'background: var(--indigo-bg); color: var(--indigo-text);';
         let html = "";
         this.itemsCarrito.forEach((item, index) => {
             html += fila(item.nombre, item.cantidad, item.precio, item.total, index, item.tipo === 'cargo' ? estiloCargo : '');
@@ -512,7 +512,7 @@ window.gestorUI = {
 
         ((fuente && fuente.detalles) || []).forEach(d => {
             html += `
-                <tr style="background: #edfdf6; color: #047857; font-weight: bold;">
+                <tr class="fila-promo">
                     <td colspan="3">🏷️ ${d.nombre} (${d.producto})</td>
                     <td class="text-right">-${Number(d.monto).toFixed(2)}</td>
                     <td></td>
@@ -821,7 +821,7 @@ window.gestorUI = {
             paddingTop: cs.paddingTop, paddingRight: cs.paddingRight,
             paddingBottom: cs.paddingBottom, paddingLeft: cs.paddingLeft,
             pointerEvents: "none",
-            background: (fondoPanel && fondoPanel !== "rgba(0, 0, 0, 0)") ? fondoPanel : "#fff"
+            background: (fondoPanel && fondoPanel !== "rgba(0, 0, 0, 0)") ? fondoPanel : getComputedStyle(document.body).backgroundColor
         });
         return { nodo, scroll: origen.scrollTop };
     },
@@ -1190,7 +1190,7 @@ window.gestorUI = {
             let tiempo = "00:00:00";
             if (precioHora === 0) {
                 if (resumen) resumen.innerHTML = `
-                    <span class="estado-badge" style="background:#3b82f6;">Consumo</span>
+                    <span class="estado-badge consumo">Consumo</span>
                     <span class="total-badge">${total} Bs</span>
                 `;
             } else {
@@ -1199,10 +1199,10 @@ window.gestorUI = {
                 const mm = dos(Math.floor((seg % 3600) / 60));
                 tiempo = `${hh}:${mm}:${dos(seg % 60)}`;
                 const badgeGratis = mesa.getAttribute('data-primera-hora-gratis') === '1'
-                    ? `<span style="background:#8b5cf6; color:white; font-size:0.75rem; padding:2px 5px; border-radius:4px; margin-left:4px; font-weight:bold;">1ª H. c/ desc.</span>`
+                    ? `<span class="chip-promo">1ª H. c/ desc.</span>`
                     : '';
                 if (resumen) resumen.innerHTML = `
-                    <span class="estado-badge">${hh}:${mm} hrs</span>
+                    <span class="estado-badge reloj">${hh}:${mm} hrs</span>
                     <span class="total-badge">${total} Bs</span>
                     ${badgeGratis}
                 `;

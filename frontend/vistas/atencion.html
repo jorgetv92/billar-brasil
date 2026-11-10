@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="css/atencion_barra.css?v=2026111202">
+<link rel="stylesheet" href="css/atencion_barra.css?v=2026111401">
 
 <div class="atencion-layout state-barra">
 
@@ -59,7 +59,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>
+                                <tr><td colspan="4" class="text-center" style="color:var(--gray); padding: 10px;">Cargando historial...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -132,7 +132,7 @@
                 </div>
                 <div class="btn-group-responsive">
                     <button class="btn-primary" onclick="gestorUI.iniciarFlujoCobro('efectivo_qr')">Realizar Venta</button>
-                    <button class="btn-secondary" style="background-color: #6366f1; color: white;" onclick="gestorUI.iniciarFlujoCobro('mixto')">Pago Mixto</button>
+                    <button class="btn-indigo" onclick="gestorUI.iniciarFlujoCobro('mixto')">Pago Mixto</button>
                 </div>
             </div>
         </div>
@@ -355,20 +355,21 @@
     <!-- MODAL INCENTIVO EN PRODUCTO: el cajero eligió la promoción en el buscador (venta en barra) -->
     <div id="modal_apply_incentivoproducto" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 460px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 12px 12px 0 0;">
-                <h3 style="color: white;">🏷️ <span id="lblNombrePromoIncentivo">Promoción</span></h3>
+            <div class="modal-header" style="display: flex; align-items: center; gap: 12px;">
+                <span class="mm-icono mm-icono-cargo"><i class="material-icons">sell</i></span>
+                <h3 style="margin: 0;"><span id="lblNombrePromoIncentivo">Promoción</span></h3>
             </div>
-            <div class="modal-body" style="padding: 22px 24px;">
-                <p class="text-center" id="lblDetallePromoIncentivo" style="font-size: 1.05rem; font-weight: 500; margin-bottom: 18px; color: #1e293b; line-height: 1.6;"></p>
-                <label for="selectMesaIncentivo" style="font-size: 0.9rem; font-weight: 600; color: #475569; display: block; margin-bottom: 6px;">Mesa que se habilitará al cobrar:</label>
+            <div class="modal-body" style="padding-top: 14px;">
+                <p class="text-center" id="lblDetallePromoIncentivo" style="font-size: 1.05rem; font-weight: 500; margin-bottom: 18px; color: var(--label); line-height: 1.6;"></p>
+                <label for="selectMesaIncentivo" style="font-size: 0.9rem; font-weight: 600; color: var(--label-2); display: block; margin-bottom: 6px;">Mesa que se habilitará al cobrar:</label>
                 <select id="selectMesaIncentivo" class="input-text" style="width: 100%;" onchange="gestorUI.onSeleccionarMesaIncentivo()">
                     <option value="">-- Seleccionar mesa libre --</option>
                 </select>
-                <small id="lblAvisoMesasLibres" style="color: #ef4444; display: none; margin-top: 6px; font-weight: 500;">No hay mesas libres de este tipo.</small>
+                <small id="lblAvisoMesasLibres" style="color: var(--red-text); display: none; margin-top: 6px; font-weight: 500;">No hay mesas libres de este tipo.</small>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="gestorUI.cerrarModalIncentivo()">Cancelar</button>
-                <button id="btnAceptarIncentivoProd" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);" disabled onclick="gestorUI.confirmarIncentivoProducto()">Agregar al carrito</button>
+                <button id="btnAceptarIncentivoProd" class="btn-indigo" disabled onclick="gestorUI.confirmarIncentivoProducto()">Agregar al carrito</button>
             </div>
         </div>
     </div>

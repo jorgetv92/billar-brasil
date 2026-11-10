@@ -7,268 +7,195 @@
 
 <div class="dash-row-1">
     <div id="jornadaContainer">
-        <div class="card text-center" style="padding: 20px; height: 100%;">
+        <div class="card text-center" style="padding: 20px; height: 100%; color: var(--label-2);">
             <p>Cargando estado del turno...</p>
         </div>
     </div>
 
-    <div class="card" style="display: flex; flex-direction: column;">
-        <h4 class="kpi-title">Mesas Disponibles</h4>
+    <div class="card kpi-card">
+        <div class="kpi-cabecera">
+            <span class="kpi-icono" style="background: var(--green);"><i class="material-icons">table_restaurant</i></span>
+            <h4 class="kpi-title">Mesas Disponibles</h4>
+        </div>
         <div id="kpiMesasList" style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; gap: 10px;">
-            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
-                <span style="color:#64748b;">Pool:</span> <strong style="color:var(--primary); font-size:1.2rem;">0</strong>
+            <div style="display:flex; justify-content:space-between; border-bottom: 0.5px solid var(--separator-strong); padding-bottom: 8px;">
+                <span style="color:var(--label-2);">Pool:</span> <strong style="color:var(--primary); font-size:1.2rem;">0</strong>
             </div>
-            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
-                <span style="color:#64748b;">Snooker:</span> <strong style="color:var(--primary); font-size:1.2rem;">0</strong>
+            <div style="display:flex; justify-content:space-between; border-bottom: 0.5px solid var(--separator-strong); padding-bottom: 8px;">
+                <span style="color:var(--label-2);">Snooker:</span> <strong style="color:var(--primary); font-size:1.2rem;">0</strong>
             </div>
         </div>
     </div>
 </div>
 
 <div class="dash-row-2">
-    <div class="card text-center">
-        <h4 class="kpi-title">Horas Jugadas</h4>
-        <h2 class="kpi-value" style="color: #0ea5e9;">0.00 <span style="font-size:1rem;color:#94a3b8;">hrs</span></h2>
+    <div class="card kpi-card">
+        <div class="kpi-cabecera">
+            <span class="kpi-icono" style="background: var(--cyan);"><i class="material-icons">timer</i></span>
+            <h4 class="kpi-title">Horas Jugadas</h4>
+        </div>
+        <h2 class="kpi-value">0.00 <span style="font-size:1rem;color:var(--gray);">hrs</span></h2>
     </div>
 
-    <div class="card text-center">
-        <h4 class="kpi-title">Productos Vendidos</h4>
-        <h2 class="kpi-value" style="color: #10b981;">0 <span style="font-size:1rem;color:#94a3b8;">uds</span></h2>
+    <div class="card kpi-card">
+        <div class="kpi-cabecera">
+            <span class="kpi-icono" style="background: var(--orange);"><i class="material-icons">local_bar</i></span>
+            <h4 class="kpi-title">Productos Vendidos</h4>
+        </div>
+        <h2 class="kpi-value">0 <span style="font-size:1rem;color:var(--gray);">uds</span></h2>
     </div>
 
-    <div class="card text-center">
-        <h4 class="kpi-title">Total Egresos</h4>
-        <h2 class="kpi-value" style="color: #ef4444;">0.00 <span style="font-size:1rem;color:#94a3b8;">Bs</span></h2>
+    <div class="card kpi-card">
+        <div class="kpi-cabecera">
+            <span class="kpi-icono" style="background: var(--red);"><i class="material-icons">outbox</i></span>
+            <h4 class="kpi-title">Total Egresos</h4>
+        </div>
+        <h2 class="kpi-value">0.00 <span style="font-size:1rem;color:var(--gray);">Bs</span></h2>
     </div>
 </div>
 
-<div id="modalApertura" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
-    <div class="card" style="background: #fff; width: 400px; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-        <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-            <i class="material-icons text-primary">point_of_sale</i> Apertura de Caja
-        </h3>
-        <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">Ingresa el dinero en efectivo con el que inicia la caja.</p>
+<div id="modalApertura" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="card hoja-atencion" style="width: 400px; padding: 24px;">
+        <div class="hoja-atencion-cabecera">
+            <span class="kpi-icono" style="background: var(--tint);"><i class="material-icons">point_of_sale</i></span>
+            <h3>Apertura de Caja</h3>
+        </div>
+        <p class="hoja-atencion-texto">Ingresa el dinero en efectivo con el que inicia la caja.</p>
         <form id="formAperturaCaja">
-            <div class="input-group" style="margin-bottom: 20px;">
-                <label for="montoInicial" style="display: block; margin-bottom: 5px; font-weight: bold;">Monto Inicial ($)</label>
-                <input type="number" id="montoInicial" name="montoInicial" min="0" step="0.01" placeholder="0.00" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px;" autocomplete="off">
+            <div class="campo-atencion">
+                <label for="montoInicial">Monto Inicial ($)</label>
+                <input type="number" id="montoInicial" name="montoInicial" min="0" step="0.01" placeholder="0.00" required autocomplete="off">
             </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button type="button" id="btnCancelarApertura" class="btn-secondary" style="padding: 10px 15px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
-                <button type="submit" class="btn-primary" style="padding: 10px 20px; border-radius: 4px;">Confirmar Apertura</button>
+            <div class="hoja-atencion-botones">
+                <button type="button" id="btnCancelarApertura" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Confirmar Apertura</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- MODAL: REPORTE DE APERTURA DE JORNADA -->
-<div id="modalReporteApertura" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.55); z-index: 1050; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
-    <div class="card" style="background: #fff; width: 90%; max-width: 600px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); overflow: hidden; transition: all 0.25s ease-in-out;">
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 18px 22px; display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 10px; color: white;">
-                <i class="material-icons" style="font-size: 1.8rem;">play_circle_filled</i>
+<div id="modalReporteApertura" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay); z-index: 1050; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
+    <div class="card" style="width: 90%; max-width: 600px; padding: 0; overflow: hidden; transition: all 0.25s ease-in-out;">
+        <div style="padding: 22px 22px 6px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="kpi-icono" style="background: var(--green);"><i class="material-icons is-fill">play_circle</i></span>
                 <div>
-                    <div style="font-size: 1.1rem; font-weight: 700;">Jornada Abierta Correctamente</div>
-                    <div id="raIdJornada" style="font-size: 0.8rem; opacity: 0.85;">Jornada #—</div>
+                    <div style="font-size: var(--fs-headline); font-weight: 600;">Jornada Abierta Correctamente</div>
+                    <div id="raIdJornada" style="font-size: var(--fs-footnote); color: var(--label-2);">Jornada #—</div>
                 </div>
             </div>
-            <span style="background: rgba(255,255,255,0.2); color:white; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold;">ACTIVA</span>
+            <span class="estado-badge libre">Activa</span>
         </div>
-        <div style="padding: 16px 22px 0 22px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
-                    <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Encargado</div>
-                    <div id="raEncargado" style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">—</div>
+        <div style="padding: 14px 22px 0 22px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px;">
+                <div style="background: var(--bg-alt); border-radius: var(--r-md); padding: 10px 12px;">
+                    <div style="font-size: var(--fs-caption); color: var(--label-2); margin-bottom: 2px;">Encargado</div>
+                    <div id="raEncargado" style="font-weight: 600; color: var(--label);">—</div>
                 </div>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
-                    <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Fecha</div>
-                    <div id="raFecha" style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">—</div>
+                <div style="background: var(--bg-alt); border-radius: var(--r-md); padding: 10px 12px;">
+                    <div style="font-size: var(--fs-caption); color: var(--label-2); margin-bottom: 2px;">Fecha</div>
+                    <div id="raFecha" style="font-weight: 600; color: var(--label);">—</div>
                 </div>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
-                    <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Hora de Apertura</div>
-                    <div id="raHora" style="font-weight: 600; color: #1e293b; font-size: 0.9rem;">—</div>
+                <div style="background: var(--bg-alt); border-radius: var(--r-md); padding: 10px 12px;">
+                    <div style="font-size: var(--fs-caption); color: var(--label-2); margin-bottom: 2px;">Hora de Apertura</div>
+                    <div id="raHora" style="font-weight: 600; color: var(--label);">—</div>
                 </div>
-                <div style="background: #edfdf6; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px 12px;">
-                    <div style="font-size: 0.7rem; color: #047857; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em;">Monto de Apertura</div>
-                    <div id="raMontoApertura" style="font-weight: 700; color: #059669; font-size: 1.05rem;">0.00 Bs</div>
+                <div style="background: var(--green-bg); border-radius: var(--r-md); padding: 10px 12px;">
+                    <div style="font-size: var(--fs-caption); color: var(--green-text); margin-bottom: 2px;">Monto de Apertura</div>
+                    <div id="raMontoApertura" style="font-family: var(--font-rounded); font-weight: 700; color: var(--green-text); font-size: var(--fs-title3);">0.00 Bs</div>
                 </div>
             </div>
             <div style="margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <h4 style="font-size: 0.8rem; color: #475569; margin: 0; border-left: 3px solid #10b981; padding-left: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Inventario Inicial</h4>
-                    <button type="button" id="btnToggleExpandirInventario" style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Maximizar tabla">
-                        <span style="font-size: 0.7rem; font-weight: 600; color: #475569;" id="txtToggleExpandir">Expandir</span>
-                        <i class="material-icons" id="iconoExpandirInventario" style="font-size: 1.1rem; color: #475569;">fullscreen</i>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h4 style="font-size: var(--fs-headline); margin: 0;">Inventario Inicial</h4>
+                    <button type="button" id="btnToggleExpandirInventario" style="background: var(--fill-3); border: none; padding: 5px 12px 5px 14px; border-radius: var(--r-pill); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Maximizar tabla">
+                        <span style="font-size: var(--fs-footnote); font-weight: 600; color: var(--tint-text);" id="txtToggleExpandir">Expandir</span>
+                        <i class="material-icons" id="iconoExpandirInventario" style="font-size: 18px; color: var(--tint-text);">fullscreen</i>
                     </button>
                 </div>
 
-                <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; transition: max-height 0.25s ease-in-out;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                <div style="max-height: 200px; overflow-y: auto; border-radius: var(--r-md); background: var(--bg-alt); transition: max-height 0.25s ease-in-out;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: var(--fs-footnote);">
                         <thead>
-                            <tr style="background: #f1f5f9; position: sticky; top: 0;">
-                                <th style="padding: 5px 8px; border-bottom: 1px solid #cbd5e1; text-align: left; color: #475569; font-weight: 600;">Producto</th>
-                                <th style="padding: 5px 8px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #475569; font-weight: 600;">Stock</th>
-                                <th style="padding: 5px 8px; border-bottom: 1px solid #cbd5e1; text-align: right; color: #475569; font-weight: 600;">Precio</th>
+                            <tr style="background: var(--gray6); position: sticky; top: 0;">
+                                <th style="padding: 7px 12px; border-bottom: 0.5px solid var(--separator-strong); text-align: left; color: var(--label-2); font-weight: 600;">Producto</th>
+                                <th style="padding: 7px 12px; border-bottom: 0.5px solid var(--separator-strong); text-align: right; color: var(--label-2); font-weight: 600;">Stock</th>
+                                <th style="padding: 7px 12px; border-bottom: 0.5px solid var(--separator-strong); text-align: right; color: var(--label-2); font-weight: 600;">Precio</th>
                             </tr>
                         </thead>
                         <tbody id="raInventarioBody">
                             <tr>
-                                <td colspan="3" style="text-align:center; color:#94a3b8; padding: 12px;">Cargando inventario...</td>
+                                <td colspan="3" style="text-align:center; color:var(--gray); padding: 12px;">Cargando inventario...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-        <div style="padding: 12px 22px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
-            <button type="button" id="btnCerrarReporteApertura" style="padding: 9px 24px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="material-icons" style="font-size: 1rem;">check</i> Entendido
+        <div style="padding: 4px 22px 22px; display: flex; justify-content: flex-end;">
+            <button type="button" id="btnCerrarReporteApertura" class="btn-primary" style="min-width: 160px;">
+                <i class="material-icons">check</i> Entendido
             </button>
         </div>
     </div>
 </div>
 
-<div id="modalPreCierre" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
-    <div class="card" style="background: #fff; width: 90%; max-width: 850px; padding: 25px; border-radius: 8px; max-height: 90vh; overflow-y: auto;">
-        <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; color: var(--danger);">
-            <i class="material-icons">analytics</i> Reporte de Pre-Cierre de Jornada
-        </h3>
-        <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">Valide los totales de caja y el flujo de inventario antes de guardar.</p>
+<div id="modalPreCierre" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay); z-index: 1000; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
+    <div class="card hoja-atencion" style="width: 90%; max-width: 850px; padding: 24px; max-height: 90vh; overflow-y: auto;">
+        <div class="hoja-atencion-cabecera">
+            <span class="kpi-icono" style="background: var(--red);"><i class="material-icons">analytics</i></span>
+            <h3>Reporte de Pre-Cierre de Jornada</h3>
+        </div>
+        <p class="hoja-atencion-texto">Valide los totales de caja y el flujo de inventario antes de guardar.</p>
 
         <div id="infoPreCierre">
-            <p class="text-center" style="color: #94a3b8; padding: 20px;">Cargando información del reporte de cierre...</p>
+            <p class="text-center" style="color: var(--gray); padding: 20px;">Cargando información del reporte de cierre...</p>
         </div>
 
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-            <button type="button" id="btnCancelarCierre" class="btn-secondary" style="padding: 10px 15px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer;">Modificar Cierre</button>
-            <button type="button" id="btnConfirmarCierre" class="btn-primary" style="padding: 10px 20px; background: var(--danger); border-radius: 4px; border:none; color:white; font-weight:bold; cursor:pointer;">Confirmar Cierre</button>
+        <div class="hoja-atencion-botones">
+            <button type="button" id="btnCancelarCierre" class="btn-secondary">Modificar Cierre</button>
+            <button type="button" id="btnConfirmarCierre" class="btn-danger">Confirmar Cierre</button>
         </div>
     </div>
 </div>
 
-<div id="modalReporteFinal" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 1100; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
-    <div class="card" style="background: #fff; width: 90%; max-width: 850px; padding: 25px; border-radius: 8px; max-height: 95vh; overflow-y: auto;">
+<div id="modalReporteFinal" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay); z-index: 1100; justify-content: center; align-items: center; overflow-y: auto; padding: 20px 0;">
+    <div class="card hoja-atencion" style="width: 90%; max-width: 850px; padding: 24px; max-height: 95vh; overflow-y: auto;">
         <h3 id="reporteHeaderTitulo" style="display: none;">
         </h3>
 
-        <div id="contenidoReporteFinal" style="background: #fafafa; border: 1px solid #cbd5e1; border-radius: 6px; color: #1e293b;">
+        <div id="contenidoReporteFinal" class="superficie-clara" style="background: var(--bg-alt); border-radius: var(--r-lg); color: var(--label);">
         </div>
 
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-            <button type="button" id="btnCerrarReporteFinal" class="btn-secondary" style="padding: 10px 15px; background: #cbd5e1; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cerrar</button>
-            <button type="button" id="btnGuardarPDF" class="btn-primary" style="padding: 10px 20px; background: var(--success); border-radius: 4px; border:none; color:white; font-weight:bold; cursor:pointer; display: inline-flex; align-items: center; gap: 5px;">
-                <i class="material-icons" style="font-size:1.1rem;">picture_as_pdf</i> Guardar PDF
+        <div class="hoja-atencion-botones">
+            <button type="button" id="btnCerrarReporteFinal" class="btn-secondary">Cerrar</button>
+            <button type="button" id="btnGuardarPDF" class="btn-success">
+                <i class="material-icons">picture_as_pdf</i> Guardar PDF
             </button>
         </div>
     </div>
 </div>
-
-<style>
-    .sup-login {
-        max-width: 380px;
-        margin: 12px auto 20px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    .sup-login-icono {
-        width: 64px;
-        height: 64px;
-        margin: 0 auto 4px;
-        border-radius: 18px;
-        display: grid;
-        place-items: center;
-        background: #eef2ff;
-        color: #4f46e5;
-    }
-    .sup-login-icono .material-icons { font-size: 34px; }
-    .sup-login h3 { margin: 0; font-size: 1.2rem; color: #0f172a; }
-    .sup-login p { margin: 0 0 6px; color: #64748b; font-size: 0.9rem; line-height: 1.45; }
-    .sup-login small { color: #94a3b8; font-size: 0.78rem; }
-    .sup-campo {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 48px;
-        padding: 0 12px;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        background: #f8fafc;
-        cursor: text;
-        transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .sup-campo:focus-within {
-        border-color: #6366f1;
-        background: #fff;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-    }
-    .sup-campo > .material-icons { color: #94a3b8; font-size: 20px; }
-    .sup-campo input {
-        flex: 1;
-        min-width: 0;
-        border: none;
-        outline: none;
-        background: transparent;
-        font-size: 0.98rem;
-        color: #0f172a;
-    }
-    .sup-ver {
-        border: none;
-        background: transparent;
-        color: #94a3b8;
-        cursor: pointer;
-        display: grid;
-        place-items: center;
-        padding: 4px;
-    }
-    .sup-error {
-        display: none;
-        padding: 9px 12px;
-        border-radius: 10px;
-        background: #fef2f2;
-        color: #b91c1c;
-        font-size: 0.86rem;
-        font-weight: 600;
-        text-align: left;
-    }
-    .sup-error.visible { display: block; }
-    .sup-boton {
-        height: 48px;
-        border: none;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        color: #fff;
-        font-size: 0.98rem;
-        font-weight: 700;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-    }
-    .sup-boton:disabled { opacity: 0.6; cursor: wait; }
-</style>
 
 <!-- ================================================================== -->
 <!-- MODAL: VENTAS DE LA JORNADA                                         -->
 <!-- ================================================================== -->
-<div id="modalMisVentas" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.55); z-index: 1200; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 24px 0;">
-    <div style="background: #fff; width: 95%; max-width: 1050px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.22); overflow: hidden; margin: auto;">
+<div id="modalMisVentas" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay); z-index: 1200; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 24px 0;">
+    <div style="background: var(--bg-elevated); width: 95%; max-width: 1050px; overflow: hidden; margin: auto;">
         <!-- Cabecera del modal -->
-        <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 12px; color: white;">
-                <i class="material-icons" style="font-size: 2rem;">point_of_sale</i>
+        <div style="padding: 20px 24px 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span class="kpi-icono" style="background: var(--indigo);"><i class="material-icons">point_of_sale</i></span>
                 <div>
-                    <div style="font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em;">Ventas de la Jornada</div>
-                    <div style="font-size: 0.78rem; opacity: 0.85;">Productos vendidos — barra y mesa</div>
+                    <div style="font-size: var(--fs-headline); font-weight: 600;">Ventas de la Jornada</div>
+                    <div style="font-size: var(--fs-footnote); color: var(--label-2);">Productos vendidos — barra y mesa</div>
                 </div>
-                <span id="lblSupervisorVentas" style="display: none; margin-left: 6px; background: rgba(255,255,255,0.18); padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; align-items: center; gap: 4px;">
-                    <i class="material-icons" style="font-size: 0.95rem;">verified_user</i><span></span>
+                <span id="lblSupervisorVentas" class="chip-promo" style="display: none; padding: 4px 10px;">
+                    <i class="material-icons">verified_user</i><span></span>
                 </span>
             </div>
-            <button type="button" id="btnCerrarMisVentas" style="background: rgba(255,255,255,0.18); border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: background 0.2s;" title="Cerrar">
-                <i class="material-icons" style="font-size: 1.2rem;">close</i>
+            <button type="button" id="btnCerrarMisVentas" class="boton-cerrar" title="Cerrar" aria-label="Cerrar">
+                <i class="material-icons">close</i>
             </button>
         </div>
 
@@ -293,30 +220,30 @@
                 <small>La autorización termina al cerrar esta ventana.</small>
             </form>
 
-            <div id="misVentasLoading" style="text-align: center; padding: 40px; color: #94a3b8;">
+            <div id="misVentasLoading" style="text-align: center; padding: 40px; color: var(--gray);">
                 <i class="material-icons" style="font-size: 2.5rem; display: block; margin-bottom: 10px;">hourglass_empty</i>
                 Cargando ventas...
             </div>
 
             <!-- Tabla maestra de ventas -->
             <div id="misVentasContenido" style="display: none;">
-                <div style="overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="overflow-x: auto; border-radius: var(--r-md); border: 1px solid var(--separator);">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
                         <thead>
-                            <tr style="background: linear-gradient(to right, #f8fafc, #f1f5f9);">
-                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: center; color: #475569; font-weight: 700; width: 38px;"></th>
-                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569; font-weight: 700;">ID</th>
-                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569; font-weight: 700;">Fecha / Hora</th>
-                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: center; color: #475569; font-weight: 700;">Modo Venta</th>
-                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: center; color: #475569; font-weight: 700;">Método Pago</th>
-                                <th style="padding: 11px 14px; border-bottom: 2px solid #e2e8f0; text-align: right; color: #475569; font-weight: 700;">Importe</th>
+                            <tr style="background: linear-gradient(to right, var(--bg-alt), var(--gray6));">
+                                <th style="padding: 11px 14px; border-bottom: 2px solid var(--separator); text-align: center; color: var(--label-2); font-weight: 700; width: 38px;"></th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid var(--separator); text-align: left; color: var(--label-2); font-weight: 700;">ID</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid var(--separator); text-align: left; color: var(--label-2); font-weight: 700;">Fecha / Hora</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid var(--separator); text-align: center; color: var(--label-2); font-weight: 700;">Modo Venta</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid var(--separator); text-align: center; color: var(--label-2); font-weight: 700;">Método Pago</th>
+                                <th style="padding: 11px 14px; border-bottom: 2px solid var(--separator); text-align: right; color: var(--label-2); font-weight: 700;">Importe</th>
                             </tr>
                         </thead>
                         <tbody id="misVentasTbody">
                         </tbody>
                     </table>
                 </div>
-                <div id="misVentasEmpty" style="display: none; text-align: center; padding: 40px; color: #94a3b8;">
+                <div id="misVentasEmpty" style="display: none; text-align: center; padding: 40px; color: var(--gray);">
                     <i class="material-icons" style="font-size: 2.5rem; display: block; margin-bottom: 8px;">inventory_2</i>
                     No hay ventas de productos registradas en esta jornada.
                 </div>
@@ -324,9 +251,9 @@
         </div>
 
         <!-- Pie del modal -->
-        <div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
-            <button type="button" id="btnCerrarMisVentas2" style="padding: 9px 24px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="material-icons" style="font-size: 1rem;">close</i> Cerrar
+        <div style="padding: 4px 24px 22px; display: flex; justify-content: flex-end;">
+            <button type="button" id="btnCerrarMisVentas2" class="btn-secondary" style="min-width: 140px;">
+                Cerrar
             </button>
         </div>
     </div>
@@ -335,21 +262,21 @@
 <!-- ================================================================== -->
 <!-- MODAL: CONFIRMACIÓN DE ELIMINACIÓN DE PRODUCTO DE VENTA            -->
 <!-- ================================================================== -->
-<div id="modalConfirmarEliminarDetalle" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 1300; justify-content: center; align-items: center;">
-    <div style="background: #fff; width: 420px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 16px 20px; display: flex; align-items: center; gap: 10px; color: white;">
-            <i class="material-icons" style="font-size: 1.6rem;">warning</i>
-            <span style="font-size: 1rem; font-weight: 700;">Confirmar Eliminación</span>
+<div id="modalConfirmarEliminarDetalle" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: var(--overlay); z-index: 1300; justify-content: center; align-items: center;">
+    <div style="background: var(--bg-elevated); width: 360px; overflow: hidden; text-align: center;">
+        <div style="padding: 26px 22px 4px; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <span class="kpi-icono" style="background: var(--red); width: 52px; height: 52px; border-radius: 14px;"><i class="material-icons is-fill" style="font-size: 30px;">warning</i></span>
+            <span style="font-size: var(--fs-headline); font-weight: 600;">Confirmar Eliminación</span>
         </div>
-        <div style="padding: 20px 24px;">
-            <p style="color: #334155; margin-bottom: 6px;">¿Estás seguro de que deseas eliminar este producto de la venta?</p>
-            <p id="textoConfirmarEliminar" style="font-weight: 600; color: #ef4444; font-size: 0.9rem; background: #fef2f2; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #ef4444;"></p>
-            <p style="color: #64748b; font-size: 0.82rem; margin-top: 8px;">El stock del producto será restaurado automáticamente al inventario.</p>
+        <div style="padding: 4px 22px 8px;">
+            <p style="color: var(--label-2); font-size: var(--fs-footnote); margin-bottom: 10px;">¿Estás seguro de que deseas eliminar este producto de la venta?</p>
+            <p id="textoConfirmarEliminar" style="font-weight: 600; color: var(--red-text); font-size: var(--fs-subhead); background: var(--red-bg); padding: 8px 12px; border-radius: var(--r-md);"></p>
+            <p style="color: var(--label-2); font-size: var(--fs-caption); margin-top: 8px;">El stock del producto será restaurado automáticamente al inventario.</p>
         </div>
-        <div style="padding: 14px 24px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end;">
-            <button type="button" id="btnCancelarEliminarDetalle" style="padding: 9px 18px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; color: #475569;">Cancelar</button>
-            <button type="button" id="btnConfirmarEliminarDetalle" style="padding: 9px 20px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="material-icons" style="font-size: 1rem;">delete_forever</i> Eliminar
+        <div style="padding: 12px 22px 22px; display: flex; gap: 10px;">
+            <button type="button" id="btnCancelarEliminarDetalle" class="btn-secondary" style="flex: 1;">Cancelar</button>
+            <button type="button" id="btnConfirmarEliminarDetalle" class="btn-danger" style="flex: 1;">
+                <i class="material-icons">delete_forever</i> Eliminar
             </button>
         </div>
     </div>

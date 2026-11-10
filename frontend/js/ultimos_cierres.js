@@ -12,19 +12,19 @@ async function cargarListadoPdfs() {
             const archivos = json.data;
 
             if (archivos.length === 0) {
-                listadoContainer.innerHTML = "<p style='color: #64748b;'>No hay reportes de cierre de jornada guardados.</p>";
+                listadoContainer.innerHTML = "<p style='color: var(--label-2);'>No hay reportes de cierre de jornada guardados.</p>";
                 return;
             }
 
             let html = "";
             archivos.forEach(archivo => {
                 html += `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 12px 15px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-alt); padding: 12px 15px; border: 1px solid var(--separator); border-radius: var(--r-sm);">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <i class="material-icons" style="color: #ef4444;">picture_as_pdf</i>
+                            <i class="material-icons" style="color: var(--red-text);">picture_as_pdf</i>
                             <div>
-                                <h4 style="margin: 0; color: #1e293b; font-size: 1rem;">${archivo.name}</h4>
-                                <span style="font-size: 0.8rem; color: #64748b;">${fechaHoraDMA(archivo.date)}</span>
+                                <h4 style="margin: 0; color: var(--label); font-size: 1rem;">${archivo.name}</h4>
+                                <span style="font-size: 0.8rem; color: var(--label-2);">${fechaHoraDMA(archivo.date)}</span>
                             </div>
                         </div>
                         <button class="btn btn-primary" style="display: flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: 0.85rem;" onclick="abrirVisorPdf('${archivo.name}')">
@@ -35,11 +35,11 @@ async function cargarListadoPdfs() {
             });
             listadoContainer.innerHTML = html;
         } else {
-            listadoContainer.innerHTML = `<p style="color: #ef4444;">Error al cargar: ${json.message}</p>`;
+            listadoContainer.innerHTML = `<p style="color: var(--red-text);">Error al cargar: ${json.message}</p>`;
         }
     } catch (err) {
         console.error("Error al cargar listado de PDFs:", err);
-        listadoContainer.innerHTML = `<p style="color: #ef4444;">Error de conexión.</p>`;
+        listadoContainer.innerHTML = `<p style="color: var(--red-text);">Error de conexión.</p>`;
     }
 }
 

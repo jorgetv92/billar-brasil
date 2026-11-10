@@ -5,41 +5,49 @@
     </div>
 </div>
 
-<div class="dash-row-1" style="display: block;">
-    <div class="card" style="max-width: 600px; margin: 0 auto; padding: 25px;">
-        <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-            <i class="material-icons text-primary">print</i> Impresión Térmica
-        </h3>
-        <p style="color: #64748b; font-size: 0.95rem; margin-bottom: 20px;">
-            Habilite o deshabilite la impresión térmica automática para este dispositivo. 
-            Si está utilizando un teléfono móvil o una tablet sin impresora conectada, apague esta opción para evitar que el sistema intente imprimir reportes.
-        </p>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <div>
-                <strong style="display: block; color: #1e293b; font-size: 1.05rem;">Imprimir tickets automáticamente</strong>
-                <span style="font-size: 0.85rem; color: #64748b;">Aplica para ventas y reportes de caja</span>
-            </div>
-            
-            <label class="switch" style="position: relative; display: inline-block; width: 60px; height: 34px;">
-                <input type="checkbox" id="toggleImpresion" style="opacity: 0; width: 0; height: 0;">
-                <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px;">
-                    <span style="position: absolute; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+<div style="max-width: 640px;">
+    <p class="ajustes-seccion" id="seccionApariencia">Apariencia</p>
+    <div class="ajustes-grupo">
+        <div class="apariencia" role="group" aria-labelledby="seccionApariencia">
+            <button type="button" class="apariencia-opcion" data-tema-opcion="claro">
+                <span class="apariencia-muestra muestra-clara" aria-hidden="true">
+                    <span class="m-menu"></span><span class="m-titulo"></span><span class="m-tarjeta"></span><span class="m-tarjeta corta"></span>
                 </span>
+                <span class="apariencia-nombre">Claro</span>
+            </button>
+            <button type="button" class="apariencia-opcion" data-tema-opcion="oscuro">
+                <span class="apariencia-muestra muestra-oscura" aria-hidden="true">
+                    <span class="m-menu"></span><span class="m-titulo"></span><span class="m-tarjeta"></span><span class="m-tarjeta corta"></span>
+                </span>
+                <span class="apariencia-nombre">Oscuro</span>
+            </button>
+            <button type="button" class="apariencia-opcion" data-tema-opcion="auto">
+                <span class="apariencia-muestra muestra-auto" aria-hidden="true">
+                    <span class="muestra-clara"><span class="m-menu"></span><span class="m-titulo"></span><span class="m-tarjeta"></span><span class="m-tarjeta corta"></span></span>
+                    <span class="muestra-oscura"><span class="m-menu"></span><span class="m-titulo"></span><span class="m-tarjeta"></span><span class="m-tarjeta corta"></span></span>
+                </span>
+                <span class="apariencia-nombre">Automático</span>
+            </button>
+        </div>
+    </div>
+    <p class="ajustes-nota">Automático usa el modo claro u oscuro que tenga este dispositivo y cambia junto con él. La elección se guarda solo en este dispositivo.</p>
+
+    <p class="ajustes-seccion" style="margin-top: 26px;">Impresión térmica</p>
+    <div class="ajustes-grupo">
+        <div class="ajustes-fila">
+            <span class="kpi-icono" style="background: var(--gray);"><i class="material-icons">print</i></span>
+            <div class="ajustes-fila-texto">
+                <strong>Imprimir tickets automáticamente</strong>
+                <span>Aplica para ventas y reportes de caja</span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="toggleImpresion">
+                <span class="slider"><span></span></span>
             </label>
         </div>
     </div>
+    <p class="ajustes-nota">
+        Habilite o deshabilite la impresión térmica automática para este dispositivo.
+        Si está utilizando un teléfono móvil o una tablet sin impresora conectada, apague esta opción para evitar que el sistema intente imprimir reportes.
+    </p>
 </div>
-
-<style>
-/* CSS local para el toggle switch por si no existe globalmente */
-.switch input:checked + .slider {
-    background-color: var(--primary, #2196F3);
-}
-.switch input:focus + .slider {
-    box-shadow: 0 0 1px var(--primary, #2196F3);
-}
-.switch input:checked + .slider > span {
-    transform: translateX(26px);
-}
-</style>

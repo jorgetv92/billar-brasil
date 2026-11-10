@@ -1,0 +1,484 @@
+/* =====================================================================
+   SISTEMA DE DISEÑO · BILLAR BRASIL
+   ---------------------------------------------------------------------
+   Lenguaje visual basado en las Human Interface Guidelines de Apple:
+   - Colores del sistema (valores publicados en 2025) y sus variantes de
+     alto contraste para texto pequeño, en modo claro y oscuro.
+   - Etiquetas, rellenos y separadores semitransparentes, como en iOS.
+   - Tipografía del sistema con la escala de estilos de texto.
+   - Material translúcido solo en la capa de navegación (barra y menú);
+     el contenido va sobre superficies sólidas.
+   - Controles en cápsula, área táctil de 44 px, estados de presión.
+
+   Tema claro / oscuro: js/tema.js pone data-tema="claro|oscuro" en <html>
+   (por defecto sigue al sistema). En oscuro hay dos niveles de fondo, como
+   en iOS: "base" para la página y "elevado" para hojas y modales.
+   .superficie-clara vuelve a la paleta clara dentro de un bloque (reportes
+   que se imprimen o se guardan en PDF: se ven como papel).
+
+   No se usan recursos de Apple (logo, marcas, archivos de SF Pro ni
+   SF Symbols: su licencia los limita a apps de plataformas Apple).
+   La fuente es la del sistema (SF en equipos Apple, Inter en el resto)
+   y los íconos son Material Symbols Rounded.
+
+   Lo importan login.css, app.css (admin) y atencion.css (atención).
+   ===================================================================== */
+
+/* ---------- Valores que no cambian con el tema ---------- */
+:root {
+    /* Tipografía */
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter", "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Inter", "Segoe UI Variable Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* Escala de estilos de texto (tamaño por defecto de iOS) */
+    --fs-large: 34px;
+    --fs-title1: 28px;
+    --fs-title2: 22px;
+    --fs-title3: 20px;
+    --fs-headline: 17px;
+    --fs-body: 17px;
+    --fs-callout: 16px;
+    --fs-subhead: 15px;
+    --fs-footnote: 13px;
+    --fs-caption: 12px;
+    --fs-caption2: 11px;
+
+    /* Radios */
+    --r-xs: 6px;
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --r-xl: 22px;
+    --r-pill: 999px;
+
+    /* Material */
+    --glass-blur: saturate(180%) blur(24px);
+
+    /* Movimiento */
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ---------- Paleta clara (también dentro de .superficie-clara) ---------- */
+:root,
+.superficie-clara {
+    color-scheme: light;
+
+    /* Colores del sistema */
+    --blue: #0088ff;
+    --green: #34c759;
+    --red: #ff383c;
+    --orange: #ff8d28;
+    --yellow: #ffcc00;
+    --mint: #00c8b3;
+    --teal: #00c3d0;
+    --cyan: #00c0e8;
+    --indigo: #6155f5;
+    --purple: #cb30e0;
+    --pink: #ff2d55;
+    --brown: #ac7f5e;
+
+    /* Alto contraste: texto, cifras y símbolos pequeños */
+    --blue-text: #1e6ef4;
+    --green-text: #008932;
+    --red-text: #e9152d;
+    --orange-text: #c55300;
+    --yellow-text: #a16a00;
+    --mint-text: #008575;
+    --teal-text: #008198;
+    --cyan-text: #007eae;
+    --indigo-text: #564ade;
+    --purple-text: #b02fc2;
+    --pink-text: #e7124d;
+    --brown-text: #956d51;
+
+    /* Rellenos sólidos con texto blanco encima */
+    --tint-fill: #1e6ef4;
+    --green-fill: #008932;
+    --teal-fill: #008198;
+    --indigo-fill: #564ade;
+
+    /* Fondos teñidos (badges, avisos, selección) */
+    --blue-bg: rgba(0, 136, 255, 0.12);
+    --green-bg: rgba(52, 199, 89, 0.15);
+    --red-bg: rgba(255, 56, 60, 0.12);
+    --orange-bg: rgba(255, 141, 40, 0.15);
+    --yellow-bg: rgba(255, 204, 0, 0.2);
+    --mint-bg: rgba(0, 200, 179, 0.14);
+    --teal-bg: rgba(0, 195, 208, 0.14);
+    --cyan-bg: rgba(0, 192, 232, 0.14);
+    --indigo-bg: rgba(97, 85, 245, 0.12);
+    --purple-bg: rgba(203, 48, 224, 0.12);
+    --pink-bg: rgba(255, 45, 85, 0.12);
+
+    /* Bordes teñidos */
+    --blue-line: rgba(0, 136, 255, 0.35);
+    --green-line: rgba(52, 199, 89, 0.45);
+    --red-line: rgba(255, 56, 60, 0.35);
+    --orange-line: rgba(255, 141, 40, 0.45);
+    --indigo-line: rgba(97, 85, 245, 0.35);
+    --purple-line: rgba(203, 48, 224, 0.35);
+
+    /* Grises del sistema */
+    --gray: #8e8e93;
+    --gray2: #aeaeb2;
+    --gray3: #c7c7cc;
+    --gray4: #d1d1d6;
+    --gray5: #e5e5ea;
+    --gray6: #f2f2f7;
+
+    /* Etiquetas */
+    --label: #1d1d1f;
+    --label-2: rgba(60, 60, 67, 0.64);
+    --label-3: rgba(60, 60, 67, 0.36);
+    --label-4: rgba(60, 60, 67, 0.18);
+    --placeholder: rgba(60, 60, 67, 0.36);
+
+    /* Rellenos */
+    --fill: rgba(120, 120, 128, 0.2);
+    --fill-2: rgba(120, 120, 128, 0.16);
+    --fill-3: rgba(118, 118, 128, 0.12);
+    --fill-4: rgba(116, 116, 128, 0.08);
+
+    /* Separadores */
+    --separator: rgba(60, 60, 67, 0.16);
+    --separator-strong: rgba(60, 60, 67, 0.29);
+    --separator-opaque: #c6c6c8;
+
+    /* Fondos */
+    --bg: #ffffff;
+    --bg-2: #f2f2f7;
+    --bg-grouped: #f2f2f7;
+    --bg-grouped-2: #ffffff;
+    --bg-alt: #f5f5f7;
+    --bg-elevated: #ffffff;
+
+    /* Superficies oscuras (visor de PDF, totales destacados) */
+    --ink: #1c1c1e;
+    --ink-2: #2c2c2e;
+    --ink-3: #3a3a3c;
+    --on-ink: #ffffff;
+    --on-ink-2: rgba(235, 235, 245, 0.64);
+
+    /* Color de acento de la app */
+    --tint: var(--blue);
+    --tint-text: var(--blue-text);
+    --tint-bg: var(--blue-bg);
+    --tint-pressed: #0070d6;
+    --focus-ring: rgba(0, 136, 255, 0.45);
+
+    /* Materiales (capa de navegación) */
+    --glass-barra: rgba(242, 242, 247, 0.72);
+    --glass-menu: rgba(255, 255, 255, 0.82);
+    --glass: rgba(255, 255, 255, 0.78);
+    --glass-aviso: rgba(255, 255, 255, 0.86);
+    --glass-edge: inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+    --capsula-sobre-color: rgba(255, 255, 255, 0.86);
+    --segmento-activo: #ffffff;
+    --icono-app-bg: linear-gradient(180deg, #ffffff 0%, #f2f2f7 100%);
+    --overlay: rgba(0, 0, 0, 0.32);
+    --scroll-thumb: rgba(0, 0, 0, 0.2);
+    --scroll-thumb-hover: rgba(0, 0, 0, 0.36);
+
+    /* Sombras (suaves; la jerarquía la marcan el fondo y el material) */
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    --shadow-2: 0 4px 14px -4px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+    --shadow-3: 0 14px 36px -10px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+    --shadow-modal: 0 32px 80px -16px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+    --shadow-segmento: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+
+    /* Alias de compatibilidad (estilos en línea y JS existentes) */
+    --primary: var(--blue-text);
+    --primary-hover: var(--tint-pressed);
+    --primary-color: var(--blue-text);
+    --success: var(--green-text);
+    --danger: var(--red-text);
+    --warning: var(--orange-text);
+    --info: var(--teal-text);
+    --text-dark: var(--label);
+    --text-color: var(--label);
+    --border-color: var(--separator);
+    --bg-main: var(--bg-grouped);
+
+    accent-color: var(--tint);
+}
+
+/* Dentro de un bloque claro el texto heredado también vuelve a ser oscuro */
+.superficie-clara {
+    color: var(--label);
+}
+
+/* ---------- Paleta oscura: nivel base (página, tarjetas) ---------- */
+:root[data-tema="oscuro"] {
+    color-scheme: dark;
+
+    --blue: #0091ff;
+    --green: #30d158;
+    --red: #ff4245;
+    --orange: #ff9230;
+    --yellow: #ffd600;
+    --mint: #00dac3;
+    --teal: #00d2e0;
+    --cyan: #3cd3fe;
+    --indigo: #6d7cff;
+    --purple: #db34f2;
+    --pink: #ff375f;
+    --brown: #b78a66;
+
+    --blue-text: #5cb8ff;
+    --green-text: #4ad968;
+    --red-text: #ff6165;
+    --orange-text: #ffa056;
+    --yellow-text: #fedf43;
+    --mint-text: #54dfcb;
+    --teal-text: #3bddec;
+    --cyan-text: #6dd9ff;
+    --indigo-text: #a7aaff;
+    --purple-text: #ea8dff;
+    --pink-text: #ff8ac4;
+    --brown-text: #dba679;
+
+    --tint-fill: #0a84ff;
+    --green-fill: #248a3d;
+    --teal-fill: #0b8a99;
+    --indigo-fill: #5e5ce6;
+
+    --blue-bg: rgba(0, 145, 255, 0.2);
+    --green-bg: rgba(48, 209, 88, 0.18);
+    --red-bg: rgba(255, 66, 69, 0.2);
+    --orange-bg: rgba(255, 146, 48, 0.2);
+    --yellow-bg: rgba(255, 214, 0, 0.18);
+    --mint-bg: rgba(0, 218, 195, 0.18);
+    --teal-bg: rgba(0, 210, 224, 0.18);
+    --cyan-bg: rgba(60, 211, 254, 0.18);
+    --indigo-bg: rgba(109, 124, 255, 0.22);
+    --purple-bg: rgba(219, 52, 242, 0.2);
+    --pink-bg: rgba(255, 55, 95, 0.2);
+
+    --blue-line: rgba(0, 145, 255, 0.5);
+    --green-line: rgba(48, 209, 88, 0.45);
+    --red-line: rgba(255, 66, 69, 0.5);
+    --orange-line: rgba(255, 146, 48, 0.5);
+    --indigo-line: rgba(109, 124, 255, 0.5);
+    --purple-line: rgba(219, 52, 242, 0.5);
+
+    --gray: #8e8e93;
+    --gray2: #636366;
+    --gray3: #48484a;
+    --gray4: #3a3a3c;
+    --gray5: #2c2c2e;
+    --gray6: #1c1c1e;
+
+    --label: #f5f5f7;
+    --label-2: rgba(235, 235, 245, 0.64);
+    --label-3: rgba(235, 235, 245, 0.32);
+    --label-4: rgba(235, 235, 245, 0.18);
+    --placeholder: rgba(235, 235, 245, 0.3);
+
+    --fill: rgba(120, 120, 128, 0.36);
+    --fill-2: rgba(120, 120, 128, 0.32);
+    --fill-3: rgba(118, 118, 128, 0.24);
+    --fill-4: rgba(118, 118, 128, 0.18);
+
+    --separator: rgba(84, 84, 88, 0.45);
+    --separator-strong: rgba(84, 84, 88, 0.65);
+    --separator-opaque: #38383a;
+
+    --bg: #1c1c1e;
+    --bg-2: #000000;
+    --bg-grouped: #000000;
+    --bg-grouped-2: #1c1c1e;
+    --bg-alt: #2c2c2e;
+    --bg-elevated: #1c1c1e;
+
+    --tint-pressed: #2a9bff;
+    --focus-ring: rgba(0, 145, 255, 0.55);
+
+    --glass-barra: rgba(22, 22, 23, 0.72);
+    --glass-menu: rgba(30, 30, 32, 0.78);
+    --glass: rgba(36, 36, 38, 0.78);
+    --glass-aviso: rgba(44, 44, 46, 0.88);
+    --glass-edge: inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
+    --capsula-sobre-color: rgba(28, 28, 30, 0.78);
+    --segmento-activo: #636366;
+    --icono-app-bg: linear-gradient(180deg, #3a3a3c 0%, #1c1c1e 100%);
+    --overlay: rgba(0, 0, 0, 0.55);
+    --scroll-thumb: rgba(255, 255, 255, 0.22);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.38);
+
+    /* En oscuro las tarjetas se separan con un filete claro, no con sombra */
+    --shadow-1: 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+    --shadow-2: 0 4px 14px -4px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+    --shadow-3: 0 14px 36px -10px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255, 255, 255, 0.09);
+    --shadow-modal: 0 32px 80px -16px rgba(0, 0, 0, 0.75), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+    --shadow-segmento: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- Paleta oscura: nivel elevado (hojas, modales, paneles al frente) ---------- */
+:root[data-tema="oscuro"] :is(.modal-content, .hoja, .modal-overlay > div, .ec-modal, .gi-modal, .sh-caja, .dash-detalle-inner, .login-card) {
+    --bg-grouped: #1c1c1e;
+    --bg-grouped-2: #1c1c1e;
+    --bg-elevated: #1c1c1e;
+    --bg: #2c2c2e;
+    --bg-alt: #3a3a3c;
+    --gray6: #2c2c2e;
+    --gray5: #3a3a3c;
+}
+
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+::selection {
+    background: rgba(0, 136, 255, 0.28);
+}
+
+::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
+}
+
+:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 1px;
+}
+
+/* Barras de desplazamiento finas, como las superpuestas de macOS */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scroll-thumb-hover);
+}
+
+/* Íconos: las vistas usan class="material-icons"; se dibujan con
+   Material Symbols Rounded (trazo redondeado, más cercano a SF Symbols). */
+.material-icons {
+    font-family: "Material Symbols Rounded";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: "FILL" 0, "wght" 450, "GRAD" 0, "opsz" 24;
+    user-select: none;
+}
+
+/* En oscuro los símbolos claros sobre fondo oscuro se ven más gruesos: se compensa.
+   :where() deja la especificidad de .material-icons, así no pisa a los íconos rellenos. */
+:where(:root[data-tema="oscuro"]) .material-icons {
+    font-variation-settings: "FILL" 0, "wght" 450, "GRAD" -25, "opsz" 24;
+}
+
+/* Relleno sólido para estados seleccionados (como los símbolos ".fill") */
+.material-icons.is-fill,
+.icono-relleno {
+    font-variation-settings: "FILL" 1, "wght" 450, "GRAD" 0, "opsz" 24;
+}
+
+
+/* =====================================================================
+   SELECTOR DE APARIENCIA (control segmentado Claro | Oscuro | Auto)
+   Lo maneja js/tema.js: cada botón lleva data-tema-opcion="claro|oscuro|auto".
+   ===================================================================== */
+
+.selector-tema {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--fill-3);
+}
+
+.selector-tema button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--label);
+    font-size: var(--fs-footnote);
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+
+.selector-tema button .material-icons {
+    font-size: 16px;
+}
+
+.selector-tema button:hover {
+    background: var(--fill-4);
+}
+
+/* Segmento elegido (según la preferencia guardada, no el tema resuelto) */
+:root[data-tema-preferido="claro"] .selector-tema [data-tema-opcion="claro"],
+:root[data-tema-preferido="oscuro"] .selector-tema [data-tema-opcion="oscuro"],
+:root[data-tema-preferido="auto"] .selector-tema [data-tema-opcion="auto"] {
+    background: var(--segmento-activo);
+    box-shadow: var(--shadow-segmento);
+    font-weight: 600;
+}
+
+/* Cambio de tema con fundido (View Transitions), como al cambiar la apariencia en macOS */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.35s;
+    animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

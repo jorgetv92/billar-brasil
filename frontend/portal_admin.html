@@ -3,13 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administración - Billar Brasil</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f2f2f7">
+    <title>Administración · Billar Brasil</title>
+    <script src="js/tema.js?v=2026111501"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="css/app.css?v=2026111302">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-25..0&display=block" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css?v=2026111501">
     <link rel="icon" type="image/png" href="assets/logo_icono.png">
 </head>
 
@@ -17,9 +19,9 @@
 
     <header class="appbar">
         <div class="appbar-left">
-            <button id="menuToggle" class="icon-btn"><i class="material-icons">menu</i></button>
+            <button id="menuToggle" class="icon-btn" title="Mostrar u ocultar el menú" aria-label="Mostrar u ocultar el menú"><i class="material-icons">side_navigation</i></button>
             <div class="brand">
-                <img src="assets/logo_icono.png" alt="Billar Brasil" class="brand-logo">
+                <img src="assets/logo_icono.png" alt="" class="brand-logo">
                 <div class="brand-text">
                     <span class="brand-name">Billar Brasil</span>
                     <span class="brand-sub">Resto Bar</span>
@@ -32,13 +34,15 @@
 
     <aside id="sidebar" class="sidebar">
         <div class="sidebar-profile">
-            <div class="avatar"><i class="material-icons">person</i></div>
-            <h3 id="sidebarUserName">Cargando...</h3>
-            <span class="role-badge">Admin</span>
+            <div class="avatar"><i class="material-icons is-fill">person</i></div>
+            <div class="sidebar-profile-texto">
+                <h3 id="sidebarUserName">Cargando...</h3>
+                <span class="role-badge">Admin</span>
+            </div>
         </div>
         <nav class="sidebar-nav">
             <button class="nav-item active" data-page="dashboard.html">
-                <i class="material-icons">dashboard</i> Dashboard
+                <i class="material-icons">space_dashboard</i> Dashboard
             </button>
             <button class="nav-item" data-page="tipos_mesa.html">
                 <i class="material-icons">category</i> Tipos de Mesas
@@ -56,10 +60,10 @@
                 <i class="material-icons">cleaning_services</i> Insumos
             </button>
             <button class="nav-item" data-page="promociones.html">
-                <i class="material-icons">local_offer</i> Promociones
+                <i class="material-icons">sell</i> Promociones
             </button>
             <button class="nav-item" data-page="cargos.html">
-                <i class="material-icons">report_problem</i> Conceptos de Cargo
+                <i class="material-icons">report</i> Conceptos de Cargo
             </button>
             <button class="nav-item" data-page="usuarios.html">
                 <i class="material-icons">group</i> Usuarios
@@ -81,8 +85,13 @@
                 <i class="material-icons">logout</i> Cerrar Sesión
             </button>
         </nav>
-        <div class="sidebar-deco" aria-hidden="true">
-            <img src="assets/mesa_billar.png" alt="">
+        <div class="sidebar-pie">
+            <span class="sidebar-pie-titulo" id="tituloApariencia">Apariencia</span>
+            <div class="selector-tema" role="group" aria-labelledby="tituloApariencia">
+                <button type="button" data-tema-opcion="claro" title="Apariencia clara"><i class="material-icons">light_mode</i>Claro</button>
+                <button type="button" data-tema-opcion="oscuro" title="Apariencia oscura"><i class="material-icons">dark_mode</i>Oscuro</button>
+                <button type="button" data-tema-opcion="auto" title="Sigue la apariencia del sistema"><i class="material-icons">contrast</i>Auto</button>
+            </div>
         </div>
     </aside>
 
@@ -94,24 +103,20 @@
     <!-- ============================================================ -->
     <!-- MODAL: LISTADO ÚLTIMOS CIERRES DE JORNADA                   -->
     <!-- ============================================================ -->
-    <div id="modalListadoCierres" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:1200; justify-content:center; align-items:center;">
-        <div style="background:#fff; width:90%; max-width:680px; border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); overflow:hidden; display:flex; flex-direction:column;">
-            <!-- Header -->
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 25px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <i class="material-icons" style="color:#3b82f6; font-size:1.6rem;">history</i>
-                    <div>
-                        <h3 style="margin:0; font-size:1.1rem; color:#0f172a; font-weight:700;">Últimos Cierres de Jornada</h3>
-                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Historial de los últimos 10 reportes definitivos en PDF</p>
-                    </div>
+    <div id="modalListadoCierres" class="hoja-fondo" style="display:none;">
+        <div class="hoja">
+            <div class="hoja-header">
+                <span class="hoja-icono tono-azul"><i class="material-icons">history</i></span>
+                <div class="hoja-titulos">
+                    <h3>Últimos Cierres de Jornada</h3>
+                    <p>Historial de los últimos 10 reportes definitivos en PDF</p>
                 </div>
-                <button onclick="document.getElementById('modalListadoCierres').style.display='none'" style="background:none; border:none; cursor:pointer; color:#64748b; padding:4px; border-radius:6px; display:flex; align-items:center;">
+                <button class="boton-cerrar" title="Cerrar" aria-label="Cerrar" onclick="document.getElementById('modalListadoCierres').style.display='none'">
                     <i class="material-icons">close</i>
                 </button>
             </div>
-            <!-- Body -->
-            <div id="listadoPdfsAdmin" style="padding:20px 25px; max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
-                <p style="color:#64748b; text-align:center; padding:20px 0;">Cargando reportes...</p>
+            <div id="listadoPdfsAdmin" class="hoja-body lista-pdfs">
+                <p class="texto-suave texto-centro">Cargando reportes...</p>
             </div>
         </div>
     </div>
@@ -119,32 +124,30 @@
     <!-- ============================================================ -->
     <!-- MODAL FULLSCREEN: VISOR DE PDF                              -->
     <!-- ============================================================ -->
-    <div id="modalPdfFullscreen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#1e293b; z-index:1300; flex-direction:column;">
-        <!-- Header del visor -->
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 20px; background:#0f172a; flex-shrink:0;">
-            <div style="display:flex; align-items:center; gap:10px; flex:1;">
-                <i class="material-icons" style="color:#ef4444;">picture_as_pdf</i>
-                <span id="tituloModalPdfAdmin" style="color:#f1f5f9; font-size:0.95rem; font-weight:600;">Reporte PDF</span>
+    <div id="modalPdfFullscreen" class="visor-pdf" style="display:none;">
+        <div class="visor-pdf-barra">
+            <div class="visor-pdf-titulo">
+                <i class="material-icons">picture_as_pdf</i>
+                <span id="tituloModalPdfAdmin">Reporte PDF</span>
             </div>
-            
-            <div style="flex:1; display:flex; justify-content:center;">
-                <a id="btnAbrirExternoPdfAdmin" href="#" target="_blank" style="background:#3b82f6; border:none; cursor:pointer; color:#ffffff; padding:6px 14px; border-radius:6px; display:flex; align-items:center; gap:6px; font-size:0.85rem; text-decoration:none; font-weight:500; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
-                    <i class="material-icons" style="font-size:1.1rem;">open_in_new</i> Abrir / Descargar
+
+            <div class="visor-pdf-centro">
+                <a id="btnAbrirExternoPdfAdmin" href="#" target="_blank" class="btn-primary btn-sm">
+                    <i class="material-icons">open_in_new</i> Abrir / Descargar
                 </a>
             </div>
 
-            <div style="flex:1; display:flex; justify-content:flex-end;">
-                <button id="btnCerrarVisorPdf" style="background:rgba(255,255,255,0.1); border:none; cursor:pointer; color:#f1f5f9; padding:6px 14px; border-radius:6px; display:flex; align-items:center; gap:6px; font-size:0.85rem;" onclick="window.cerrarVisorPdfAdmin()">
-                    <i class="material-icons" style="font-size:1.1rem;">arrow_back</i> Volver al listado
+            <div class="visor-pdf-derecha">
+                <button id="btnCerrarVisorPdf" class="btn-vidrio btn-sm" onclick="window.cerrarVisorPdfAdmin()">
+                    <i class="material-icons">arrow_back</i> Volver al listado
                 </button>
             </div>
         </div>
-        <!-- Iframe PDF -->
-        <iframe id="iframePdfAdmin" src="" style="flex:1; border:none; width:100%; height:100%;"></iframe>
+        <iframe id="iframePdfAdmin" src="" title="Reporte PDF"></iframe>
     </div>
 
     <script src="js/fechas.js?v=2026111101"></script>
-    <script src="js/selectores.js?v=2026111104"></script>
+    <script src="js/selectores.js?v=2026111401"></script>
     <script src="js/admin.js?v=2026111401"></script>
 </body>
 

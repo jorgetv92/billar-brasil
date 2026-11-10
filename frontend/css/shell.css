@@ -1,0 +1,613 @@
+/* =====================================================================
+   BILLAR BRASIL · ESTRUCTURA COMÚN DE LOS PORTALES
+   Barra superior, menú lateral, área de contenido, avisos y utilidades.
+   La importan app.css (admin) y atencion.css (atención), después de tokens.css.
+   ===================================================================== */
+
+:root {
+    --appbar-h: 56px;
+    --sidebar-w: 260px;
+    --margen: 10px;          /* separación del menú flotante con el borde */
+    --pad-x: 32px;           /* padding horizontal del contenido */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font);
+    font-size: var(--fs-subhead);
+    line-height: 1.4;
+    color: var(--label);
+    background: var(--bg-grouped);
+    display: flex;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--label);
+    letter-spacing: -0.01em;
+}
+
+input, select, textarea, button {
+    font-variant-numeric: tabular-nums;
+}
+
+a {
+    color: var(--tint-text);
+}
+
+/* ---- Utilidades ---- */
+.text-primary { color: var(--tint-text) !important; }
+.text-danger  { color: var(--red-text) !important; }
+.text-warning { color: var(--orange-text) !important; }
+.text-success { color: var(--green-text) !important; }
+.text-info    { color: var(--teal-text) !important; }
+.text-right   { text-align: right; }
+.text-center,
+.texto-centro { text-align: center; }
+.texto-suave  { color: var(--label-2); }
+.p-4          { padding: 24px; }
+.w-100        { width: 100%; }
+
+/* Tonos teñidos para cápsulas, íconos y avisos */
+.tono-azul    { background: var(--blue-bg) !important;   color: var(--blue-text) !important; }
+.tono-verde   { background: var(--green-bg) !important;  color: var(--green-text) !important; }
+.tono-rojo    { background: var(--red-bg) !important;    color: var(--red-text) !important; }
+.tono-naranja { background: var(--orange-bg) !important; color: var(--orange-text) !important; }
+.tono-amarillo{ background: var(--yellow-bg) !important; color: var(--yellow-text) !important; }
+.tono-indigo  { background: var(--indigo-bg) !important; color: var(--indigo-text) !important; }
+.tono-morado  { background: var(--purple-bg) !important; color: var(--purple-text) !important; }
+.tono-teal    { background: var(--teal-bg) !important;   color: var(--teal-text) !important; }
+.tono-gris    { background: var(--fill-3) !important;    color: var(--label-2) !important; }
+
+
+/* =====================================================================
+   BARRA SUPERIOR (material translúcido; el contenido pasa por debajo)
+   ===================================================================== */
+
+.appbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--appbar-h);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    background: var(--glass-barra);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 0.5px solid var(--separator-strong);
+    z-index: 1000;
+}
+
+.appbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+}
+
+.brand-logo {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.brand-name {
+    font-size: var(--fs-headline);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--label);
+}
+
+.brand-sub {
+    font-size: var(--fs-caption);
+    color: var(--label-2);
+}
+
+
+/* =====================================================================
+   BOTONES DE ÍCONO
+   ===================================================================== */
+
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--tint-text);
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+    border-radius: var(--r-pill);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s var(--ease), opacity 0.15s;
+}
+
+.icon-btn .material-icons {
+    font-size: 22px;
+}
+
+.icon-btn:hover {
+    background: var(--fill-4);
+}
+
+.icon-btn:active {
+    transform: scale(0.92);
+    background: var(--fill-3);
+}
+
+.icon-btn.text-danger:hover { background: var(--red-bg); }
+
+.icon-btn.is-placeholder {
+    visibility: hidden;
+}
+
+/* Botón circular de cierre (xmark sobre círculo gris), como en las hojas de iOS */
+.boton-cerrar {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: var(--fill-3);
+    color: var(--label-2);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.boton-cerrar .material-icons {
+    font-size: 18px;
+    font-variation-settings: "FILL" 0, "wght" 600, "GRAD" 0, "opsz" 20;
+}
+
+.boton-cerrar:hover { background: var(--fill-2); }
+
+
+/* =====================================================================
+   MENÚ LATERAL (panel flotante)
+   ===================================================================== */
+
+.sidebar {
+    position: fixed;
+    top: calc(var(--appbar-h) + var(--margen));
+    left: var(--margen);
+    bottom: var(--margen);
+    width: var(--sidebar-w);
+    display: flex;
+    flex-direction: column;
+    background: var(--glass-menu);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-2), var(--glass-edge);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: transform 0.45s var(--ease), opacity 0.3s;
+    z-index: 999;
+}
+
+.sidebar-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 10px 4px;
+    padding: 10px;
+    border-radius: var(--r-md);
+    background: var(--fill-4);
+}
+
+.avatar {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #a6a6ab 0%, #86868b 100%);
+    display: grid;
+    place-items: center;
+}
+
+.avatar .material-icons {
+    font-size: 26px;
+    color: #fff;
+}
+
+.sidebar-profile-texto {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+
+.sidebar-profile h3 {
+    font-family: var(--font);
+    font-size: var(--fs-subhead);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--label);
+    letter-spacing: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: var(--r-pill);
+    background: var(--tint-fill);
+    color: #fff;
+    font-size: var(--fs-caption);
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-transform: capitalize;
+}
+
+.sidebar-profile .role-badge {
+    background: var(--blue-bg);
+    color: var(--blue-text);
+}
+
+.sidebar-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px 12px;
+}
+
+.nav-item {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--r-md);
+    background: none;
+    color: var(--label);
+    font-size: var(--fs-subhead);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, transform 0.15s var(--ease);
+}
+
+.nav-item .material-icons {
+    font-size: 22px;
+    color: var(--tint);
+    transition: color 0.15s;
+}
+
+.nav-item:hover {
+    background: var(--fill-4);
+}
+
+.nav-item:active {
+    transform: scale(0.98);
+}
+
+.nav-item.active {
+    background: var(--tint);
+    color: #fff;
+    font-weight: 600;
+}
+
+.nav-item.active .material-icons {
+    color: #fff;
+    font-variation-settings: "FILL" 1, "wght" 450, "GRAD" 0, "opsz" 24;
+}
+
+.nav-divider {
+    height: 0.5px;
+    background: var(--separator-strong);
+    margin: 8px 12px;
+}
+
+.sidebar-nav .text-danger,
+.sidebar-nav .text-danger .material-icons {
+    color: var(--red-text) !important;
+}
+
+.sidebar-nav .text-danger:hover {
+    background: var(--red-bg);
+}
+
+.sidebar-deco {
+    display: none;
+}
+
+/* Pie del menú: selector de apariencia (Claro | Oscuro | Auto) */
+.sidebar-pie {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px 14px;
+}
+
+.sidebar-pie-titulo {
+    margin-left: 4px;
+    color: var(--label-2);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+}
+
+.sidebar-pie .selector-tema {
+    display: flex;
+}
+
+.sidebar-pie .selector-tema button {
+    padding: 0 6px;
+}
+
+
+/* =====================================================================
+   CONTENIDO (router-outlet). Pasa por debajo de la barra superior.
+   ===================================================================== */
+
+.main-content {
+    margin-left: calc(var(--sidebar-w) + var(--margen));
+    width: calc(100% - var(--sidebar-w) - var(--margen));
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    padding: calc(var(--appbar-h) + 26px) var(--pad-x) 40px;
+    transition: margin-left 0.45s var(--ease), width 0.45s var(--ease);
+    scroll-padding-top: calc(var(--appbar-h) + 12px);
+}
+
+/* Menú colapsado (escritorio): el contenido ocupa todo el ancho */
+@media (min-width: 769px) {
+    body.sidebar-collapsed .sidebar {
+        transform: translateX(calc(-100% - 2 * var(--margen)));
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    body.sidebar-collapsed .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* Encabezado de cada vista: título grande + acciones */
+.view-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.view-header h2 {
+    font-size: var(--fs-large);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+.view-subtitle {
+    margin-top: 4px;
+    color: var(--label-2);
+    font-size: var(--fs-subhead);
+}
+
+/* Tarjeta (celda de grupo) */
+.card {
+    background: var(--bg-grouped-2);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-1);
+    padding: 20px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 56px 20px;
+    color: var(--label-2);
+}
+
+.empty-state i {
+    display: block;
+    font-size: 48px;
+    margin: 0 auto 10px;
+    color: var(--gray3);
+}
+
+
+/* =====================================================================
+   AVISOS (toasts): banner de material translúcido arriba a la derecha
+   ===================================================================== */
+
+.toast-container {
+    position: fixed;
+    top: calc(var(--appbar-h) + 12px);
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.toast {
+    --toast-color: var(--label-2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 260px;
+    max-width: 380px;
+    padding: 12px 16px 12px 12px;
+    border-radius: var(--r-lg);
+    background: var(--glass-aviso);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-3), var(--glass-edge);
+    color: var(--label);
+    font-size: var(--fs-subhead);
+    font-weight: 500;
+    line-height: 1.3;
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(24px) scale(0.96);
+    transition: transform 0.45s var(--ease), opacity 0.3s;
+}
+
+.toast .material-icons {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    color: #fff;
+    background: var(--toast-color);
+    font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 20;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: none;
+}
+
+.toast.success { --toast-color: var(--green); }
+.toast.error   { --toast-color: var(--red); }
+.toast.warning { --toast-color: var(--orange); }
+.toast.info    { --toast-color: var(--blue); }
+
+
+/* =====================================================================
+   CARGA
+   ===================================================================== */
+
+.spinner-loader {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin-loader 0.8s linear infinite;
+}
+
+@keyframes spin-loader {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn-loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+@keyframes aparecer {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes subir {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+}
+
+
+/* =====================================================================
+   RESPONSIVO
+   ===================================================================== */
+
+@media (pointer: coarse) {
+    .nav-item {
+        min-height: 44px;
+    }
+    .icon-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 768px) {
+    :root {
+        --pad-x: 16px;
+    }
+    .brand-logo {
+        width: 28px;
+        height: 28px;
+    }
+    .sidebar {
+        z-index: 1001;
+        transform: translateX(calc(-100% - 2 * var(--margen)));
+        box-shadow: none;
+    }
+    .sidebar.open {
+        transform: translateX(0);
+        box-shadow: var(--shadow-modal);
+    }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding-top: calc(var(--appbar-h) + 18px);
+    }
+    .view-header h2 {
+        font-size: var(--fs-title1);
+    }
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: var(--overlay);
+        z-index: 1000;
+        animation: aparecer 0.25s var(--ease);
+    }
+    .sidebar-overlay.show {
+        display: block;
+    }
+    .toast-container {
+        left: 12px;
+        right: 12px;
+        align-items: stretch;
+    }
+    .toast {
+        max-width: none;
+        transform: translateY(-16px) scale(0.96);
+    }
+    .toast.show {
+        transform: none;
+    }
+}

@@ -736,7 +736,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             function filasHistorialTramos(tramos) {
                 if (!Array.isArray(tramos) || tramos.length === 0) {
-                    return '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Sin historial de tiempo</td></tr>';
+                    return '<tr><td colspan="4" class="text-center" style="color:var(--gray); padding: 10px;">Sin historial de tiempo</td></tr>';
                 }
                 return tramos.map(tramo => {
                     const strInicio = tramo.fecha_hora_inicio ? horaMinuto(fechaSQL(tramo.fecha_hora_inicio)) : '--:--';
@@ -779,7 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const tbodyTramos = document.querySelector('#tablaHistorialTramosAdmin tbody');
                 if (tbodyTramos) {
-                    tbodyTramos.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>';
+                    tbodyTramos.innerHTML = '<tr><td colspan="4" class="text-center" style="color:var(--gray); padding: 10px;">Cargando historial...</td></tr>';
                 }
 
                 modal.classList.add("show");
@@ -1123,7 +1123,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const tbody = document.getElementById("dashDetTramos");
                 if (esNuevaSeleccion) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:#94a3b8; padding: 10px;">Cargando historial...</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:var(--gray); padding: 10px;">Cargando historial...</td></tr>';
                 }
                 const token = ++dash.tokenTramos;
                 try {
@@ -1270,9 +1270,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     const noVendible = String(p.no_vendible) === "1";
                     let stockUI = `<b>${p.stock_actual}</b>`;
                     if (esPreparado) {
-                        stockUI = `<span style="color:#64748b;">Sin stock</span>`;
+                        stockUI = `<span style="color:var(--label-2);">Sin stock</span>`;
                     } else if (parseInt(p.stock_actual) === 0) {
-                        stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
+                        stockUI = `<span class="role-badge tono-rojo">Agotado</span>`;
                     } else if (parseInt(p.stock_actual) <= 5) {
                         stockUI = `<span style="color: var(--warning); font-weight: bold;">${p.stock_actual} (Bajo)</span>`;
                     }
@@ -1281,7 +1281,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <tr style="${retirado ? 'opacity:0.55;' : ''}">
                 <td>${bolaBillar(p.id_producto)}</td>
                 <td style="font-weight: 500;">${p.nombre_producto}</td>
-                <td style="color: var(--primary); font-weight: bold;">${noVendible ? '<span style="color:#64748b; font-weight:normal;">No vendible</span>' : parseFloat(p.precio_venta).toFixed(2) + ' Bs.'}</td>
+                <td style="color: var(--primary); font-weight: bold;">${noVendible ? '<span style="color:var(--label-2); font-weight:normal;">No vendible</span>' : parseFloat(p.precio_venta).toFixed(2) + ' Bs.'}</td>
                 <td>${stockUI}</td>
                 <td style="font-size:0.85rem;">${esPreparado ? 'Preparado' : 'Con stock'}${noVendible ? ' · No vendible' : ''}${retirado ? ' · <b>Retirado</b>' : ''}</td>
                 <td>
@@ -1463,7 +1463,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     let stockUI = `<b>${stockFormateado}</b>`;
                     if (stockNum <= 0) {
-                        stockUI = `<span class="role-badge" style="background: var(--danger);">Agotado</span>`;
+                        stockUI = `<span class="role-badge tono-rojo">Agotado</span>`;
                     } else if (stockNum <= 5) {
                         stockUI = `<span style="color: var(--warning); font-weight: bold;">${stockFormateado} (Bajo)</span>`;
                     }
@@ -1472,7 +1472,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <tr>
                 <td>${bolaBillar(i.id_insumo)}</td>
                 <td style="font-weight: 500;">${i.nombre_insumo}</td>
-                <td><span style="background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${i.unidad_medida}</span></td>
+                <td><span style="background: var(--gray5); color: var(--label-2); padding: 3px 8px; border-radius: var(--r-sm); font-size: 0.85rem;">${i.unidad_medida}</span></td>
                 <td>${stockUI}</td>
                 <td>
                     <button class="icon-btn text-primary btn-editar-insumo" data-id="${i.id_insumo}"><i class="material-icons">edit</i></button>
@@ -1930,9 +1930,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             tbody.innerHTML += `
                     <tr>
                         <td><b style="color:var(--primary);">${p.nombre_promo}</b></td>
-                        <td><span class="role-badge" style="background:#475569;">${tipoLabel}</span></td>
+                        <td><span class="role-badge tono-gris">${tipoLabel}</span></td>
                         <td style="font-size:0.85rem;">${vigencia}</td>
-                        <td style="font-size:0.85rem; color:#475569;">${horario}</td>
+                        <td style="font-size:0.85rem; color:var(--label-2);">${horario}</td>
                         <td>
                             <button class="icon-btn text-primary btn-editar-promo" data-id="${p.id_promocion}"><i class="material-icons">edit</i></button>
                             <button class="icon-btn text-danger btn-eliminar-promo" data-id="${p.id_promocion}"><i class="material-icons">delete</i></button>
@@ -2173,13 +2173,13 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
 
                         listaUsuariosGlobal.forEach(u => {
-                            const badgeColor = { administrador: 'var(--primary)', supervisor: '#7c3aed' }[u.rol] || '#2196f3';
+                            const tonoRol = { administrador: 'tono-azul', supervisor: 'tono-indigo' }[u.rol] || 'tono-verde';
                             tbody.innerHTML += `
                         <tr>
                             <td>${u.nombres}</td>
                             <td>${u.apellidos}</td>
                             <td><b>${u.usuario}</b></td>
-                            <td><span class="role-badge" style="background: ${badgeColor}">${u.rol}</span></td>
+                            <td><span class="role-badge ${tonoRol}">${u.rol}</span></td>
                             <td>
                                 <button class="icon-btn text-primary btn-editar-user" data-id="${u.id_usuario}"><i class="material-icons">edit</i></button>
                                 <button class="icon-btn text-danger btn-eliminar-user" data-id="${u.id_usuario}"><i class="material-icons">delete</i></button>
@@ -2842,7 +2842,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <select id="cmbJornadaId" class="form-control"></select>
                     </div>
 
-                    <div class="filtros-reporte" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                    <div class="filtros-reporte" style="margin-top: 15px; border-top: 1px solid var(--separator); padding-top: 10px;">
                         <h4 style="margin-bottom: 10px; font-size: 14px;">Filtros a incluir:</h4>
                         <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkAperturaCierre"> Información de apertura y cierre</label>
                         <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkMesas" checked> Horas de uso de mesas (> $0)</label>
@@ -3087,11 +3087,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Creador dinámico del HTML del reporte
     function renderizarReporteJornada(d, contenedor) {
         let html = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <h1 style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 5px;">Reporte de Jornada</h1>
-                <p style="text-align: center; font-size: 12px; color: #666; margin-top: 0;">La información de esta jornada corresponde a:</p>
+            <div style="font-family: Arial, sans-serif; color: var(--label);">
+                <h1 style="text-align: center; border-bottom: 2px solid var(--label); padding-bottom: 10px; margin-bottom: 5px;">Reporte de Jornada</h1>
+                <p style="text-align: center; font-size: 12px; color: var(--label-2); margin-top: 0;">La información de esta jornada corresponde a:</p>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fff; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fff; padding: 15px; border: 1px solid var(--separator-strong); margin-bottom: 20px;">
                     <div><strong>N° Jornada:</strong> ${d.encabezado.id_jornada}</div>
                     <div><strong>Encargado:</strong> ${d.encabezado.encargado}</div>
                     <div><strong>Fecha y Hora de apertura:</strong> ${fechaHoraDMA(d.encabezado.apertura)}</div>
@@ -3102,9 +3102,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (d.filtros.apertura) {
             const totalCaja = parseFloat(d.apertura.monto_inicial) + parseFloat(d.apertura.ingreso_efectivo) + parseFloat(d.apertura.ingreso_qr) - parseFloat(d.apertura.total_egresos);
             html += `
-                <h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #3b82f6;">Información de Caja</h3>
+                <h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--blue);">Información de Caja</h3>
                 <table class="data-table" style="width: 100%; margin-bottom: 20px;">
-                    <thead style="background: #e2e8f0;"><tr><th>Monto Apertura</th><th>Ingresos Efectivo</th><th>Ingresos QR</th><th>Egresos</th><th>Total Estimado</th></tr></thead>
+                    <thead style="background: var(--gray5);"><tr><th>Monto Apertura</th><th>Ingresos Efectivo</th><th>Ingresos QR</th><th>Egresos</th><th>Total Estimado</th></tr></thead>
                     <tbody><tr>
                         <td class="text-center">${d.apertura.monto_inicial}</td>
                         <td class="text-center text-success">${d.apertura.ingreso_efectivo}</td>
@@ -3118,9 +3118,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
        // Tabla de Resumen de Horas de Mesas (JS)
         if (d.filtros.mesas) {
-            html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #10b981;">Horas de Uso de Mesas</h3>`;
+            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--green);">Horas de Uso de Mesas</h3>`;
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
-                        <thead style="background: #e2e8f0;"><tr><th>Mesa</th><th>Ocupación</th><th>Tiempo</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
+                        <thead style="background: var(--gray5);"><tr><th>Mesa</th><th>Ocupación</th><th>Tiempo</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
             d.mesas.filas.forEach(f => {
                 html += `<tr><td>${f.mesa}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.tiempo_uso}</td><td>${f.metodo}</td><td class="text-right">${f.total}</td></tr>`;
             });
@@ -3128,8 +3128,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // CORRECCIÓN AQUÍ: Suma automatizada en base a la data real calculada en el backend
             const totalMs = parseFloat(d.mesas.resumen.efectivo) + parseFloat(d.mesas.resumen.qr);
-            html += `<table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid #10b981;">
-                        <thead style="background: #d1fae5;"><tr><th>Total Horas Jugadas</th><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL MESAS</th></tr></thead>
+            html += `<table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid var(--green);">
+                        <thead style="background: var(--green-bg);"><tr><th>Total Horas Jugadas</th><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL MESAS</th></tr></thead>
                         <tbody><tr>
                             <td class="text-center"><strong>${d.mesas.resumen.horas}</strong></td>
                             <td class="text-center text-success">${d.mesas.resumen.efectivo}</td>
@@ -3141,9 +3141,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Tabla de Resumen de Productos Vendidos (JS)
         if (d.filtros.productos) {
-            html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #f59e0b;">Venta de Productos</h3>`;
+            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--orange);">Venta de Productos</h3>`;
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
-                        <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Cant. Prod.</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
+                        <thead style="background: var(--gray5);"><tr><th>Modo</th><th>Fecha Hora</th><th>Cant. Prod.</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
             d.productos.filas.forEach(f => {
                 html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td class="text-center">${f.cantidad}</td><td>${f.metodo}</td><td class="text-right">${f.total}</td></tr>`;
             });
@@ -3151,8 +3151,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             // CORRECCIÓN AQUÍ: Lectura directa de la cantidad total de unidades e ingresos segregados
             const totalPd = parseFloat(d.productos.resumen.efectivo) + parseFloat(d.productos.resumen.qr);
-            html += `<table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid #f59e0b;">
-                        <thead style="background: #fef3c7;"><tr><th>Total Prod. Vendidos</th><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL PROD.</th></tr></thead>
+            html += `<table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid var(--orange);">
+                        <thead style="background: var(--orange-bg);"><tr><th>Total Prod. Vendidos</th><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL PROD.</th></tr></thead>
                         <tbody><tr>
                             <td class="text-center"><strong>${d.productos.resumen.cantidad} uds.</strong></td>
                             <td class="text-center text-success">${d.productos.resumen.efectivo}</td>
@@ -3164,15 +3164,15 @@ document.addEventListener("DOMContentLoaded", () => {
             // Otros cargos (rotura de vaso, daños). La hora con descuento se cuenta en mesas.
             if (d.cargos && d.cargos.filas.length) {
                 const totalCg = parseFloat(d.cargos.resumen.efectivo) + parseFloat(d.cargos.resumen.qr);
-                html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #8b5cf6;">Otros Cargos</h3>`;
+                html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--indigo);">Otros Cargos</h3>`;
                 html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
-                            <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
+                            <thead style="background: var(--gray5);"><tr><th>Modo</th><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
                 d.cargos.filas.forEach(f => {
                     html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.descripcion}</td><td class="text-right">${parseFloat(f.monto).toFixed(2)}</td></tr>`;
                 });
                 html += `</tbody></table>
-                         <table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid #8b5cf6;">
-                            <thead style="background: #ede9fe;"><tr><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL CARGOS</th></tr></thead>
+                         <table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid var(--indigo);">
+                            <thead style="background: var(--indigo-bg);"><tr><th>Ingresado Efectivo</th><th>Ingresado QR</th><th>TOTAL CARGOS</th></tr></thead>
                             <tbody><tr>
                                 <td class="text-center text-success">${d.cargos.resumen.efectivo}</td>
                                 <td class="text-center text-info">${d.cargos.resumen.qr}</td>
@@ -3183,27 +3183,27 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (d.filtros.egresos) {
-            html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #ef4444;">Egresos de Caja</h3>`;
+            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--red);">Egresos de Caja</h3>`;
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
-                        <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
+                        <thead style="background: var(--gray5);"><tr><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
             let tEg = 0;
             d.egresos.forEach(f => { tEg += parseFloat(f.monto); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.concepto}</td><td class="text-right text-danger">${f.monto}</td></tr>`; });
             html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Total Egresos: <span class="text-danger">${tEg.toFixed(2)}</span></div>`;
         }
 
         if (d.filtros.insumos) {
-            html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #64748b;">Gasto de Insumos</h3>`;
+            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--gray);">Gasto de Insumos</h3>`;
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
-                        <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Insumo</th><th>Cantidad</th></tr></thead><tbody>`;
+                        <thead style="background: var(--gray5);"><tr><th>Fecha Hora</th><th>Insumo</th><th>Cantidad</th></tr></thead><tbody>`;
             let tIns = 0;
             d.insumos.forEach(f => { tIns += parseFloat(f.cantidad); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.insumo}</td><td class="text-center">${f.cantidad}</td></tr>`; });
             html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Suma total cantidades: ${tIns.toFixed(2)}</div>`;
         }
 
         if (d.filtros.gastos_productos) {
-            html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #0d9488;">Gasto de Productos</h3>`;
+            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid #0d9488;">Gasto de Productos</h3>`;
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
-                        <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Producto</th><th>Cantidad</th><th>Registrado por</th></tr></thead><tbody>`;
+                        <thead style="background: var(--gray5);"><tr><th>Fecha Hora</th><th>Producto</th><th>Cantidad</th><th>Registrado por</th></tr></thead><tbody>`;
             let tGp = 0;
             (d.gastos_productos || []).forEach(f => {
                 tGp += parseInt(f.cantidad) || 0;
@@ -3387,7 +3387,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!modal || !listadoContainer) return;
 
         modal.style.display = 'flex';
-        listadoContainer.innerHTML = '<p style="color:#64748b; text-align:center; padding:20px 0;">Cargando reportes...</p>';
+        listadoContainer.innerHTML = '<p class="texto-suave texto-centro">Cargando reportes...</p>';
 
         try {
             const res = await fetch('../backend/api/reportes_pdf.php?action=list_pdfs');
@@ -3398,38 +3398,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (archivos.length === 0) {
                     listadoContainer.innerHTML = `
-                        <div style="text-align:center; padding:30px 0; color:#64748b;">
-                            <i class="material-icons" style="font-size:3rem; opacity:0.3;">folder_open</i>
-                            <p style="margin:8px 0 0 0;">No hay reportes guardados todavía.</p>
+                        <div class="empty-state">
+                            <i class="material-icons">folder_open</i>
+                            <p>No hay reportes guardados todavía.</p>
                         </div>`;
                     return;
                 }
 
                 listadoContainer.innerHTML = '';
                 archivos.forEach(archivo => {
-                    const item = document.createElement('div');
-                    item.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:12px 15px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; transition:background 0.15s;';
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'pdf-item';
                     item.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:12px;">
-                            <i class="material-icons" style="color:#ef4444; font-size:1.8rem;">picture_as_pdf</i>
-                            <div>
-                                <div style="font-weight:600; color:#0f172a; font-size:0.95rem;">${archivo.name}</div>
-                                <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">${fechaHoraDMA(archivo.date)}</div>
-                            </div>
-                        </div>
-                        <i class="material-icons" style="color:#3b82f6;">chevron_right</i>
+                        <span class="pdf-item-icono"><i class="material-icons is-fill">picture_as_pdf</i></span>
+                        <span class="pdf-item-texto">
+                            <strong>${archivo.name}</strong>
+                            <small>${fechaHoraDMA(archivo.date)}</small>
+                        </span>
+                        <i class="material-icons pdf-item-flecha">chevron_right</i>
                     `;
-                    item.addEventListener('mouseenter', () => item.style.background = '#eff6ff');
-                    item.addEventListener('mouseleave', () => item.style.background = '#f8fafc');
                     item.addEventListener('click', () => window.abrirVisorPdfAdmin(archivo.name));
                     listadoContainer.appendChild(item);
                 });
             } else {
-                listadoContainer.innerHTML = `<p style="color:#ef4444; text-align:center;">Error: ${json.message}</p>`;
+                listadoContainer.innerHTML = `<p class="texto-centro text-danger">Error: ${json.message}</p>`;
             }
         } catch (err) {
             console.error('Error al cargar PDFs:', err);
-            listadoContainer.innerHTML = '<p style="color:#ef4444; text-align:center;">Error de conexión al servidor.</p>';
+            listadoContainer.innerHTML = '<p class="texto-centro text-danger">Error de conexión al servidor.</p>';
         }
     }
 
