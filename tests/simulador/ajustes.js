@@ -63,20 +63,27 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await s.carga([[P.Macanuda, 50], [P.Corona, 50], [P.SodaPop, 50]]);
   await s.abrirJornada(100);
 
-  console.log('\n--- 2x1 recalculado');
+  console.log('\n--- 2x1 y correcciones');
   await s.at('2026-12-08 17:05:00');
-  const v2x1 = (await barra([[P.Macanuda, 2]], { caso: '2 Macanuda en 2x1' })).id_venta;
+  // Un par 2x1 tiene el precio repartido entre sus dos unidades: no se corrige por separado.
+  const vPar = (await barra([[P.Macanuda, 2, 'par']], { caso: '1 par Macanuda 2x1' })).id_venta;
+  const detPar = detalleDe(vPar, P.Macanuda);
+  const rPar = await editar(detPar, 3);
+  comprobar('Un par 2x1 no se corrige por separado', rPar.codigo === 'no_editable' && +venta(vPar).total_pagar === 22, rPar.message);
+
+  // Unidades sueltas en horario de 2x1: pagan precio completo y se corrigen como cualquier producto.
+  const v2x1 = (await barra([[P.Macanuda, 2]], { caso: '2 Macanuda sueltas en horario 2x1' })).id_venta;
   const det2x1 = detalleDe(v2x1, P.Macanuda);
   const stockMac = stock(P.Macanuda);
   await s.at('2026-12-08 22:30:00');
   let r = await editar(det2x1, 3);
   let v = venta(v2x1);
-  comprobar('Subir a 3 después de la promo: conserva el 2x1 del pedido y cobra 22 más', r.status === 'success' && +v.total_pagar === 44 && +v.ef === 44 && cuadra(v), `${resumen(v)} | ${r.mensaje_caja}`);
+  comprobar('Subir a 3 unidades sueltas: cobra 22 más', r.status === 'success' && +v.total_pagar === 66 && +v.ef === 66 && cuadra(v), `${resumen(v)} | ${r.mensaje_caja}`);
   comprobar('El cajero ve cuánto cobrar', r.mensaje_caja === 'Cobrar al cliente 22.00 Bs en efectivo.', r.mensaje_caja);
   comprobar('El stock baja una unidad', stock(P.Macanuda) === stockMac - 1);
   r = await editar(det2x1, 1);
   v = venta(v2x1);
-  comprobar('Bajar a 1: sin unidad gratis, devuelve 22', r.status === 'success' && +v.total_pagar === 22 && +v.ef === 22 && cuadra(v) && r.mensaje_caja === 'Devolver al cliente 22.00 Bs en efectivo.', `${resumen(v)} | ${r.mensaje_caja}`);
+  comprobar('Bajar a 1: devuelve 44', r.status === 'success' && +v.total_pagar === 22 && +v.ef === 22 && cuadra(v) && r.mensaje_caja === 'Devolver al cliente 44.00 Bs en efectivo.', `${resumen(v)} | ${r.mensaje_caja}`);
   comprobar('El stock vuelve', stock(P.Macanuda) === stockMac + 1);
   const sinStock = await editar(det2x1, 1 + stock(P.Macanuda) + 1);
   comprobar('Subir más que el stock se rechaza sin cambios', sinStock.codigo === 'stock_insuficiente' && +venta(v2x1).total_pagar === 22, sinStock.message);

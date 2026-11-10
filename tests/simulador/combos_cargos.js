@@ -3,11 +3,11 @@
 const fs = require('fs');
 const path = require('path');
 const { BASE, DIR_RESULTADOS } = require('./config');
-const { Sim, abrirNavegador, q } = require('./lib');
+const { Sim, abrirNavegador, apiAdmin, q } = require('./lib');
 
 const P = { Macanuda: 1, Corona: 6, AmstelBot: 46 };
 const COMBO_AMSTEL = 109;
-const COMBO_NOCTURNO = 110;
+const COMBO_RETIRADO = 111;
 
 const resultados = [];
 function comprobar(nombre, ok, detalle = '') {
@@ -81,9 +81,11 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   console.log('\n--- Buscador');
   const opciones = await page.evaluate(() => gestorUI.productosLocal.map((p) => p.display_nombre));
   const conPromo = opciones.filter((o) => o.toLowerCase().includes('promo'));
-  comprobar('Al escribir "promo" aparecen los combos y también el producto "Promoras"', conPromo.some((o) => o.startsWith('Promo: SIM Combo 2 Amstel')) && conPromo.some((o) => o.startsWith('Promoras - ')), conPromo.join(' | '));
+  const conCombo = opciones.filter((o) => o.toLowerCase().includes('combo'));
+  comprobar('Al escribir "combo" aparecen los combos, con lo que traen y lo que alcanza el stock', conCombo.some((o) => /^Combo: SIM Combo 2 Amstel \(2 Amstel ?Botella\) - \d+ disp\. - 30\.00 Bs$/.test(o)), conCombo.join(' | '));
+  comprobar('Los combos ya no aparecen como "Promo:"; "promo" sigue mostrando el producto "Promoras"', !conPromo.some((o) => o.includes('SIM Combo')) && conPromo.some((o) => o.startsWith('Promoras - ')), conPromo.join(' | '));
   comprobar('Cada opción del buscador es distinta', new Set(opciones).size === opciones.length);
-  comprobar('Un combo fuera de su horario no aparece', !opciones.some((o) => o.includes('SIM Combo nocturno')));
+  comprobar('Un combo retirado no aparece', !opciones.some((o) => o.includes('SIM Combo retirado')));
   comprobar('Un producto retirado no aparece', !opciones.some((o) => o.startsWith('SIM Producto retirado')));
   comprobar('Un preparado aparece sin stock', opciones.some((o) => o.startsWith('SIM Vaso de Fernet - preparado - 30.00 Bs')));
 
@@ -91,13 +93,13 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await s.at('2026-12-18 19:05:00');
   const amstel = stock(P.AmstelBot);
   await enBarra();
-  await elegir('Promo: SIM Combo 2 Amstel');
+  await elegir('Combo: SIM Combo 2 Amstel');
   await agregar();
   let pantalla = await cobrarBarra();
   let v = ultimaVenta();
-  const lineasCombo = q(`SELECT id_producto, cantidad, precio_unitario_aplicado p, id_promocion FROM detalle_venta_productos WHERE id_venta=${v.id_venta}`);
+  const lineasCombo = q(`SELECT id_producto, cantidad, precio_unitario_aplicado p, id_combo, id_promocion FROM detalle_venta_productos WHERE id_venta=${v.id_venta}`);
   comprobar('Combo elegido en barra: se cobra el precio del combo', pantalla === 30 && +v.total_pagar === 30 && cuadra(v), `pantalla ${pantalla} | ${resumen(v)}`);
-  comprobar('El combo descuenta el stock de sus productos reales', stock(P.AmstelBot) === amstel - 2 && lineasCombo.length === 1 && +lineasCombo[0].id_promocion === COMBO_AMSTEL && +lineasCombo[0].cantidad === 2, JSON.stringify(lineasCombo));
+  comprobar('El combo descuenta el stock de sus productos reales', stock(P.AmstelBot) === amstel - 2 && lineasCombo.length === 1 && +lineasCombo[0].id_combo === COMBO_AMSTEL && lineasCombo[0].id_promocion === null && +lineasCombo[0].cantidad === 2, JSON.stringify(lineasCombo));
 
   const vaso = idProducto('SIM Vaso de Fernet');
   await elegir('SIM Vaso de Fernet', 3);
@@ -122,7 +124,7 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await s.at('2026-12-18 19:10:00');
   await s.abrirMesa('Billar #1');
   await s.sel('Billar #1');
-  await elegir('Promo: SIM Combo 2 Amstel');
+  await elegir('Combo: SIM Combo 2 Amstel');
   await agregar();
   await agregarCargo('SIM Vaso roto', null, null);
   const cargosMesa = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').map((i) => [i.nombre, i.total]));
@@ -133,20 +135,43 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   await agregarCargo('SIM Vaso roto', null, null);
 
   await s.at('2026-12-18 20:10:00');
-  const nocturno = await elegir('Promo: SIM Combo nocturno');
-  comprobar('El combo con horario aparece al empezar su horario', !!nocturno, nocturno);
+  // Quitar una línea de un combo quita el combo completo y devuelve el stock de todos sus productos.
+  const macanuda = stock(P.Macanuda);
+  const corona = stock(P.Corona);
+  await elegir('Combo: SIM Combo Macanuda Corona');
+  await agregar();
+  const lineasMesa = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => (i.combo || '').includes('Macanuda Corona')).map((i) => i.nombre));
+  comprobar('En la mesa cada producto del combo dice de qué combo es', lineasMesa.length === 2 && lineasMesa.every((n) => n.endsWith('(Combo: SIM Combo Macanuda Corona)')), JSON.stringify(lineasMesa));
+  await page.evaluate(() => gestorUI.eliminarDelCarrito(gestorUI.itemsCarrito.findIndex((i) => (i.combo || '').includes('Macanuda Corona'))));
+  await page.waitForTimeout(100);
+  const quedan = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => (i.combo || '').includes('Macanuda Corona')).length);
+  comprobar('Quitar un producto de un combo en la mesa quita el combo completo y devuelve el stock', quedan === 0 && stock(P.Macanuda) === macanuda && stock(P.Corona) === corona, `quedan ${quedan}, Macanuda ${stock(P.Macanuda)}/${macanuda}, Corona ${stock(P.Corona)}/${corona}`);
+  await elegir('Combo: SIM Combo Macanuda Corona');
   await agregar();
   const mesa = await s.cobrarMesa('Billar #1', { caso: 'mesa con 2 combos y un cargo' });
   v = venta(mesa.id_venta);
   comprobar('Mesa: 1 h (15) + combos (30 + 40) + cargo (8) = 93', mesa.pantalla === 93 && +v.total_pagar === 93 && +v.subtotal_cargos === 8 && cuadra(v), `pantalla ${mesa.pantalla} | ${resumen(v)}`);
 
-  const lineaCombo = q(`SELECT id_detalle_prod i FROM detalle_venta_productos WHERE id_venta=${v.id_venta} AND id_promocion IS NOT NULL LIMIT 1`)[0].i;
+  const lineaCombo = q(`SELECT id_detalle_prod i FROM detalle_venta_productos WHERE id_venta=${v.id_venta} AND id_combo IS NOT NULL LIMIT 1`)[0].i;
   const editarCombo = await s.api('PUT', 'jornada.php?action=editar_detalle_venta', { id_detalle: +lineaCombo, nueva_cantidad: 5 });
   comprobar('Los productos de un combo no se corrigen por separado', editarCombo.codigo === 'no_editable', editarCombo.message);
 
   await s.at('2026-12-18 23:30:00');
-  const fuera = await post({ accion: 'cotizar_carrito', combos: [{ id_promocion: COMBO_NOCTURNO, cantidad: 1 }] });
-  comprobar('Un combo fuera de su horario no se puede vender', fuera.codigo === 'promo_no_vigente', fuera.message);
+  const retiradoCombo = await post({ accion: 'cotizar_carrito', combos: [{ id_combo: COMBO_RETIRADO, cantidad: 1 }] });
+  comprobar('Un combo retirado no se puede vender', retiradoCombo.codigo === 'promo_no_vigente', retiradoCombo.message);
+
+  // Administración de combos (sección Combos del admin)
+  const nuevo = await s.api('POST', 'combos.php', { nombre: 'SIM Combo admin', precio: 50, items: [{ id_producto: P.Corona, cantidad: 2 }] });
+  const sinProductos = await s.api('POST', 'combos.php', { nombre: 'SIM vacío', precio: 10, items: [] });
+  const conRetirado = await s.api('POST', 'combos.php', { nombre: 'SIM con retirado', precio: 10, items: [{ id_producto: idProducto('SIM Producto retirado'), cantidad: 1 }] });
+  comprobar('Admin: crea un combo y rechaza uno sin productos o con un producto retirado', nuevo.status === 'success' && sinProductos.status === 'error' && conRetirado.status === 'error', `${sinProductos.message} / ${conRetirado.message}`);
+  const borrarVendido = await s.api('DELETE', 'combos.php', { id_combo: COMBO_AMSTEL });
+  const borrarNuevo = await s.api('DELETE', 'combos.php', { id_combo: nuevo.id_combo });
+  const estadoAmstel = q(`SELECT activo FROM combos WHERE id_combo=${COMBO_AMSTEL}`)[0];
+  comprobar('Admin: un combo con ventas se retira (no se borra); uno sin ventas se elimina', estadoAmstel && estadoAmstel.activo === '0' && !q(`SELECT 1 FROM combos WHERE id_combo=${nuevo.id_combo}`).length, `${borrarVendido.message} / ${borrarNuevo.message}`);
+  q(`UPDATE combos SET activo=1 WHERE id_combo=${COMBO_AMSTEL}`);
+  const sinSesion = await apiAdmin('GET', 'combos.php', null, { sesion: false });
+  comprobar('Admin: sin sesión de administrador no se ven ni editan combos', sinSesion.http === 403);
 
   await s.cerrarJornada();
   let rep = s.jornadas[s.jornadas.length - 1].reporte.data;
@@ -166,6 +191,22 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   const cargosHora = q(`SELECT tipo, monto FROM cargos_venta WHERE id_venta=${v.id_venta}`);
   comprobar('Hora gratis en barra: 4 Corona + 5 de cargo, sin producto falso', barraHora.pantalla === 101 && +v.subtotal_productos === 96 && cargosHora.length === 1 && cargosHora[0].tipo === 'hora_gratis' && cuadra(v), `${resumen(v)} | ${JSON.stringify(cargosHora)}`);
 
+  // La promo se elige en el buscador: no se detecta sola por tener 4 Corona.
+  const opcionPromo = await page.evaluate(() => (gestorUI.productosLocal.find((x) => x.es_incentivo) || {}).display_nombre);
+  comprobar('La promo de hora gratis está en el buscador con su nombre', opcionPromo === 'Promo: SIM 4 Corona: 1a hora gratis (4 Corona + 1 hora gratis en Billar) - 101.00 Bs', opcionPromo);
+  await s.at('2026-12-19 14:06:00');
+  const sinPromo = await s.ventaBarra([[P.Corona, 4]], { caso: 'barra 4 Corona sin elegir la promo' });
+  v = venta(sinPromo.id_venta);
+  comprobar('Barra: 4 Corona sin elegir la promo no agrega la hora gratis', sinPromo.pantalla === 96 && +v.subtotal_cargos === 0 && cuadra(v), resumen(v));
+  await s.abrirMesa('Privada #1');
+  await s.consumo('Privada #1', P.Corona, 4);
+  const cargosPrivada = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').length);
+  comprobar('Mesa: 4 Corona sin elegir la promo no agrega la hora gratis', cargosPrivada === 0);
+  await s.elegirPromoHora(null);
+  const avisoTipo = await s.toastUltimo();
+  const despuesPromo = await page.evaluate(() => gestorUI.itemsCarrito.length);
+  comprobar('La promo no se aplica en una mesa de otro tipo', despuesPromo === 1 && avisoTipo && /tipo Billar/.test(avisoTipo.m), JSON.stringify(avisoTipo));
+
   await s.abrirMesa('Billar #2');
   await s.consumo('Billar #2', P.Corona, 4, { incentivo: 'si' });
   const enMesa = await page.evaluate(() => gestorUI.itemsCarrito.filter((i) => i.tipo === 'cargo').map((i) => [i.nombre, i.total, i.es_hora_gratis]));
@@ -176,6 +217,8 @@ const resumen = (v) => `total ${v.total_pagar} (m ${v.subtotal_mesas} p ${v.subt
   comprobar('Mesa con hora gratis: 10 min (2,50) + 96 + 5 = 103,50', m2.pantalla === 103.5 && +v.total_pagar === 103.5 && cuadra(v), resumen(v));
   await s.at('2026-12-19 15:20:00');
   await s.cobrarMesa('Billar #3', { caso: 'mesa abierta por la hora gratis de barra' });
+  const privada = await s.cobrarMesa('Privada #1', { caso: 'privada con 4 Corona sin promo' });
+  comprobar('Privada: tiempo + 4 Corona, sin cargo', privada && privada.bd.cargos === 0 && iguales(privada.bd.total, privada.oraculo.total), privada && JSON.stringify(privada.bd));
   await s.cerrarJornada();
   rep = s.jornadas[s.jornadas.length - 1].reporte.data;
   cobrado = +rep.apertura.ingreso_efectivo + +rep.apertura.ingreso_qr;

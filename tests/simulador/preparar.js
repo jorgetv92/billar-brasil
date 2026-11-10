@@ -16,6 +16,7 @@ const MIGRACIONES = [
   { archivo: path.join('backend', 'config', 'migracion_ajustes_venta.sql'), aplicada: "SHOW TABLES LIKE 'ajustes_venta'" },
   { archivo: path.join('backend', 'config', 'migracion_productos_cargos_combos.sql'), aplicada: "SHOW TABLES LIKE 'cargos_venta'" },
   { archivo: path.join('backend', 'config', 'migracion_cargas_jornada.sql'), aplicada: "SHOW COLUMNS FROM cargas LIKE 'id_jornada'" },
+  { archivo: path.join('backend', 'config', 'migracion_combos.sql'), aplicada: "SHOW TABLES LIKE 'combos'" },
 ];
 
 // Por defecto se clona la base del entorno local (backend/config/entornos/local.php). BILLAR_BD_ORIGEN

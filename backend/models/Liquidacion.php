@@ -182,8 +182,9 @@ class Liquidacion {
         return $precio;
     }
 
-    // $lineas: id_producto, nombre, cantidad, precio (centavos), ts (momento del pedido) e id_promocion si vino en un combo.
-    // Las líneas de un combo ya tienen el precio del combo: no entran en otras promociones.
+    // $lineas: id_producto, nombre, cantidad, precio (centavos), ts (momento del pedido), id_combo si vino en un combo
+    // e id_promocion si vino en un par "Producto 2x1". Esas líneas ya tienen su precio: no entran en otras promociones.
+    // El 2x1 no se aplica solo: el cajero elige la promoción en el buscador (ver lineasDe2x1).
     // $tiempo: resultado de liquidarTiempo, para el incentivo cruzado (en barra, sin tiempo).
     public static function liquidarProductos(array $lineas, array $promos, array $tiempo) {
         $subtotal = 0;
@@ -196,25 +197,13 @@ class Liquidacion {
         foreach ($promos as $promo) {
             $idProducto = intval($promo['id_item_condicion']);
             $enPromo = array_values(array_filter($lineas, function ($l) use ($promo, $idProducto) {
-                return empty($l['id_promocion']) && $l['id_producto'] === $idProducto && Liquidacion::promoActivaEn($promo, $l['ts']);
+                return empty($l['id_promocion']) && empty($l['id_combo']) && $l['id_producto'] === $idProducto && Liquidacion::promoActivaEn($promo, $l['ts']);
             }));
             if (!$enPromo) continue;
 
             $monto = 0;
-            if ($promo['tipo_promo'] === 'combo_2x1') {
-                // De cada par se regala una unidad; si hubiera precios distintos, se regalan las más baratas.
-                $precios = [];
-                foreach ($enPromo as $l) {
-                    for ($i = 0; $i < $l['cantidad']; $i++) $precios[] = $l['precio'];
-                }
-                sort($precios);
-                $monto = array_sum(array_slice($precios, 0, intdiv(count($precios), 2)));
-            } elseif ($promo['tipo_promo'] === 'incentivo_cruzado' && $promo['valor_descuento'] !== null) {
-                $idTipoMesa = !empty($promo['id_item_secundario']) ? intval($promo['id_item_secundario']) : null;
-                $seg = $idTipoMesa
-                    ? (isset($tiempo['seg_por_tipo'][$idTipoMesa]) ? $tiempo['seg_por_tipo'][$idTipoMesa] : 0)
-                    : $tiempo['segundos'];
-                if ($seg < floatval($promo['cantidad_condicion']) * 3600) continue;
+            if ($promo['tipo_promo'] === 'incentivo_cruzado' && $promo['valor_descuento'] !== null) {
+                if (!self::cumpleIncentivoCruzado($promo, $tiempo)) continue;
                 $especial = self::centavos($promo['valor_descuento']);
                 foreach ($enPromo as $l) {
                     if ($l['precio'] > $especial) $monto += ($l['precio'] - $especial) * $l['cantidad'];
@@ -232,6 +221,22 @@ class Liquidacion {
         }
 
         return ['subtotal' => $subtotal, 'descuento' => min($descuento, $subtotal), 'detalles' => $detalles];
+    }
+
+    // Incentivo cruzado: la partida ya jugó las horas mínimas (en el tipo de mesa de la promo, si tiene uno).
+    public static function cumpleIncentivoCruzado(array $promo, array $tiempo) {
+        $idTipoMesa = !empty($promo['id_item_secundario']) ? intval($promo['id_item_secundario']) : null;
+        $seg = $idTipoMesa
+            ? (isset($tiempo['seg_por_tipo'][$idTipoMesa]) ? $tiempo['seg_por_tipo'][$idTipoMesa] : 0)
+            : $tiempo['segundos'];
+        return $seg >= floatval($promo['cantidad_condicion']) * 3600;
+    }
+
+    // Tiempo jugado por una partida en curso hasta $corte (para saber si ya cumple un incentivo cruzado).
+    public static function tiempoDeSesion($pdo, $idSesion, $corte, array $promos) {
+        $stmt = $pdo->prepare("SELECT primera_hora_gratis FROM sesiones_juego WHERE id_sesion = ?");
+        $stmt->execute([$idSesion]);
+        return self::liquidarTiempo(self::tramosDeSesion($pdo, $idSesion), intval($stmt->fetchColumn()) === 1, $promos, $corte);
     }
 
     // ---------------------------------------------------------------- cargos
@@ -285,19 +290,26 @@ class Liquidacion {
         ];
     }
 
-    // ---------------------------------------------------------------- combos
+    // ---------------------------------------------------------------- combos y pares 2x1
 
-    // Combos vigentes en $ts con sus productos, para que el cajero los elija.
-    public static function combosVigentes($pdo, array $promos, $ts) {
+    // Combos activos con sus productos, para que el cajero los elija. Un combo no tiene stock propio:
+    // descuenta el de sus productos. "disponibles" es cuántos alcanza el stock (null si no lleva productos con stock).
+    public static function combosDisponibles($pdo) {
         $combos = [];
-        foreach ($promos as $promo) {
-            if ($promo['tipo_promo'] !== 'combo_especifico' || !self::promoActivaEn($promo, $ts)) continue;
-            $items = self::itemsDeCombo($pdo, $promo['id_promocion']);
+        foreach ($pdo->query("SELECT id_combo, nombre, precio FROM combos WHERE activo = 1 ORDER BY nombre")->fetchAll(PDO::FETCH_ASSOC) as $c) {
+            $items = self::itemsDeCombo($pdo, $c['id_combo']);
             if (!$items) continue;
+            $disponibles = null;
+            foreach ($items as $i) {
+                if ($i['tipo'] !== 'inventario') continue;
+                $alcanza = intdiv(max(0, $i['stock']), max(1, $i['cantidad']));
+                $disponibles = $disponibles === null ? $alcanza : min($disponibles, $alcanza);
+            }
             $combos[] = [
-                'id_promocion' => intval($promo['id_promocion']),
-                'nombre' => $promo['nombre_promo'],
-                'precio' => round(floatval($promo['valor_descuento']), 2),
+                'id_combo' => intval($c['id_combo']),
+                'nombre' => $c['nombre'],
+                'precio' => round(floatval($c['precio']), 2),
+                'disponibles' => $disponibles,
                 'items' => array_map(function ($i) {
                     return ['id_producto' => $i['id_producto'], 'nombre' => $i['nombre'], 'cantidad' => $i['cantidad']];
                 }, $items),
@@ -306,13 +318,69 @@ class Liquidacion {
         return $combos;
     }
 
-    private static function itemsDeCombo($pdo, $idPromocion) {
+    // Promociones "Producto 2x1" vigentes en $ts: cada vez que el cajero la elige suma un par
+    // (2 unidades por el precio de 1).
+    public static function pares2x1Vigentes($pdo, array $promos, $ts) {
+        $res = [];
+        $stmt = $pdo->prepare("SELECT nombre_producto, precio_venta, stock_actual, tipo, activo FROM productos WHERE id_producto = ?");
+        foreach ($promos as $promo) {
+            if ($promo['tipo_promo'] !== 'combo_2x1' || !self::promoActivaEn($promo, $ts)) continue;
+            $idProducto = intval($promo['id_item_condicion']);
+            $stmt->execute([$idProducto]);
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$fila || !intval($fila['activo'])) continue;
+            $res[] = [
+                'id_promocion' => intval($promo['id_promocion']),
+                'nombre' => $promo['nombre_promo'],
+                'id_producto' => $idProducto,
+                'nombre_producto' => $fila['nombre_producto'],
+                'stock' => intval($fila['stock_actual']),
+                'tipo_producto' => $fila['tipo'],
+                'precio' => self::precioVigente($idProducto, $fila['precio_venta'], $ts, $promos) / 100,
+            ];
+        }
+        return $res;
+    }
+
+    // Incentivos en producto vigentes en $ts (N unidades de un producto + monto adicional = 1 hora gratis
+    // en un tipo de mesa), para que el cajero los elija. "precio" es lo que paga el cliente en total.
+    public static function incentivosVigentes($pdo, array $promos, $ts) {
+        $res = [];
+        $stmt = $pdo->prepare("SELECT p.nombre_producto, p.precio_venta, p.stock_actual, p.tipo, p.activo, tm.nombre_tipo
+                               FROM productos p, tipos_mesa tm WHERE p.id_producto = ? AND tm.id_tipo_mesa = ?");
+        foreach ($promos as $promo) {
+            if ($promo['tipo_promo'] !== 'incentivo_producto' || !self::promoActivaEn($promo, $ts)) continue;
+            $idProducto = intval($promo['id_item_condicion']);
+            $cantidad = intval(ceil(floatval($promo['cantidad_condicion'])));
+            $stmt->execute([$idProducto, intval($promo['id_item_secundario'])]);
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$fila || !intval($fila['activo']) || $cantidad <= 0) continue;
+            $monto = self::centavos($promo['valor_descuento']);
+            $res[] = [
+                'id_promocion' => intval($promo['id_promocion']),
+                'nombre' => $promo['nombre_promo'],
+                'id_producto' => $idProducto,
+                'nombre_producto' => $fila['nombre_producto'],
+                'cantidad' => $cantidad,
+                'stock' => intval($fila['stock_actual']),
+                'tipo_producto' => $fila['tipo'],
+                'id_tipo_mesa' => intval($promo['id_item_secundario']),
+                'tipo_mesa' => $fila['nombre_tipo'],
+                'monto_adicional' => $monto / 100,
+                'precio' => ($cantidad * self::precioVigente($idProducto, $fila['precio_venta'], $ts, $promos) + $monto) / 100,
+            ];
+        }
+        return $res;
+    }
+
+    // Productos de un combo. Si alguno está retirado, el combo no se puede vender.
+    private static function itemsDeCombo($pdo, $idCombo) {
         $stmt = $pdo->prepare("
-            SELECT pi.id_producto, pi.cantidad, p.nombre_producto, p.precio_venta, p.activo
-            FROM promocion_items pi JOIN productos p ON p.id_producto = pi.id_producto
-            WHERE pi.id_promocion = ? ORDER BY pi.id_producto
+            SELECT ci.id_producto, ci.cantidad, p.nombre_producto, p.precio_venta, p.activo, p.tipo, p.stock_actual
+            FROM combo_items ci JOIN productos p ON p.id_producto = ci.id_producto
+            WHERE ci.id_combo = ? ORDER BY ci.id_producto
         ");
-        $stmt->execute([intval($idPromocion)]);
+        $stmt->execute([intval($idCombo)]);
         $items = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
             if (!intval($fila['activo'])) return [];
@@ -321,6 +389,8 @@ class Liquidacion {
                 'nombre' => $fila['nombre_producto'],
                 'cantidad' => intval($fila['cantidad']),
                 'lista' => self::centavos($fila['precio_venta']),
+                'tipo' => $fila['tipo'],
+                'stock' => intval($fila['stock_actual']),
             ];
         }
         return $items;
@@ -328,18 +398,17 @@ class Liquidacion {
 
     // Las líneas de $veces combos: los productos reales (descuentan su stock) con el precio del combo
     // repartido según el precio de lista de cada uno. Las líneas suman exactamente el precio del combo.
-    public static function lineasDeCombo($pdo, $idPromocion, $veces, $ts, array $promos) {
-        $promo = null;
-        foreach ($promos as $p) {
-            if (intval($p['id_promocion']) === intval($idPromocion) && $p['tipo_promo'] === 'combo_especifico') $promo = $p;
-        }
-        $items = $promo ? self::itemsDeCombo($pdo, $idPromocion) : [];
-        if (!$promo || !$items || !self::promoActivaEn($promo, $ts)) {
-            throw new ErrorOperacion('El combo ya no está vigente. Actualice la pantalla.', 'promo_no_vigente');
+    public static function lineasDeCombo($pdo, $idCombo, $veces, $ts) {
+        $stmt = $pdo->prepare("SELECT id_combo, nombre, precio FROM combos WHERE id_combo = ? AND activo = 1");
+        $stmt->execute([intval($idCombo)]);
+        $combo = $stmt->fetch(PDO::FETCH_ASSOC);
+        $items = $combo ? self::itemsDeCombo($pdo, $idCombo) : [];
+        if (!$combo || !$items) {
+            throw new ErrorOperacion('El combo ya no está disponible. Actualice la pantalla.', 'promo_no_vigente');
         }
         if ($veces <= 0) throw new ErrorOperacion('Cantidad de combos no válida.', 'producto_invalido');
 
-        $precio = self::centavos($promo['valor_descuento']);
+        $precio = self::centavos($combo['precio']);
         $base = 0;
         foreach ($items as $i) $base += $i['cantidad'] * max(1, $i['lista']);
 
@@ -361,12 +430,44 @@ class Liquidacion {
                     'cantidad' => $grupo[0] * $veces,
                     'precio' => $grupo[1],
                     'ts' => $ts,
-                    'id_promocion' => intval($promo['id_promocion']),
-                    'combo' => $promo['nombre_promo'],
+                    'id_promocion' => null,
+                    'id_combo' => intval($combo['id_combo']),
+                    'grupo' => 'Combo: ' . $combo['nombre'],
                 ];
             }
         }
         return $lineas;
+    }
+
+    // Las líneas de $pares pares de una promoción "Producto 2x1": 2 unidades por el precio vigente de 1.
+    // Si el precio no se divide exacto en dos, una unidad de cada par lleva el centavo de más.
+    public static function lineasDe2x1($pdo, $idPromocion, $pares, $ts, array $promos) {
+        $promo = null;
+        foreach ($promos as $p) {
+            if (intval($p['id_promocion']) === intval($idPromocion) && $p['tipo_promo'] === 'combo_2x1') $promo = $p;
+        }
+        if (!$promo || !self::promoActivaEn($promo, $ts)) {
+            throw new ErrorOperacion('La promoción 2x1 ya no está vigente. Actualice la pantalla.', 'promo_no_vigente');
+        }
+        if ($pares <= 0) throw new ErrorOperacion('Cantidad de la promoción no válida.', 'producto_invalido');
+        $idProducto = intval($promo['id_item_condicion']);
+        $catalogo = self::catalogo($pdo, [$idProducto]);
+        $precio = self::precioVigente($idProducto, $catalogo[$idProducto]['precio_venta'], $ts, $promos);
+        $menor = intdiv($precio, 2);
+        $mayor = $precio - $menor;
+        $grupos = $mayor === $menor ? [[2 * $pares, $menor]] : [[$pares, $mayor], [$pares, $menor]];
+        return array_map(function ($g) use ($idProducto, $catalogo, $ts, $promo) {
+            return [
+                'id_producto' => $idProducto,
+                'nombre' => $catalogo[$idProducto]['nombre_producto'],
+                'cantidad' => $g[0],
+                'precio' => $g[1],
+                'ts' => $ts,
+                'id_promocion' => intval($promo['id_promocion']),
+                'id_combo' => null,
+                'grupo' => 'Promo: ' . $promo['nombre_promo'],
+            ];
+        }, $grupos);
     }
 
     // ---------------------------------------------------------------- resultado
@@ -391,7 +492,9 @@ class Liquidacion {
                     'precio' => Liquidacion::bsPublico($l['precio']),
                     'subtotal' => Liquidacion::bsPublico($l['precio'] * $l['cantidad']),
                     'id_promocion' => isset($l['id_promocion']) ? $l['id_promocion'] : null,
-                    'combo' => isset($l['combo']) ? $l['combo'] : null,
+                    'id_combo' => isset($l['id_combo']) ? $l['id_combo'] : null,
+                    // "Combo: X" o "Promo: X" cuando la línea vino en un combo o en un par 2x1
+                    'grupo' => isset($l['grupo']) ? $l['grupo'] : null,
                 ];
             }, $lineas),
             'subtotal_productos' => self::bs($productos['subtotal']),
@@ -436,10 +539,11 @@ class Liquidacion {
     private static function lineasGuardadas($pdo, $condicion, $id, $corte) {
         $stmt = $pdo->prepare("
             SELECT d.id_detalle_prod, d.id_producto, p.nombre_producto, d.cantidad, d.precio_unitario_aplicado,
-                   d.fecha_hora, d.id_promocion, pr.nombre_promo
+                   d.fecha_hora, d.id_promocion, pr.nombre_promo, d.id_combo, c.nombre AS nombre_combo
             FROM detalle_venta_productos d
             JOIN productos p ON p.id_producto = d.id_producto
             LEFT JOIN promociones pr ON pr.id_promocion = d.id_promocion
+            LEFT JOIN combos c ON c.id_combo = d.id_combo
             WHERE $condicion
             ORDER BY d.id_detalle_prod
         ");
@@ -453,7 +557,8 @@ class Liquidacion {
                 'precio' => Liquidacion::centavos($fila['precio_unitario_aplicado']),
                 'ts' => $fila['fecha_hora'] ? strtotime($fila['fecha_hora']) : $corte,
                 'id_promocion' => $fila['id_promocion'] ? intval($fila['id_promocion']) : null,
-                'combo' => $fila['id_promocion'] ? ($fila['nombre_promo'] ?: 'Combo') : null,
+                'id_combo' => $fila['id_combo'] ? intval($fila['id_combo']) : null,
+                'grupo' => $fila['id_combo'] ? 'Combo: ' . $fila['nombre_combo'] : ($fila['id_promocion'] ? 'Promo: ' . ($fila['nombre_promo'] ?: '2x1') : null),
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
@@ -502,9 +607,11 @@ class Liquidacion {
     // ---------------------------------------------------------------- barra
 
     // Promo de hora gratis que se cumple con estas unidades del producto pedido, para el tipo de mesa indicado.
-    public static function promoHoraGratis(array $promos, $ts, array $unidadesPorProducto, $idTipoMesa = null) {
+    // Con $idPromocion solo vale esa promoción (la que eligió el cajero en el buscador).
+    public static function promoHoraGratis(array $promos, $ts, array $unidadesPorProducto, $idTipoMesa = null, $idPromocion = null) {
         foreach ($promos as $promo) {
             if ($promo['tipo_promo'] !== 'incentivo_producto' || !self::promoActivaEn($promo, $ts)) continue;
+            if ($idPromocion !== null && intval($promo['id_promocion']) !== intval($idPromocion)) continue;
             if ($idTipoMesa !== null && intval($promo['id_item_secundario']) !== intval($idTipoMesa)) continue;
             $idRequerido = intval($promo['id_item_condicion']);
             $unidades = isset($unidadesPorProducto[$idRequerido]) ? $unidadesPorProducto[$idRequerido] : 0;
@@ -544,8 +651,9 @@ class Liquidacion {
         return $catalogo;
     }
 
-    // Líneas de productos sueltos y de combos pedidos en $ts, con los precios que fija el backend.
-    public static function lineasPedido($pdo, array $cantidades, array $combos, $ts, array $promos) {
+    // Líneas de productos sueltos, combos [{id_combo, cantidad}] y pares 2x1 [{id_promocion, cantidad}]
+    // pedidos en $ts, con los precios que fija el backend.
+    public static function lineasPedido($pdo, array $cantidades, array $combos, $ts, array $promos, array $pares = []) {
         $catalogo = self::catalogo($pdo, array_keys($cantidades));
         $lineas = [];
         foreach ($cantidades as $id => $cantidad) {
@@ -556,13 +664,22 @@ class Liquidacion {
                 'precio' => self::precioVigente($id, $catalogo[$id]['precio_venta'], $ts, $promos),
                 'ts' => $ts,
                 'id_promocion' => null,
+                'id_combo' => null,
             ];
         }
         foreach ($combos as $combo) {
             $lineas = array_merge($lineas, self::lineasDeCombo(
                 $pdo,
-                intval(isset($combo['id_promocion']) ? $combo['id_promocion'] : 0),
+                intval(isset($combo['id_combo']) ? $combo['id_combo'] : 0),
                 intval(isset($combo['cantidad']) ? $combo['cantidad'] : 0),
+                $ts
+            ));
+        }
+        foreach ($pares as $par) {
+            $lineas = array_merge($lineas, self::lineasDe2x1(
+                $pdo,
+                intval(isset($par['id_promocion']) ? $par['id_promocion'] : 0),
+                intval(isset($par['cantidad']) ? $par['cantidad'] : 0),
                 $ts,
                 $promos
             ));
@@ -571,18 +688,19 @@ class Liquidacion {
     }
 
     // Cotiza un carrito de barra. El precio que mande la pantalla no se usa.
-    // $pedido: productos [{id_producto, cantidad}], combos [{id_promocion, cantidad}], cargos [{id_concepto, descripcion, monto}]
+    // $pedido: productos [{id_producto, cantidad}], combos [{id_combo, cantidad}], pares [{id_promocion, cantidad}],
+    // cargos [{id_concepto, descripcion, monto}]
     // y hora_gratis (true si el cliente aceptó la hora gratis del incentivo en producto).
     public static function cotizarCarrito($pdo, array $pedido, $ts, array $promos) {
         $cantidades = self::sumarCantidades(isset($pedido['productos']) ? $pedido['productos'] : []);
-        $lineas = self::lineasPedido($pdo, $cantidades, isset($pedido['combos']) ? $pedido['combos'] : [], $ts, $promos);
+        $lineas = self::lineasPedido($pdo, $cantidades, isset($pedido['combos']) ? $pedido['combos'] : [], $ts, $promos, isset($pedido['pares']) ? $pedido['pares'] : []);
 
         $cargos = [];
         foreach ((isset($pedido['cargos']) ? $pedido['cargos'] : []) as $cargo) $cargos[] = self::validarCargo($pdo, $cargo);
 
         $promoHora = null;
         if (!empty($pedido['hora_gratis'])) {
-            $promoHora = self::promoHoraGratis($promos, $ts, $cantidades);
+            $promoHora = self::promoHoraGratis($promos, $ts, $cantidades, null, isset($pedido['id_promo_hora']) ? $pedido['id_promo_hora'] : null);
             if (!$promoHora) {
                 throw new ErrorOperacion('La promoción de hora gratis ya no está vigente para este carrito.', 'promo_no_vigente');
             }

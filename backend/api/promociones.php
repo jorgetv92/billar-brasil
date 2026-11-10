@@ -27,17 +27,6 @@ switch ($method) {
             $stmt->execute();
             $promos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Productos de cada combo específico
-            $stmtItems = $db->prepare("SELECT id_producto, cantidad FROM promocion_items WHERE id_promocion = ? ORDER BY id_producto");
-            foreach ($promos as &$promo) {
-                $promo['items'] = [];
-                if ($promo['tipo_promo'] === 'combo_especifico') {
-                    $stmtItems->execute([$promo['id_promocion']]);
-                    $promo['items'] = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
-                }
-            }
-            unset($promo);
-
             http_response_code(200);
             echo json_encode(["status" => "success", "data" => $promos]);
         } catch (PDOException $e) {
@@ -53,6 +42,14 @@ switch ($method) {
         if (empty($data->nombre_promo) || empty($data->tipo_promo)) {
             http_response_code(400);
             echo json_encode(["status" => "error", "message" => "Datos base incompletos."]);
+            exit();
+        }
+
+        // Los combos ya no son promociones: tienen su propia sección (api/combos.php).
+        $tiposValidos = ['tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto'];
+        if (!in_array($data->tipo_promo, $tiposValidos, true)) {
+            http_response_code(400);
+            echo json_encode(["status" => "error", "message" => "Tipo de promoción no válido. Los combos se crean en la sección Combos."]);
             exit();
         }
 
@@ -73,6 +70,7 @@ switch ($method) {
             $valor_desc = $data->valor_descuento;
             $id_item = $data->id_item_condicion;
         } elseif ($data->tipo_promo === 'combo_2x1') {
+            // "Producto 2x1": el cajero la elige en el buscador; cada vez suma 2 unidades por el precio de 1.
             $id_item = $data->id_item_condicion;
         } elseif ($data->tipo_promo === 'incentivo_cruzado' || $data->tipo_promo === 'incentivo_mesa') {
             $id_item = $data->id_item_condicion; // ID del producto beneficiado / mesa
@@ -86,23 +84,6 @@ switch ($method) {
             $id_item_secundario = $data->id_item_secundario; // Tipo de mesa al que aplica
             $cant_cond = $data->cantidad_condicion; // Cantidad del producto requerido
             $valor_desc = $data->valor_descuento; // Monto a aumentar / Tarifa especial para 1 hora
-        }
-
-        // Combo específico: lista de productos con cantidad y el precio del combo.
-        $itemsCombo = [];
-        if ($data->tipo_promo === 'combo_especifico') {
-            $valor_desc = isset($data->valor_descuento) ? floatval($data->valor_descuento) : 0;
-            foreach ((isset($data->items) && is_array($data->items) ? $data->items : []) as $item) {
-                $idProd = intval(isset($item->id_producto) ? $item->id_producto : 0);
-                $cant = intval(isset($item->cantidad) ? $item->cantidad : 0);
-                if ($idProd <= 0 || $cant <= 0) continue;
-                $itemsCombo[$idProd] = (isset($itemsCombo[$idProd]) ? $itemsCombo[$idProd] : 0) + $cant;
-            }
-            if (!$itemsCombo || $valor_desc <= 0) {
-                http_response_code(400);
-                echo json_encode(["status" => "error", "message" => "El combo necesita al menos un producto con cantidad y un precio mayor a cero."]);
-                exit();
-            }
         }
 
         try {
@@ -131,15 +112,6 @@ switch ($method) {
             $stmt->bindParam(':cant', $cant_cond);
 
             $stmt->execute();
-            $idPromocion = $method === 'POST' ? $db->lastInsertId() : intval($data->id_promocion);
-
-            // La lista de productos del combo se reemplaza completa (si cambió de tipo, queda vacía).
-            $db->prepare("DELETE FROM promocion_items WHERE id_promocion = ?")->execute([$idPromocion]);
-            $stmtItem = $db->prepare("INSERT INTO promocion_items (id_promocion, id_producto, cantidad) VALUES (?, ?, ?)");
-            foreach ($itemsCombo as $idProd => $cant) {
-                $stmtItem->execute([$idPromocion, $idProd, $cant]);
-            }
-
             $db->commit();
             http_response_code($method === 'POST' ? 201 : 200);
             echo json_encode(["status" => "success", "message" => "Promoción guardada con éxito."]);

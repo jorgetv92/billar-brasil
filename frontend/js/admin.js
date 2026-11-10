@@ -119,6 +119,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (nombreArchivo === "promociones.html") {
                         inicializarModuloPromociones();
                     }
+                    if (nombreArchivo === "combos.html") {
+                        inicializarModuloCombos();
+                    }
                     if (nombreArchivo === "cargos.html") {
                         inicializarModuloCargos();
                     }
@@ -879,7 +882,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const k = turno.kpis;
                 dash.aperturaTurno = fechaSQL(j.fecha_hora_apertura);
                 const apertura = dash.aperturaTurno;
-                const fechaApertura = apertura.toLocaleDateString('es-BO', { weekday: 'short', day: '2-digit', month: 'short' });
+                const fechaApertura = fechaDMA(apertura);
 
                 cont.innerHTML = `
                     <span class="dash-turno-pill is-abierto"><i class="material-icons">radio_button_checked</i> Turno abierto</span>
@@ -1455,34 +1458,20 @@ document.addEventListener("DOMContentLoaded", () => {
             let listaPromosGlobal = [];
             let productosAsistente = [];
 
-            // Una fila del combo específico: producto y cantidad.
-            function agregarFilaItemCombo(idProducto = "", cantidad = 1) {
-                const cont = document.getElementById("itemsComboEspecifico");
-                const fila = document.createElement("div");
-                fila.className = "form-grid fila-item-combo";
-                fila.style.cssText = "align-items:end; margin-bottom:6px;";
-                fila.innerHTML = `
-                    <div class="input-group">
-                        <label>Producto</label>
-                        <select class="item-combo-producto">${productosAsistente.map(p => `<option value="${p.id_producto}">${p.nombre_producto} (${p.precio_venta} Bs)</option>`).join("")}</select>
-                    </div>
-                    <div class="input-group" style="display:flex; gap:6px; align-items:end;">
-                        <div style="flex:1;"><label>Cantidad</label><input type="number" class="item-combo-cantidad" min="1" step="1" value="${cantidad}"></div>
-                        <button type="button" class="icon-btn text-danger btn-quitar-item-combo" title="Quitar"><i class="material-icons">delete</i></button>
-                    </div>`;
-                if (idProducto) fila.querySelector(".item-combo-producto").value = idProducto;
-                fila.querySelector(".btn-quitar-item-combo").addEventListener("click", () => fila.remove());
-                cont.appendChild(fila);
-            }
-
             // Normaliza "HH:MM:SS" (BD) a "HH:MM" (formato 24 h del formulario)
             function horaCorta(valor) {
                 return valor ? String(valor).substring(0, 5) : "";
             }
 
-            // Inputs de hora en formato 24 h (HH:MM) sin depender del idioma del navegador
+            // Inputs de hora en formato 24 h (HH:MM) sin depender del idioma del navegador.
+            // El carrusel táctil (selector_hora.js) reemplaza al selector nativo, que en muchos celulares es AM/PM.
             function activarInputsHora24() {
+                // Fechas dd/mm/aaaa: mismo carrusel táctil (día, mes, año).
+                if (typeof SelectorFecha !== "undefined") {
+                    document.querySelectorAll("input[data-fecha-dma]").forEach(inp => SelectorFecha.activar(inp));
+                }
                 document.querySelectorAll(".input-hora24").forEach(inp => {
+                    if (typeof SelectorHora !== "undefined") SelectorHora.activar(inp);
                     inp.addEventListener("input", () => {
                         let d = inp.value.replace(/\D/g, "").substring(0, 4);
                         inp.value = d.length > 2 ? d.substring(0, 2) + ":" + d.substring(2) : d;
@@ -1497,6 +1486,148 @@ document.addEventListener("DOMContentLoaded", () => {
                         inp.value = h.padStart(2, "0") + ":" + m.padStart(2, "0");
                     });
                 });
+            }
+
+            // -------------------------------------------------------------------
+            // COMBOS: productos compuestos sin stock propio (descuentan el de sus productos)
+            // -------------------------------------------------------------------
+            function inicializarModuloCombos() {
+                const tbody = document.getElementById("tablaCombosBody");
+                let combos = [];
+                let productos = [];
+                const dinero = (v) => parseFloat(v || 0).toFixed(2);
+
+                // Cuántos combos alcanza el stock actual (los preparados no limitan)
+                const alcanza = (items) => {
+                    const conStock = items.filter(i => i.tipo === "inventario");
+                    if (!conStock.length) return "Sin límite";
+                    return Math.min(...conStock.map(i => Math.floor(Math.max(0, parseInt(i.stock_actual)) / Math.max(1, parseInt(i.cantidad))))) + " combos";
+                };
+                const resumen = () => {
+                    const filas = Array.from(document.querySelectorAll(".fila-item-combo"));
+                    const lista = filas.reduce((t, f) => {
+                        const p = productos.find(x => String(x.id_producto) === f.querySelector(".item-combo-producto").value);
+                        return t + (p ? parseFloat(p.precio_venta) * (parseInt(f.querySelector(".item-combo-cantidad").value) || 0) : 0);
+                    }, 0);
+                    document.getElementById("resumenCombo").innerText = filas.length
+                        ? `Por separado costarían ${dinero(lista)} Bs.` : "";
+                };
+                const agregarFila = (idProducto = "", cantidad = 1) => {
+                    const fila = document.createElement("div");
+                    fila.className = "form-grid fila-item-combo";
+                    fila.style.cssText = "align-items:end; margin-bottom:6px;";
+                    fila.innerHTML = `
+                        <div class="input-group">
+                            <label>Producto</label>
+                            <select class="item-combo-producto">${productos.map(p => `<option value="${p.id_producto}">${escaparHTML(p.nombre_producto)} (${dinero(p.precio_venta)} Bs${p.tipo === "preparado" ? ", preparado" : ""})</option>`).join("")}</select>
+                        </div>
+                        <div class="input-group" style="display:flex; gap:6px; align-items:end;">
+                            <div style="flex:1;"><label>Cantidad</label><input type="number" class="item-combo-cantidad" min="1" step="1" value="${cantidad}"></div>
+                            <button type="button" class="icon-btn text-danger btn-quitar-item-combo" title="Quitar"><i class="material-icons">delete</i></button>
+                        </div>`;
+                    if (idProducto) fila.querySelector(".item-combo-producto").value = idProducto;
+                    fila.querySelector(".btn-quitar-item-combo").addEventListener("click", () => { fila.remove(); resumen(); });
+                    fila.addEventListener("change", resumen);
+                    fila.addEventListener("input", resumen);
+                    document.getElementById("itemsCombo").appendChild(fila);
+                    resumen();
+                };
+                const cargarProductos = async () => {
+                    const result = await (await fetch("../backend/api/productos.php")).json();
+                    // Un combo solo lleva productos que se siguen vendiendo
+                    productos = (result.status === "success" ? result.data : []).filter(p => String(p.activo) !== "0");
+                };
+                const abrir = async (combo) => {
+                    await cargarProductos();
+                    document.getElementById("formCombo").reset();
+                    document.getElementById("itemsCombo").innerHTML = "";
+                    document.getElementById("modalComboTitulo").innerText = combo ? "Editar Combo" : "Registrar Combo";
+                    document.getElementById("comboId").value = combo ? combo.id_combo : "";
+                    if (combo) {
+                        document.getElementById("nombre_combo").value = combo.nombre;
+                        document.getElementById("precio_combo").value = dinero(combo.precio);
+                        document.getElementById("activo_combo").value = String(combo.activo) === "0" ? "0" : "1";
+                        combo.items.forEach(i => agregarFila(i.id_producto, i.cantidad));
+                    } else {
+                        agregarFila();
+                    }
+                    document.getElementById("modalCombo").classList.add("show");
+                };
+                const consultar = async () => {
+                    try {
+                        const result = await (await fetch("../backend/api/combos.php")).json();
+                        combos = result.status === "success" ? result.data : [];
+                    } catch (e) {
+                        mostrarToast("No se pudieron cargar los combos", "error");
+                        return;
+                    }
+                    tbody.innerHTML = combos.length ? combos.map(c => `
+                        <tr style="${String(c.activo) === "0" ? "opacity:0.55;" : ""}">
+                            <td style="font-weight:600;">${escaparHTML(c.nombre)}</td>
+                            <td>${c.items.map(i => `${i.cantidad} ${escaparHTML(i.nombre_producto)}`).join(" + ")}</td>
+                            <td style="color: var(--primary); font-weight: bold;">${dinero(c.precio)} Bs.</td>
+                            <td>${alcanza(c.items)}</td>
+                            <td>${String(c.activo) === "0" ? "Retirado" : "Activo"}</td>
+                            <td>
+                                <button class="icon-btn text-primary btn-editar-combo" data-id="${c.id_combo}" title="Editar"><i class="material-icons">edit</i></button>
+                                <button class="icon-btn text-danger btn-eliminar-combo" data-id="${c.id_combo}" title="${c.vendido ? "Retirar" : "Eliminar"}"><i class="material-icons">delete</i></button>
+                            </td>
+                        </tr>`).join("") : `<tr><td colspan="6" class="text-center">No hay combos registrados</td></tr>`;
+                };
+
+                document.getElementById("btnNuevoCombo").addEventListener("click", () => abrir(null));
+                document.getElementById("btnAgregarItemCombo").addEventListener("click", () => agregarFila());
+                tbody.addEventListener("click", async (e) => {
+                    const editarBtn = e.target.closest(".btn-editar-combo");
+                    if (editarBtn) abrir(combos.find(c => String(c.id_combo) === editarBtn.dataset.id));
+                    const borrarBtn = e.target.closest(".btn-eliminar-combo");
+                    if (borrarBtn) {
+                        const combo = combos.find(c => String(c.id_combo) === borrarBtn.dataset.id);
+                        const pregunta = combo.vendido
+                            ? `"${combo.nombre}" tiene ventas: se retirará y ya no aparecerá en caja. ¿Continuar?`
+                            : `¿Eliminar el combo "${combo.nombre}"?`;
+                        if (!confirm(pregunta)) return;
+                        const result = await (await fetch("../backend/api/combos.php", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id_combo: combo.id_combo })
+                        })).json();
+                        mostrarToast(result.message, result.status === "success" ? "success" : "error");
+                        consultar();
+                    }
+                });
+                document.getElementById("formCombo").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const id = document.getElementById("comboId").value;
+                    const datos = {
+                        nombre: document.getElementById("nombre_combo").value,
+                        precio: document.getElementById("precio_combo").value,
+                        activo: document.getElementById("activo_combo").value,
+                        items: Array.from(document.querySelectorAll(".fila-item-combo")).map(f => ({
+                            id_producto: f.querySelector(".item-combo-producto").value,
+                            cantidad: f.querySelector(".item-combo-cantidad").value
+                        }))
+                    };
+                    if (id) datos.id_combo = id;
+                    try {
+                        const response = await fetch("../backend/api/combos.php", {
+                            method: id ? "PUT" : "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(datos)
+                        });
+                        const result = await response.json();
+                        if (response.ok && result.status === "success") {
+                            document.getElementById("modalCombo").classList.remove("show");
+                            mostrarToast(result.message, "success");
+                            consultar();
+                        } else {
+                            mostrarToast(result.message || "Error al guardar", "error");
+                        }
+                    } catch (err) {
+                        mostrarToast("Error de comunicación", "error");
+                    }
+                });
+                consultar();
             }
 
             // -------------------------------------------------------------------
@@ -1582,8 +1713,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                 });
 
-                document.getElementById("btnAgregarItemCombo").addEventListener("click", () => agregarFilaItemCombo());
-
                 // Evento del botón Nueva Promoción
                 document.getElementById("btnNuevaPromo").addEventListener("click", async() => {
                     await prepararDesplegablesAsistente();
@@ -1625,12 +1754,24 @@ document.addEventListener("DOMContentLoaded", () => {
                     const idPromo = document.getElementById("promoId").value;
                     const tipo = document.getElementById("tipo_promo").value;
 
+                    // Las fechas se escriben dd/mm/aaaa y se guardan aaaa-mm-dd.
+                    const fechaInicio = isoDesdeDMA(document.getElementById("fecha_inicio").value);
+                    const fechaFin = isoDesdeDMA(document.getElementById("fecha_fin").value);
+                    if (fechaInicio === null || fechaFin === null) {
+                        mostrarToast("Escriba las fechas como dd/mm/aaaa, por ejemplo 25/12/2026.", "warning");
+                        return;
+                    }
+                    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
+                        mostrarToast("La fecha de fin no puede ser anterior a la de inicio.", "warning");
+                        return;
+                    }
+
                     // Construcción del objeto base común
                     const datos = {
                         nombre_promo: document.getElementById("nombre_promo").value,
                         tipo_promo: tipo,
-                        fecha_inicio: document.getElementById("fecha_inicio").value,
-                        fecha_fin: document.getElementById("fecha_fin").value,
+                        fecha_inicio: fechaInicio,
+                        fecha_fin: fechaFin,
                         hora_inicio: document.getElementById("hora_inicio").value,
                         hora_fin: document.getElementById("hora_fin").value,
                         dias_semana: document.getElementById("dias_semana").value
@@ -1661,12 +1802,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         datos.id_item_secundario = document.getElementById("id_item_secundario_inc_prod").value;
                         datos.valor_descuento = document.getElementById("valor_descuento_inc_prod").value;
                         datos.cantidad_condicion = document.getElementById("cantidad_condicion_inc_prod").value;
-                    } else if (tipo === "combo_especifico") {
-                        datos.valor_descuento = document.getElementById("valor_descuento_combo").value;
-                        datos.items = Array.from(document.querySelectorAll(".fila-item-combo")).map(fila => ({
-                            id_producto: fila.querySelector(".item-combo-producto").value,
-                            cantidad: parseInt(fila.querySelector(".item-combo-cantidad").value) || 0
-                        })).filter(i => i.id_producto && i.cantidad > 0);
                     }
 
                     try {
@@ -1711,8 +1846,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         listaPromosGlobal.forEach(p => {
                             // Formateo visual amigable del tipo de promoción (UX)
-                            let tipoLabel = p.tipo_promo.replace('_', ' ').toUpperCase();
-                            let vigencia = (p.fecha_inicio && p.fecha_fin) ? `${p.fecha_inicio} a ${p.fecha_fin}` : 'Vigencia Permanente';
+                            const NOMBRES_TIPO = { tarifa_mesa: 'TARIFA MESA', descuento_producto: 'DESCUENTO PRODUCTO', combo_2x1: 'PRODUCTO 2X1', incentivo_cruzado: 'INCENTIVO CRUZADO', incentivo_mesa: 'INCENTIVO MESA', incentivo_producto: 'INCENTIVO PRODUCTO' };
+                            let tipoLabel = NOMBRES_TIPO[p.tipo_promo] || p.tipo_promo.replace('_', ' ').toUpperCase();
+                            let vigencia = (p.fecha_inicio && p.fecha_fin) ? `${fechaDMA(p.fecha_inicio)} a ${fechaDMA(p.fecha_fin)}` : 'Vigencia Permanente';
                             let horario = (p.hora_inicio && p.hora_fin) ? `${horaCorta(p.hora_inicio)} - ${horaCorta(p.hora_fin)}` : 'Todo el día';
                             if (p.dias_semana) horario += ` (${p.dias_semana})`;
 
@@ -1794,8 +1930,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 // Forzamos la ocultación de bloques dinámicos por defecto
                 document.querySelectorAll(".step-block").forEach(block => block.style.display = "none");
-                document.getElementById("itemsComboEspecifico").innerHTML = "";
-                if (!esEdicion) agregarFilaItemCombo();
 
                 if (esEdicion) {
                     const promo = listaPromosGlobal.find(p => p.id_promocion == id);
@@ -1803,8 +1937,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         // Llenado de campos comunes
                         document.getElementById("nombre_promo").value = promo.nombre_promo;
                         document.getElementById("tipo_promo").value = promo.tipo_promo;
-                        document.getElementById("fecha_inicio").value = promo.fecha_inicio || "";
-                        document.getElementById("fecha_fin").value = promo.fecha_fin || "";
+                        document.getElementById("fecha_inicio").value = promo.fecha_inicio ? fechaDMA(promo.fecha_inicio) : "";
+                        document.getElementById("fecha_fin").value = promo.fecha_fin ? fechaDMA(promo.fecha_fin) : "";
                         document.getElementById("hora_inicio").value = horaCorta(promo.hora_inicio);
                         document.getElementById("hora_fin").value = horaCorta(promo.hora_fin);
                         document.getElementById("dias_semana").value = promo.dias_semana || "";
@@ -1836,9 +1970,6 @@ document.addEventListener("DOMContentLoaded", () => {
                             document.getElementById("id_item_secundario_inc_prod").value = promo.id_item_secundario;
                             document.getElementById("valor_descuento_inc_prod").value = promo.valor_descuento;
                             document.getElementById("cantidad_condicion_inc_prod").value = promo.cantidad_condicion;
-                        } else if (tipo === "combo_especifico") {
-                            document.getElementById("valor_descuento_combo").value = promo.valor_descuento;
-                            (promo.items || []).forEach(i => agregarFilaItemCombo(i.id_producto, i.cantidad));
                         }
                     }
                 }
@@ -2225,7 +2356,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 const tbodyHistorial = document.getElementById('tbodyHistorial');
                                 tbodyHistorial.innerHTML = result.data.map(h => `
                             <tr>
-                                <td>${h.fecha_modificacion}</td>
+                                <td>${fechaHoraDMA(h.fecha_modificacion)}</td>
                                 <td>Usuario #${h.id_usuario}</td>
                                 <td><span class="badge ${h.accion === 'anulacion' ? 'bg-danger' : 'bg-warning'}">${h.accion}</span></td>
                                 <td style="font-size: 12px;">${JSON.stringify(h.detalle_cambios)}</td>
@@ -2292,7 +2423,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (result.status === "success") {
                             tbody.innerHTML = result.data.map(c => `
                         <tr>
-                            <td>${c.fecha_hora}</td>
+                            <td>${fechaHoraDMA(c.fecha_hora)}</td>
                             <td>${c.total_items} ítems</td>
                             <td><span class="badge ${c.estado === 'activo' ? 'bg-success' : 'bg-danger'}">${c.estado}</span></td>
                             <td>
@@ -2493,7 +2624,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const tbodyHistorial = document.getElementById('tbodyHistorialInsumo');
                         tbodyHistorial.innerHTML = result.data.map(h => `
                             <tr>
-                                <td>${h.fecha_modificacion}</td>
+                                <td>${fechaHoraDMA(h.fecha_modificacion)}</td>
                                 <td>Usuario #${h.id_usuario}</td>
                                 <td><span class="badge ${h.accion === 'anulacion' ? 'bg-danger' : 'bg-warning'}">${h.accion}</span></td>
                                 <td style="font-size: 12px;">${JSON.stringify(h.detalle_cambios)}</td>
@@ -2559,7 +2690,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (result.status === "success") {
                     tbody.innerHTML = result.data.map(c => `
                         <tr>
-                            <td>${c.fecha_hora}</td>
+                            <td>${fechaHoraDMA(c.fecha_hora)}</td>
                             <td>${c.total_items} ítems</td>
                             <td><span class="badge ${c.estado === 'activo' ? 'bg-success' : 'bg-danger'}">${c.estado}</span></td>
                             <td>
@@ -2685,16 +2816,16 @@ document.addEventListener("DOMContentLoaded", () => {
             bodyForm.innerHTML = `
                 <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
                     <div class="input-group">
-                        <label>Año</label>
-                        <select id="cmbAnio" class="form-control"></select>
+                        <label>Día</label>
+                        <select id="cmbDia" class="form-control"></select>
                     </div>
                     <div class="input-group">
                         <label>Mes</label>
                         <select id="cmbMes" class="form-control"></select>
                     </div>
                     <div class="input-group">
-                        <label>Día</label>
-                        <select id="cmbDia" class="form-control"></select>
+                        <label>Año</label>
+                        <select id="cmbAnio" class="form-control"></select>
                     </div>
                 </div>
                 
@@ -2838,8 +2969,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fff; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px;">
                     <div><strong>N° Jornada:</strong> ${d.encabezado.id_jornada}</div>
                     <div><strong>Encargado:</strong> ${d.encabezado.encargado}</div>
-                    <div><strong>Fecha y Hora de apertura:</strong> ${d.encabezado.apertura}</div>
-                    <div><strong>Fecha y Hora de Cierre:</strong> ${d.encabezado.cierre || 'En curso'}</div>
+                    <div><strong>Fecha y Hora de apertura:</strong> ${fechaHoraDMA(d.encabezado.apertura)}</div>
+                    <div><strong>Fecha y Hora de Cierre:</strong> ${d.encabezado.cierre ? fechaHoraDMA(d.encabezado.cierre) : 'En curso'}</div>
                 </div>
         `;
 
@@ -2866,7 +2997,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
                         <thead style="background: #e2e8f0;"><tr><th>Mesa</th><th>Ocupación</th><th>Tiempo</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
             d.mesas.filas.forEach(f => {
-                html += `<tr><td>${f.mesa}</td><td>${f.fecha_hora}</td><td>${f.tiempo_uso}</td><td>${f.metodo}</td><td class="text-right">$${f.total}</td></tr>`;
+                html += `<tr><td>${f.mesa}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.tiempo_uso}</td><td>${f.metodo}</td><td class="text-right">$${f.total}</td></tr>`;
             });
             html += `</tbody></table>`;
             
@@ -2889,7 +3020,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
                         <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Cant. Prod.</th><th>Método</th><th>Total</th></tr></thead><tbody>`;
             d.productos.filas.forEach(f => {
-                html += `<tr><td>${f.modo}</td><td>${f.fecha_hora}</td><td class="text-center">${f.cantidad}</td><td>${f.metodo}</td><td class="text-right">$${f.total}</td></tr>`;
+                html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td class="text-center">${f.cantidad}</td><td>${f.metodo}</td><td class="text-right">$${f.total}</td></tr>`;
             });
             html += `</tbody></table>`;
             
@@ -2912,7 +3043,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
                             <thead style="background: #e2e8f0;"><tr><th>Modo</th><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
                 d.cargos.filas.forEach(f => {
-                    html += `<tr><td>${f.modo}</td><td>${f.fecha_hora}</td><td>${f.descripcion}</td><td class="text-right">$${parseFloat(f.monto).toFixed(2)}</td></tr>`;
+                    html += `<tr><td>${f.modo}</td><td>${fechaHoraDMA(f.fecha_hora)}</td><td>${f.descripcion}</td><td class="text-right">$${parseFloat(f.monto).toFixed(2)}</td></tr>`;
                 });
                 html += `</tbody></table>
                          <table class="data-table" style="width: 100%; margin-bottom: 20px; border: 2px solid #8b5cf6;">
@@ -2931,7 +3062,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
                         <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
             let tEg = 0;
-            d.egresos.forEach(f => { tEg += parseFloat(f.monto); html += `<tr><td>${f.fecha}</td><td>${f.concepto}</td><td class="text-right text-danger">$${f.monto}</td></tr>`; });
+            d.egresos.forEach(f => { tEg += parseFloat(f.monto); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.concepto}</td><td class="text-right text-danger">$${f.monto}</td></tr>`; });
             html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Total Egresos: <span class="text-danger">$${tEg.toFixed(2)}</span></div>`;
         }
 
@@ -2940,7 +3071,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
                         <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Insumo</th><th>Cantidad</th></tr></thead><tbody>`;
             let tIns = 0;
-            d.insumos.forEach(f => { tIns += parseFloat(f.cantidad); html += `<tr><td>${f.fecha}</td><td>${f.insumo}</td><td class="text-center">${f.cantidad}</td></tr>`; });
+            d.insumos.forEach(f => { tIns += parseFloat(f.cantidad); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.insumo}</td><td class="text-center">${f.cantidad}</td></tr>`; });
             html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Suma total cantidades: ${tIns.toFixed(2)}</div>`;
         }
 
@@ -3016,7 +3147,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             <i class="material-icons" style="color:#ef4444; font-size:1.8rem;">picture_as_pdf</i>
                             <div>
                                 <div style="font-weight:600; color:#0f172a; font-size:0.95rem;">${archivo.name}</div>
-                                <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">${new Date(archivo.date).toLocaleString('es-ES')}</div>
+                                <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">${fechaHoraDMA(archivo.date)}</div>
                             </div>
                         </div>
                         <i class="material-icons" style="color:#3b82f6;">chevron_right</i>

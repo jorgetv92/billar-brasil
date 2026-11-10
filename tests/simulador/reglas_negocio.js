@@ -35,31 +35,68 @@ function verificar(nombre, venta, esperado) {
   await s.carga([[P.Macanuda, 100], [P.Corona, 100], [P.SodaPop, 50]]);
   await s.abrirJornada(100);
 
+  // "Producto 2x1": el cajero la elige en el buscador; no se detecta sola.
+  const promo2x1 = () => page.evaluate(() => gestorUI.productosLocal.filter((x) => x.es_2x1).map((x) => x.display_nombre));
+  const afirmar = (nombre, ok, detalle) => casos.push({ nombre, esperado: 'sí', ok: !!ok, detalle });
+  await s.at('2026-12-01 16:30:00');
+  const antes2x1 = await promo2x1();
+  afirmar('Producto 2x1: antes de su horario no aparece en el buscador', antes2x1.length === 0, antes2x1.join(' | '));
+
   await s.at('2026-12-01 17:05:00');
-  verificar('2x1 con la pantalla abierta desde antes de la promo: 2 uds pagan 1', await barra([[P.Macanuda, 2]], { caso: '2x1 vista vieja' }), 22);
+  verificar('2x1 sin elegir la promo: 2 Macanuda sueltas pagan precio completo', await barra([[P.Macanuda, 2]], { caso: '2x1 no elegido' }), 44);
+  verificar('2x1 elegido con la pantalla abierta desde antes de la promo: 1 par paga 1', await barra([[P.Macanuda, 2, 'par']], { caso: '2x1 vista vieja' }), 22);
+  const opcion2x1 = (await promo2x1())[0] || '';
+  afirmar('Producto 2x1: en horario aparece como "Promo: ..."', opcion2x1 === 'Promo: SIM 2x1 Macanuda (2 Paceña Macanuda, paga 1) - 22.00 Bs', opcion2x1);
 
   await s.at('2026-12-01 17:10:00');
   await s.refrescarAtencion();
-  verificar('2x1 en barra: 5 uds pagan 3', await barra([[P.Macanuda, 5]], { caso: '2x1 barra x5' }), 66);
+  verificar('2x1 en barra: 5 uds (2 pares + 1 suelta) pagan 3', await barra([[P.Macanuda, 4, 'par'], [P.Macanuda, 1]], { caso: '2x1 barra x5' }), 66);
 
   await s.at('2026-12-01 17:12:00');
-  verificar('2x1 en barra con pago mixto: 2 uds pagan 1', await barra([[P.Macanuda, 2]], { mixto: true, caso: '2x1 barra mixto' }), 22);
+  verificar('2x1 en barra con pago mixto: 1 par paga 1', await barra([[P.Macanuda, 2, 'par']], { mixto: true, caso: '2x1 barra mixto' }), 22);
+
+  await s.at('2026-12-01 17:13:00');
+  await s.abrirMesa('Billar #1');
 
   await s.at('2026-12-01 17:15:00');
   await s.abrirMesa('Consumo #1');
-  await s.consumo('Consumo #1', P.Macanuda, 2);
-  await s.consumo('Consumo #1', P.Macanuda, 2);
+  await s.consumo('Consumo #1', P.Macanuda, 2, { par: true });
+  await s.consumo('Consumo #1', P.Macanuda, 2, { par: true });
   await s.consumo('Consumo #1', P.Macanuda, 1);
   await s.at('2026-12-01 17:20:00');
-  verificar('2x1 en mesa pedido en 3 líneas (2+2+1): pagan 3', await s.cobrarMesa('Consumo #1', { caso: '2x1 mesa 3 lineas' }), 66);
+  verificar('2x1 en mesa: 2 pares + 1 suelta pagan 3', await s.cobrarMesa('Consumo #1', { caso: '2x1 mesa 3 lineas' }), 66);
+
+  // Incentivo cruzado "Amstel Bot a 12 tras 1 h": el buscador lo muestra solo en la mesa que ya jugó la hora.
+  await s.at('2026-12-01 17:50:00');
+  await s.abrirMesa('Billar #2');
+  await s.at('2026-12-01 18:20:00');
+  const amstelEn = async (mesa) => {
+    if (mesa) await s.sel(mesa);
+    else await page.evaluate(() => { if (modoActual === 'mesa') gestorUI.deseleccionarMesa(); });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => gestorUI.cargarDatalistProductos());
+    return page.evaluate(() => (gestorUI.productosLocal.find((x) => +x.id_producto === 46 && !x.es_combo && !x.es_2x1 && !x.es_incentivo) || {}).display_nombre || '');
+  };
+  const conHora = await amstelEn('Billar #1');
+  const sinHora = await amstelEn('Billar #2');
+  const enLaBarra = await amstelEn(null);
+  afirmar('Incentivo cruzado: en la mesa que ya jugó 1 h el buscador muestra el Amstel a 12', / - Promo: 12\.00 Bs \(Antes 17\.00 Bs\)$/.test(conHora), conHora);
+  afirmar('Incentivo cruzado: en una mesa con 30 min el Amstel sale a precio normal', / - 17\.00 Bs$/.test(sinHora), sinHora);
+  afirmar('Incentivo cruzado: en barra el Amstel sale a precio normal', / - 17\.00 Bs$/.test(enLaBarra), enLaBarra);
+  await s.consumo('Billar #1', 46, 1);
+  verificar('Incentivo cruzado: 67 min de Billar (17,50) + Amstel a 12 = 29,50', await s.cobrarMesa('Billar #1', { caso: 'incentivo cruzado cumplido' }), 29.5);
+  verificar('Mesa sin la hora: 30 min de Billar = 7,50', await s.cobrarMesa('Billar #2', { caso: 'mesa sin incentivo' }), 7.5);
 
   await s.at('2026-12-01 21:50:00');
   await s.abrirMesa('Consumo #2');
-  await s.consumo('Consumo #2', P.Macanuda, 2);
+  await s.consumo('Consumo #2', P.Macanuda, 2, { par: true });
   await s.at('2026-12-01 22:10:00');
-  verificar('2x1 pedido en promo y pagado después: lo conserva', await s.cobrarMesa('Consumo #2', { caso: '2x1 conserva' }), 22);
+  verificar('2x1 elegido en promo y pagado después: lo conserva', await s.cobrarMesa('Consumo #2', { caso: '2x1 conserva' }), 22);
 
   await s.at('2026-12-01 22:12:00');
+  await s.refrescarAtencion();
+  const despues2x1 = await promo2x1();
+  afirmar('Producto 2x1: terminada la promo ya no aparece', despues2x1.length === 0, despues2x1.join(' | '));
   await s.abrirMesa('Consumo #3');
   await s.consumo('Consumo #3', P.Macanuda, 2);
   await s.at('2026-12-01 22:14:00');

@@ -72,6 +72,23 @@ CREATE TABLE insumos (
     stock_actual DECIMAL(10,2) NOT NULL DEFAULT 0.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Combos: productos compuestos sin stock propio. Al venderse descuentan el stock de sus productos.
+CREATE TABLE combos (
+    id_combo INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    precio DECIMAL(10,2) NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1 -- 0: retirado (se conserva por las ventas antiguas)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE combo_items (
+    id_combo INT NOT NULL,
+    id_producto INT NOT NULL,
+    cantidad INT NOT NULL,
+    PRIMARY KEY (id_combo, id_producto),
+    CONSTRAINT fk_combo_item_combo FOREIGN KEY (id_combo) REFERENCES combos(id_combo) ON DELETE CASCADE,
+    CONSTRAINT fk_combo_item_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Foto del stock al abrir la jornada (se borra al cerrarla). Va después de 'jornadas' y 'productos'.
 CREATE TABLE jornada_inventario_apertura (
     id_jornada INT NOT NULL,
@@ -186,7 +203,9 @@ CREATE TABLE detalle_venta_productos (
     cantidad INT NOT NULL,
     precio_unitario_aplicado DECIMAL(10,2) NOT NULL,
     fecha_hora DATETIME NULL, -- Momento del pedido: define qué promos le corresponden
-    id_promocion INT NULL, -- Combo en el que se vendió (el precio ya es el del combo)
+    id_promocion INT NULL, -- Promoción "Producto 2x1" con la que se vendió el par (sin clave foránea: la promo se puede borrar)
+    id_combo INT NULL, -- Combo en el que se vendió (el precio ya es el del combo repartido)
+    CONSTRAINT fk_detalle_vp_combo FOREIGN KEY (id_combo) REFERENCES combos(id_combo),
     CONSTRAINT fk_detalle_vp_venta FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE,
     CONSTRAINT fk_detalle_vp_sesion FOREIGN KEY (id_sesion) REFERENCES sesiones_juego(id_sesion),
     CONSTRAINT fk_detalle_vp_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
@@ -223,7 +242,7 @@ CREATE TABLE pagos_venta (
 CREATE TABLE promociones (
     id_promocion INT AUTO_INCREMENT PRIMARY KEY,
     nombre_promo VARCHAR(100) NOT NULL,
-    tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto', 'combo_especifico') NOT NULL,
+    tipo_promo ENUM('tarifa_mesa', 'descuento_producto', 'combo_2x1', 'incentivo_cruzado', 'incentivo_mesa', 'incentivo_producto') NOT NULL, -- combo_2x1 = "Producto 2x1"
     fecha_inicio DATE NULL,
     fecha_fin DATE NULL,
     hora_inicio TIME NULL,
@@ -233,16 +252,6 @@ CREATE TABLE promociones (
     id_item_condicion INT NULL, -- ID del producto o tipo de mesa necesario para activar
     id_item_secundario INT NULL, -- ID secundario (ej. tipo de mesa en incentivo_producto)
     cantidad_condicion DECIMAL(10,2) NULL -- Cantidad mínima requerida (ej. 2 horas, 3 cervezas)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Productos de un combo específico; el precio del combo va en promociones.valor_descuento
-CREATE TABLE promocion_items (
-    id_promocion INT NOT NULL,
-    id_producto INT NOT NULL,
-    cantidad INT NOT NULL,
-    PRIMARY KEY (id_promocion, id_producto),
-    CONSTRAINT fk_item_promocion FOREIGN KEY (id_promocion) REFERENCES promociones(id_promocion) ON DELETE CASCADE,
-    CONSTRAINT fk_item_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Cargos que no son productos: la hora gratis del incentivo y los daños (vaso roto, ventana...)

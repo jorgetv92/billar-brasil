@@ -241,11 +241,9 @@ async function probarPantalla(s, page) {
     await page.evaluate(async () => {
       await gestorUI.cargarGrillaMesas();
     });
-    await s.setProducto(CORONA, 4);
-    await page.evaluate(() => gestorUI.agregarProductoAlCarrito());
+    // El cajero elige en el buscador la promo de hora gratis (trae las 4 Corona) y la mesa Billar #5.
+    await s.elegirPromoHora(MESA.Billar5);
     await page.evaluate((f) => gestorUI.iniciarFlujoCobro(f), flujo);
-    await page.waitForTimeout(60);
-    await s.incentivo('si', MESA.Billar5);
     await page.waitForTimeout(60);
     await post(BASE, { accion: 'ocupar_mesa', id_mesa: MESA.Billar5 });
     const ventas = nVentas();

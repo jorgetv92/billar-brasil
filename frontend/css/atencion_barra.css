@@ -1021,3 +1021,30 @@ body {
         margin: 0px 0px;
     }
 }*/
+/* Botón "<" del detalle de mesa (solo celular): vuelve a la lista de mesas */
+.header-info-mesa .btn-volver-mesas {
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-right: 6px;
+    border: none;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #0f172a;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.header-info-mesa .btn-volver-mesas .material-icons {
+    font-size: 28px;
+}
+@media (max-width: 768px) {
+    .header-info-mesa {
+        justify-content: flex-start;
+        gap: 4px;
+    }
+    .header-info-mesa h2 {
+        flex: 1;
+        min-width: 0;
+    }
+}

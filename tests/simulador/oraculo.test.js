@@ -12,6 +12,8 @@ const ctx = (promos = []) => ({ promos, lista: LISTA });
 const MACANUDA = 1;
 const PROMO_2X1 = { t: 'combo_2x1', d: 'jueves', h: ['17:00:00', '22:00:00'], item: MACANUDA };
 const pedido = (qty, hora, ef = 22) => ({ id: MACANUDA, qty, ef, t: en(hora) });
+// Pares que el cajero eligió en el buscador ("Promo: ... 2x1"): qty son unidades (2 por par).
+const pares = (qty, hora, ef = 22) => ({ id: MACANUDA, qty, ef, t: en(hora), par: true });
 
 test('redondeo: siempre hacia arriba a .00 o .50', () => {
   const casos = [
@@ -72,29 +74,24 @@ test('incentivo en producto: la hora gratis usa la tarifa real si la mesa se tra
   assert.equal(liquidar({ tramos, gratis: true }, ctx()).tiempo, 0);
 });
 
-test('2x1: con 5 unidades se pagan 3 precios', () => {
-  const r = liquidar({ prods: [pedido(5, '18:00:00')] }, ctx([PROMO_2X1]));
-  assert.equal(r.total, 66);
-});
-
-test('2x1: se cuentan las unidades del producto aunque se pidan en varias líneas', () => {
-  const prods = [pedido(2, '18:00:00'), pedido(2, '18:10:00'), pedido(1, '18:20:00')];
-  assert.equal(liquidar({ prods }, ctx([PROMO_2X1])).total, 66);
-});
-
-test('2x1: lo pedido en promo lo conserva aunque se pague después', () => {
-  const r = liquidar({ prods: [pedido(2, '21:50:00')] }, ctx([PROMO_2X1]));
-  assert.equal(r.total, 22);
-});
-
-test('2x1: lo pedido fuera de la promo paga precio completo', () => {
-  const r = liquidar({ prods: [pedido(2, '22:00:00')] }, ctx([PROMO_2X1]));
+test('2x1: no se detecta solo, 2 unidades sueltas pagan precio completo', () => {
+  const r = liquidar({ prods: [pedido(2, '18:00:00')] }, ctx([PROMO_2X1]));
   assert.equal(r.total, 44);
 });
 
-test('2x1: solo cuentan las unidades pedidas en horario', () => {
-  const prods = [pedido(3, '21:55:00'), pedido(2, '22:05:00')];
-  assert.equal(liquidar({ prods }, ctx([PROMO_2X1])).total, 88, 'de 3 unidades en promo se regala 1');
+test('2x1: cada par elegido paga una unidad', () => {
+  const r = liquidar({ prods: [pares(2, '18:00:00')] }, ctx([PROMO_2X1]));
+  assert.equal(r.total, 22);
+});
+
+test('2x1: 5 unidades = 2 pares elegidos + 1 suelta, pagan 3 precios', () => {
+  const prods = [pares(2, '18:00:00'), pares(2, '18:10:00'), pedido(1, '18:20:00')];
+  assert.equal(liquidar({ prods }, ctx([PROMO_2X1])).total, 66);
+});
+
+test('2x1: el par elegido en promo lo conserva aunque se pague después', () => {
+  const r = liquidar({ prods: [pares(2, '21:50:00')] }, ctx([PROMO_2X1]));
+  assert.equal(r.total, 22);
 });
 
 test('total: tiempo + productos, con un solo redondeo al final', () => {

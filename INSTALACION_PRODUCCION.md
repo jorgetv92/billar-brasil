@@ -37,7 +37,7 @@ En phpMyAdmin:
 1. Seleccionar la base nueva, que debe estar vacía.
 2. En "Importar", subir `dist/script.sql` con el formato SQL y la codificación utf-8.
 
-Debe terminar sin errores y dejar 22 tablas. Si alguna tabla ya existía, se detiene con error en lugar de duplicar datos.
+Debe terminar sin errores y dejar 23 tablas. Si alguna tabla ya existía, se detiene con error en lugar de duplicar datos.
 
 ## 3. Archivos
 
@@ -56,7 +56,8 @@ Debe terminar sin errores y dejar 22 tablas. Si alguna tabla ya existía, se det
    - Revisar mesas, productos y precios.
    - Ajustar el stock con una carga si hace falta: el stock copiado es el de la base anterior al 2026-11-09.
    - Revisar los insumos.
-   - Crear las promociones y los productos preparados (vasos y tragos) que se vayan a vender.
+   - Crear los productos preparados (vasos y tragos), los combos (sección "Combos", debajo de Inventario; ej. "Fernet combo" = 1 Fernet + 2 Coca Cola) y las promociones que se vayan a usar.
+   - Las promociones "Producto 2x1" y la hora gratis no se aplican solas: el cajero las elige en el buscador escribiendo "promo".
 3. En atención:
    - Abrir la jornada, ocupar una mesa, agregar un producto y cobrar.
    - Registrar un egreso y un gasto de insumo.

@@ -49,12 +49,12 @@ const P = { Macanuda: 1, Corona: 6, Palito: 9, SodaPop: 12, AmstelBot: 46, Choco
 
   // ---------- MARTES 24: portal abierto a distintas horas (caché de promos) ----------
   await s.at('2026-11-24 16:00:00'); await s.cargarPortal(); await s.abrirJornada(100);
-  await s.at('2026-11-24 17:05:00'); await barra([[P.Macanuda, 2]], { caso: 'R4 barra 2x1: vista cargada ANTES de la promo (17:00)' });
-  await s.at('2026-11-24 17:10:00'); await s.refrescarAtencion(); await barra([[P.Macanuda, 2]], { caso: 'R5 barra 2x1: vista recargada DENTRO de la promo' });
-  await s.at('2026-11-24 17:15:00'); await barra([[P.Macanuda, 2]], { mixto: true, caso: 'R6 barra 2x1 pago mixto' });
-  await s.at('2026-11-24 17:20:00'); await s.abrirMesa('Billar #1'); await s.consumo('Billar #1', P.Macanuda, 2);
+  await s.at('2026-11-24 17:05:00'); await barra([[P.Macanuda, 2, 'par']], { caso: 'R4 barra 2x1: vista cargada ANTES de la promo (17:00)' });
+  await s.at('2026-11-24 17:10:00'); await s.refrescarAtencion(); await barra([[P.Macanuda, 2, 'par']], { caso: 'R5 barra 2x1: vista recargada DENTRO de la promo' });
+  await s.at('2026-11-24 17:15:00'); await barra([[P.Macanuda, 2, 'par']], { mixto: true, caso: 'R6 barra 2x1 pago mixto' });
+  await s.at('2026-11-24 17:20:00'); await s.abrirMesa('Billar #1'); await s.consumo('Billar #1', P.Macanuda, 2, { par: true });
   await s.at('2026-11-24 18:20:00'); await s.cobrarMesa('Billar #1', { caso: 'R7 mesa 2x1 una línea x2' });
-  await s.at('2026-11-24 21:50:00'); await s.abrirMesa('Billar #2'); await s.consumo('Billar #2', P.Macanuda, 2); await barra([[P.Corona, 1]], { caso: '(venta intermedia)' });
+  await s.at('2026-11-24 21:50:00'); await s.abrirMesa('Billar #2'); await s.consumo('Billar #2', P.Macanuda, 2, { par: true }); await barra([[P.Corona, 1]], { caso: '(venta intermedia)' });
   await s.at('2026-11-24 22:10:00'); await s.cobrarMesa('Billar #2', { caso: 'R8 mesa 2x1: pedido en promo, cobrada 22:10 fuera de horario' });
   await s.at('2026-11-24 22:11:00'); await s.refrescarAtencion();
   await s.at('2026-11-24 22:12:00'); await barra([[P.Palito, 1]], { caso: 'R9 barra Palito promo nocturna' });

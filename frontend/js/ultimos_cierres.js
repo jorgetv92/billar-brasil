@@ -24,7 +24,7 @@ async function cargarListadoPdfs() {
                             <i class="material-icons" style="color: #ef4444;">picture_as_pdf</i>
                             <div>
                                 <h4 style="margin: 0; color: #1e293b; font-size: 1rem;">${archivo.name}</h4>
-                                <span style="font-size: 0.8rem; color: #64748b;">${new Date(archivo.date).toLocaleString()}</span>
+                                <span style="font-size: 0.8rem; color: #64748b;">${fechaHoraDMA(archivo.date)}</span>
                             </div>
                         </div>
                         <button class="btn btn-primary" style="display: flex; align-items: center; gap: 5px; padding: 6px 12px; font-size: 0.85rem;" onclick="abrirVisorPdf('${archivo.name}')">

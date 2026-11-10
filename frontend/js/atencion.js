@@ -130,10 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                                 if (data.egresos_detalle && data.egresos_detalle.length > 0) {
                                     data.egresos_detalle.forEach(e => {
-                                        let fd = new Date(e.fecha_hora.replace(/-/g, '/'));
-                                        let hh = fd.getHours().toString().padStart(2, '0');
-                                        let mm = fd.getMinutes().toString().padStart(2, '0');
-                                        let fechaFmt = `${fd.getDate().toString().padStart(2,'0')}/${(fd.getMonth()+1).toString().padStart(2,'0')} ${hh}:${mm}`;
+                                        const fechaFmt = fechaHoraDMA(e.fecha_hora);
                                         
                                         htmlTablas += `
                                             <tr style="color:#334155;">
@@ -502,8 +499,7 @@ function renderizarJornadaAbierta(jornada) {
     let fechaFormateada = jornada.fecha_hora_apertura;
     if (fechaFormateada && fechaFormateada.includes("-")) {
         const [fechaParte, horaParte] = fechaFormateada.split(" ");
-        const [yyyy, mm, dd] = fechaParte.split("-");
-        fechaFormateada = `${dd}-${mm}-${yyyy} ${horaParte}`;
+        fechaFormateada = fechaHoraDMA(fechaFormateada);
     }
 
     const esOtroUsuario = (jornada.id_usuario_apertura != idUsuarioActual);
@@ -690,7 +686,7 @@ function abrirReporteFinal(precierre, kpiBase) {
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px;">
                 <div>
                     <h2 style="margin: 0; color: #0f172a; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;">Reporte de Cierre de Jornada</h2>
-                    <p style="margin: 2px 0 0 0; color: #64748b; font-size: 0.8rem;">ID de Jornada: <strong style="color: #0f172a;">#${j.id_jornada}</strong> &nbsp;|&nbsp; Apertura: <strong style="color: #0f172a;">${j.fecha_hora_apertura}</strong></p>
+                    <p style="margin: 2px 0 0 0; color: #64748b; font-size: 0.8rem;">ID de Jornada: <strong style="color: #0f172a;">#${j.id_jornada}</strong> &nbsp;|&nbsp; Apertura: <strong style="color: #0f172a;">${fechaHoraDMA(j.fecha_hora_apertura)}</strong></p>
                 </div>
                 <div>
                     <span style="background: #ef4444; color: #ffffff; padding: 4px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">Jornada Cerrada</span>
@@ -797,8 +793,8 @@ function abrirReporteFinal(precierre, kpiBase) {
         const datosJornadaImpresion = {
             id_jornada: j.id_jornada,
             encargado: encargadoNom,
-            fecha_apertura: j.fecha_hora_apertura,
-            fecha_cierre: new Date().toLocaleString(),
+            fecha_apertura: fechaHoraDMA(j.fecha_hora_apertura),
+            fecha_cierre: fechaHoraDMA(new Date()),
             monto_inicial: c.monto_apertura,
             ingresos_efectivo: c.ingresos_efectivo,
             ingresos_qr: c.ingresos_qr,
@@ -816,18 +812,8 @@ function abrirReporteFinal(precierre, kpiBase) {
             const elemento = document.getElementById("contenidoReporteFinal");
             
             // Extraer fecha de apertura
-            let nombrePdf = "Reporte.pdf";
-            if (j.fecha_hora_apertura) {
-                let diaStr = j.fecha_hora_apertura.split(" ")[0]; // "YYYY-MM-DD"
-                let partesDia = diaStr.split("-");
-                if (partesDia.length === 3) {
-                    nombrePdf = `Reporte_${partesDia[2]}-${partesDia[1]}-${partesDia[0]}.pdf`;
-                } else {
-                    nombrePdf = `Reporte_${new Date().toLocaleDateString('es-ES').replace(/\//g, '-')}.pdf`;
-                }
-            } else {
-                nombrePdf = `Reporte_${new Date().toLocaleDateString('es-ES').replace(/\//g, '-')}.pdf`;
-            }
+            // Reporte_dd-mm-aaaa.pdf (un nombre de archivo no admite "/")
+            const nombrePdf = `Reporte_${fechaDMA(j.fecha_hora_apertura || new Date()).replace(/\//g, '-')}.pdf`;
 
             const opt = {
                 margin:       10,
@@ -1122,8 +1108,7 @@ function renderizarVentasModal(ventas, tbody) {
         if (!dt) return '—';
         const partes = dt.split(' ');
         if (partes.length < 2) return dt;
-        const [y, m, d] = partes[0].split('-');
-        return `${d}/${m}/${y} ${partes[1]}`;
+        return fechaHoraDMA(dt, true);
     };
 
     ventas.forEach((venta, index) => {

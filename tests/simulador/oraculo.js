@@ -71,19 +71,19 @@ function liquidarTiempo(tramos, gratis, ctx) {
   return { tiempo: r2(tiempoCent / 100), bloques, segJugados, segPorTipo };
 }
 
-// Solo cuentan las unidades pedidas durante la promo: conservan el beneficio aunque se paguen después.
+// "Producto 2x1": solo los pares que eligió el cajero (p.par) pagan una unidad de cada dos; las unidades
+// sueltas pagan precio completo. Un par elegido en promo conserva su precio aunque se pague después.
+// Los pares no entran en otras promociones de producto.
 function liquidarProductos(prods, { segJugados, segPorTipo }, { promos }) {
   let prod = 0;
   let desc = 0;
   for (const p of prods) prod += p.qty * p.ef;
   for (const promo of promos) {
-    const enPromo = prods.filter((p) => p.id === promo.item && promoActiva(promo, p.t));
     if (promo.t === 'combo_2x1') {
-      // Con 5 unidades se pagan 3 precios. Se regalan las más baratas si hubiera precios distintos.
-      const precios = enPromo.flatMap((p) => Array(p.qty).fill(p.ef)).sort((a, b) => a - b);
-      const gratis = Math.floor(precios.length / 2);
-      for (let i = 0; i < gratis; i++) desc += precios[i];
+      for (const p of prods.filter((x) => x.par && x.id === promo.item && promoActiva(promo, x.t))) desc += Math.floor(p.qty / 2) * p.ef;
+      continue;
     }
+    const enPromo = prods.filter((p) => !p.par && p.id === promo.item && promoActiva(promo, p.t));
     if (promo.t === 'incentivo_cruzado') {
       const seg = promo.mesa ? segPorTipo[promo.mesa] || 0 : segJugados;
       if (seg < promo.c * 3600) continue;

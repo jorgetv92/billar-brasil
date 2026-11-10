@@ -384,7 +384,7 @@ if ($method === 'POST') {
 function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("SELECT d.id_venta, d.id_producto, d.cantidad, d.id_promocion, p.tipo FROM detalle_venta_productos d JOIN productos p ON p.id_producto = d.id_producto WHERE d.id_detalle_prod = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT d.id_venta, d.id_producto, d.cantidad, d.id_promocion, d.id_combo, p.tipo FROM detalle_venta_productos d JOIN productos p ON p.id_producto = d.id_producto WHERE d.id_detalle_prod = ? FOR UPDATE");
         $stmt->execute([$idDetalle]);
         $detalle = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$detalle || !$detalle['id_venta']) {
@@ -402,8 +402,8 @@ function corregirDetalleVenta($pdo, $idDetalle, $nuevaCantidad, $idUsuario) {
             throw new ErrorOperacion('Solo se pueden corregir ventas de la jornada abierta.', 'jornada_cerrada');
         }
         // Los productos de un combo tienen el precio del combo repartido: corregir uno solo rompería el combo.
-        if ($detalle['id_promocion']) {
-            throw new ErrorOperacion('Los productos de un combo no se corrigen por separado.', 'no_editable');
+        if ($detalle['id_combo'] || $detalle['id_promocion']) {
+            throw new ErrorOperacion('Los productos de un combo o de una promoción 2x1 no se corrigen por separado.', 'no_editable');
         }
 
         $anterior = intval($detalle['cantidad']);

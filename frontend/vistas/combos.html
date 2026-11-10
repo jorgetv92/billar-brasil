@@ -1,0 +1,69 @@
+<div class="view-header">
+    <div>
+        <h2>Combos</h2>
+        <p class="view-subtitle">Productos compuestos por un precio (ej. 1 Fernet + 2 Coca Cola). No tienen stock propio: al venderse descuentan el stock de sus productos. El cajero los encuentra en el buscador como "Combo: ...".</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn-primary" id="btnNuevoCombo">
+            <i class="material-icons">add</i> Nuevo Combo
+        </button>
+    </div>
+</div>
+
+<div class="card table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Combo</th>
+                <th>Productos</th>
+                <th>Precio (Bs.)</th>
+                <th>Alcanza para</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tablaCombosBody">
+        </tbody>
+    </table>
+</div>
+
+<div id="modalCombo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalComboTitulo">Registrar Combo</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formCombo">
+                <input type="hidden" id="comboId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="nombre_combo">Nombre del combo</label>
+                        <input type="text" id="nombre_combo" required maxlength="100" placeholder="Ej: Combo Fernet" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="precio_combo">Precio del combo (Bs.)</label>
+                        <input type="number" id="precio_combo" step="0.50" min="0.50" required placeholder="Ej: 280.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="activo_combo">Estado</label>
+                        <select id="activo_combo">
+                            <option value="1">Activo</option>
+                            <option value="0">Retirado</option>
+                        </select>
+                    </div>
+                </div>
+                <h4 style="margin: 14px 0 8px;">Productos del combo</h4>
+                <div id="itemsCombo"></div>
+                <button type="button" class="btn-secondary" id="btnAgregarItemCombo" style="margin: 6px 0 4px;">
+                    <i class="material-icons" style="font-size:1rem; vertical-align:middle;">add</i> Agregar producto
+                </button>
+                <p id="resumenCombo" style="font-size: 0.85rem; color: var(--texto-suave, #64748b); margin-top: 8px;"></p>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formCombo" class="btn-primary">Guardar</button>
+        </div>
+    </div>
+</div>

@@ -30,6 +30,7 @@ window.gestorUI = {
     promocionesActivas: [], // Promociones vigentes obtenidas de la API
     conceptosCargo: [], // Conceptos para cobrar roturas o daños
     mesaIncentivoAsignada: null, // ID de mesa asignada en modal_apply_incentivoproducto en modo barra
+    promoHoraBarra: null, // Promoción de hora gratis elegida en el buscador (modo barra)
     flujoIncentivoPendiente: null, // Configuración activa del modal de incentivo
     cotizacion: null, // Barra: lo que el backend calculó para el carrito actual
     secuenciaCotizacion: 0,
@@ -157,7 +158,9 @@ window.gestorUI = {
     },
     cargarDatalistProductos: async function () {
         try {
-            const response = await fetch(`${this.apiURL}?accion=get_productos_datalist`);
+            const card = modoActual === "mesa" ? this.tarjetaSeleccionada() : null;
+            const deMesa = card ? `&id_mesa=${card.getAttribute("data-id")}` : "";
+            const response = await fetch(`${this.apiURL}?accion=get_productos_datalist${deMesa}`);
             const rawText = await response.text();
             try {
                 this.productosLocal = JSON.parse(rawText);
@@ -210,14 +213,26 @@ window.gestorUI = {
 
         const cantidad = parseInt(inputCantidad.value) || 1;
         if (cantidad <= 0) return;
-        const conStock = !producto.es_combo && producto.tipo !== 'preparado';
-        if (conStock && cantidad > producto.stock) {
-            alert(`Stock insuficiente. Solo quedan ${producto.stock} unidades.`);
+        if (producto.es_incentivo) {
+            await this.elegirIncentivo(producto, cantidad);
+            return;
+        }
+        // Unidades con stock que pide: un producto suelto, o 2 por cada par 2x1. Un combo usa lo que alcanza el stock.
+        const disponible = producto.es_combo ? producto.disponibles
+            : producto.es_2x1 ? (producto.tipo_producto === 'preparado' ? null : Math.floor(producto.stock_producto / 2))
+            : (producto.tipo === 'preparado' ? null : producto.stock);
+        const conStock = disponible !== null && disponible !== undefined;
+        if (conStock && cantidad > disponible) {
+            alert(producto.es_combo ? `Stock insuficiente: alcanza para ${disponible} combo(s).`
+                : producto.es_2x1 ? `Stock insuficiente: alcanza para ${disponible} par(es).`
+                : `Stock insuficiente. Solo quedan ${producto.stock} unidades.`);
             return;
         }
 
         const precioUnitario = parseFloat(producto.precio);
-        const nombreLimpio = producto.es_combo ? `Promo: ${producto.nombre_producto}` : producto.display_nombre.split(" - ")[0];
+        const nombreLimpio = producto.es_combo ? `Combo: ${producto.nombre_producto}`
+            : producto.es_2x1 ? `Promo: ${producto.nombre_producto} (2 ${producto.producto})`
+            : producto.display_nombre.split(" - ")[0];
 
         if (modoActual === "mesa") {
             // == MODO MESA: GUARDAR DIRECTO EN BD ==
@@ -226,51 +241,25 @@ window.gestorUI = {
             const id_mesa_actual = mesaCard.getAttribute("data-id");
 
             if (producto.es_combo) {
-                await this.agregarAMesa(id_mesa_actual, { combos: [{ id_promocion: producto.id_promocion, cantidad }] }, "Combo agregado a la mesa.");
+                await this.agregarAMesa(id_mesa_actual, { combos: [{ id_combo: producto.id_combo, cantidad }] }, "Combo agregado a la mesa.");
+                return;
+            }
+            if (producto.es_2x1) {
+                await this.agregarAMesa(id_mesa_actual, { pares: [{ id_promocion: producto.id_promocion, cantidad }] }, "Promoción 2x1 agregada a la mesa.");
                 return;
             }
 
-            const idTipoMesaActual = parseInt(mesaCard.getAttribute("data-id-tipo-mesa"));
-            const tieneGratisActual = mesaCard.getAttribute("data-primera-hora-gratis") === "1"
-                || !!(this.liquidacionMesa && this.liquidacionMesa.hora_gratis);
-
-            // Buscar si existe promoción incentivo_producto aplicable a este producto y tipo de mesa
-            const promoIncentivo = !tieneGratisActual ? this.promocionesActivas.find(p => {
-                return p.tipo_promo === 'incentivo_producto' &&
-                       parseInt(p.id_item_condicion) === parseInt(producto.id_producto) &&
-                       parseInt(p.id_item_secundario) === idTipoMesaActual;
-            }) : null;
-
-            if (promoIncentivo) {
-                const cantRequerida = parseFloat(promoIncentivo.cantidad_condicion);
-                const cantPrevia = this.itemsCarrito
-                    .filter(i => i.tipo === 'producto' && !i.combo && parseInt(i.id_producto) === parseInt(producto.id_producto))
-                    .reduce((sum, i) => sum + parseInt(i.cantidad), 0);
-
-                if (cantPrevia + cantidad >= cantRequerida) {
-                    // Cumple la condición de la promoción: preguntar vía modal_apply_incentivoproducto
-                    this.abrirModalIncentivoProducto({
-                        modo: 'mesa',
-                        producto: producto,
-                        cantidad: cantidad,
-                        precioUnitario: precioUnitario,
-                        nombreLimpio: nombreLimpio,
-                        id_mesa: id_mesa_actual,
-                        promo: promoIncentivo
-                    });
-                    return;
-                }
-            }
-
-            await this.ejecutarAgregarProductoMesaDirecto(id_mesa_actual, producto, cantidad, precioUnitario, false);
+            // Las promociones (2x1, hora gratis) no se detectan solas: el cajero las elige en el buscador.
+            await this.agregarAMesa(id_mesa_actual, { productos: [{ id_producto: producto.id_producto, cantidad }] }, "Producto agregado a la mesa.");
         } else {
             // == MODO BARRA: GUARDAR EN MEMORIA LOCAL ==
-            const tipo = producto.es_combo ? 'combo' : 'producto';
+            const tipo = producto.es_combo ? 'combo' : producto.es_2x1 ? 'par' : 'producto';
             const itemExistente = this.itemsCarrito.find(item => item.tipo === tipo && (producto.es_combo
-                ? item.id_promocion === producto.id_promocion
+                ? item.id_combo === producto.id_combo
+                : producto.es_2x1 ? item.id_promocion === producto.id_promocion
                 : item.id_producto === producto.id_producto));
             if (itemExistente) {
-                if (conStock && (itemExistente.cantidad + cantidad) > producto.stock) {
+                if (conStock && (itemExistente.cantidad + cantidad) > disponible) {
                     alert(`No puedes añadir esa cantidad. Supera el stock total disponible.`);
                     return;
                 }
@@ -281,6 +270,7 @@ window.gestorUI = {
                     tipo,
                     id_producto: producto.id_producto,
                     id_promocion: producto.id_promocion,
+                    id_combo: producto.id_combo,
                     nombre: nombreLimpio,
                     precio: precioUnitario,
                     cantidad: cantidad,
@@ -331,6 +321,7 @@ window.gestorUI = {
     },
     limpiarCarrito: function () {
         this.itemsCarrito = [];
+        this.quitarHoraPromoDelCarrito();
         this.cotizacion = null;
         this.secuenciaCotizacion++; // descarta una cotización que todavía estuviera en camino
         this.renderizarCarrito();
@@ -387,8 +378,8 @@ window.gestorUI = {
                     tipo: 'producto',
                     id_detalle_prod: prod.id_detalle_prod,
                     id_producto: prod.id_producto,
-                    nombre: prod.combo ? `${prod.nombre} (Promo: ${prod.combo})` : prod.nombre,
-                    combo: prod.combo,
+                    nombre: prod.grupo ? `${prod.nombre} (${prod.grupo})` : prod.nombre,
+                    combo: prod.grupo,
                     precio: Number(prod.precio),
                     cantidad: parseInt(prod.cantidad),
                     total: Number(prod.subtotal)
@@ -531,9 +522,11 @@ window.gestorUI = {
         const de = tipo => this.itemsCarrito.filter(i => i.tipo === tipo);
         return {
             productos: de('producto').map(i => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
-            combos: de('combo').map(i => ({ id_promocion: i.id_promocion, cantidad: i.cantidad })),
+            combos: de('combo').map(i => ({ id_combo: i.id_combo, cantidad: i.cantidad })),
+            pares: de('par').map(i => ({ id_promocion: i.id_promocion, cantidad: i.cantidad })),
             cargos: de('cargo').map(i => ({ id_concepto: i.id_concepto || null, descripcion: i.nombre, monto: i.precio })),
-            hora_gratis: !!this.mesaIncentivoAsignada
+            hora_gratis: !!this.mesaIncentivoAsignada,
+            id_promo_hora: this.mesaIncentivoAsignada && this.promoHoraBarra ? this.promoHoraBarra.id_promocion : null
         };
     },
     // Barra: el backend fija precios y promos del carrito. Si llegan dos respuestas, vale la del último pedido.
@@ -561,10 +554,12 @@ window.gestorUI = {
         if (data.status === "success") {
             this.cotizacion = data.cotizacion;
             // Se muestran los precios que fijó el backend: pueden diferir de la lista si empezó o terminó una promo.
-            const totalCombo = {};
+            // Lo que suman las líneas de cada combo y de cada par 2x1 (el backend reparte el precio entre sus productos)
+            const totalGrupo = {};
             data.cotizacion.productos.forEach(linea => {
-                if (linea.id_promocion) {
-                    totalCombo[linea.id_promocion] = (totalCombo[linea.id_promocion] || 0) + Number(linea.subtotal);
+                const clave = linea.id_combo ? `combo-${linea.id_combo}` : linea.id_promocion ? `par-${linea.id_promocion}` : null;
+                if (clave) {
+                    totalGrupo[clave] = (totalGrupo[clave] || 0) + Number(linea.subtotal);
                     return;
                 }
                 const item = this.itemsCarrito.find(i => i.tipo === 'producto' && parseInt(i.id_producto) === parseInt(linea.id_producto));
@@ -573,9 +568,10 @@ window.gestorUI = {
                     item.total = Number(linea.subtotal);
                 }
             });
-            this.itemsCarrito.filter(i => i.tipo === 'combo').forEach(item => {
-                if (totalCombo[item.id_promocion] !== undefined) {
-                    item.total = totalCombo[item.id_promocion];
+            this.itemsCarrito.filter(i => i.tipo === 'combo' || i.tipo === 'par').forEach(item => {
+                const clave = item.tipo === 'combo' ? `combo-${item.id_combo}` : `par-${item.id_promocion}`;
+                if (totalGrupo[clave] !== undefined) {
+                    item.total = totalGrupo[clave];
                     item.precio = item.total / item.cantidad;
                 }
             });
@@ -585,7 +581,7 @@ window.gestorUI = {
         if (data.codigo === "promo_no_vigente") {
             // Terminó la hora gratis o un combo: se quitan y se vuelve a cotizar.
             if (this.mesaIncentivoAsignada) this.quitarHoraPromoDelCarrito();
-            else this.itemsCarrito = this.itemsCarrito.filter(i => i.tipo !== 'combo');
+            else this.itemsCarrito = this.itemsCarrito.filter(i => i.tipo !== 'combo' && i.tipo !== 'par');
             window.mostrarToast(data.message, "warning");
             await this.cargarDatalistProductos();
             return this.cotizarCarrito();
@@ -597,6 +593,7 @@ window.gestorUI = {
     },
     quitarHoraPromoDelCarrito: function () {
         this.mesaIncentivoAsignada = null;
+        this.promoHoraBarra = null;
     },
     // === Cargos: roturas, daños. El concepto sugiere el monto; el cajero puede cambiarlo. ===
     abrirModalCargo: async function () {
@@ -965,6 +962,7 @@ window.gestorUI = {
         }
         // No mostrar el total de la mesa anterior mientras llega el de esta.
         this.liquidacionMesa = null;
+        this.cargarDatalistProductos();
         this.cargarConsumoMesaActual(elementoMesa.getAttribute("data-id"));
         // Diferir el historial un tick para asegurar que vistaConMesa ya está en el DOM
         const _idMesa = elementoMesa.getAttribute("data-id");
@@ -975,6 +973,15 @@ window.gestorUI = {
         // En móvil: la barra sube al top tapando la info de mesa y revelando el carrito,
         // y el footer de acciones baja fuera de pantalla antes de ocultarse.
         this.transicionLayout(() => this._aplicarDeseleccionMesa());
+    },
+    // Celular: sale de la mesa y muestra directamente la lista de mesas para elegir otra.
+    volverAElegirMesa: function () {
+        this.transicionLayout(() => {
+            this._aplicarDeseleccionMesa();
+            this.cambiarEstadoLayout("state-seleccionando");
+            document.getElementById("txtTabDerecho").innerText = "Seleccionando Mesa";
+            document.getElementById("icoTabDerecho").innerText = "close";
+        });
     },
     _aplicarDeseleccionMesa: function () {
         modoActual = "barra";
@@ -996,6 +1003,7 @@ window.gestorUI = {
         // Limpiamos el carrito local (si era de una mesa, se limpiará la memoria temporal)
         this.liquidacionMesa = null;
         this.limpiarCarrito();
+        this.cargarDatalistProductos();
         document.getElementById("footerAccionesMesa").classList.add("hidden");
         if (window.innerWidth <= 768) {
             document.getElementById("tabIzquierdo").classList.remove("hidden");
@@ -1129,11 +1137,7 @@ window.gestorUI = {
         if (idModal !== 'modalConfirmarCobro' && idModal !== 'modalDividirPago') return;
         const cobro = this.cobroEnCurso;
         this.cobroEnCurso = null;
-        if ((modoActual === "barra" || modoActual === undefined) && this.mesaIncentivoAsignada) {
-            // Se canceló el cobro en barra con la hora gratis elegida: se quita la hora y quedan los productos.
-            this.quitarHoraPromoDelCarrito();
-            await this.cotizarCarrito();
-        }
+        // Si se cancela el cobro en barra, la hora gratis elegida en el buscador sigue en el carrito.
         if (window.mesaAutoPausada) await this.reanudarPausaSistema(cobro && cobro.id_mesa);
     },
     // Deshace la pausa que puso el sistema al abrir el cobro: el tiempo sigue como si no se hubiera pausado.
@@ -1150,214 +1154,105 @@ window.gestorUI = {
             console.error("Error al auto-reanudar:", error);
         }
     },
-    detectarPromoIncentivoBarra: function () {
-        if (this.mesaIncentivoAsignada) return null;
-
-        const promos = this.promocionesActivas.filter(p => p.tipo_promo === 'incentivo_producto');
-        for (const p of promos) {
-            const idProd = parseInt(p.id_item_condicion);
-            const cantReq = parseFloat(p.cantidad_condicion);
-            const idTipoMesa = parseInt(p.id_item_secundario);
-
-            const cantEnCarrito = this.itemsCarrito
-                .filter(item => item.tipo === 'producto' && parseInt(item.id_producto) === idProd)
-                .reduce((sum, item) => sum + parseInt(item.cantidad), 0);
-
-            if (cantEnCarrito >= cantReq) {
-                // Mesas libres del tipo configurado (se obtienen del DOM)
-                const mesasLibresDom = Array.from(document.querySelectorAll(`.mesa-card.disponible[data-id-tipo-mesa="${idTipoMesa}"]`))
-                    .map(el => ({
-                        id_mesa: el.getAttribute('data-id'),
-                        nombre: el.getAttribute('data-nombre')
-                    }));
-
-                return {
-                    promo: p,
-                    mesasLibres: mesasLibresDom,
-                    idTipoMesa: idTipoMesa
-                };
-            }
-        }
-        return null;
-    },
-    // Método orquestador: intercepta "Realizar Venta" y "Pago Mixto" en modo barra
+    // Abre el cobro de barra (pago único o mixto). La hora gratis ya la eligió el cajero en el buscador.
     iniciarFlujoCobro: async function (tipoFlujo) {
-        if (modoActual !== 'barra') {
-            // No debe llamarse en modo mesa, pero por seguridad redirigimos
-            if (tipoFlujo === 'mixto') await this.prepararPagoDividido();
-            else await this.abrirModalCobro();
-            return;
-        }
-        if (this.itemsCarrito.length === 0) {
+        if (modoActual === 'barra' && this.itemsCarrito.length === 0) {
             window.mostrarToast('Debe agregar productos al carrito para realizar una venta', 'warning');
             return;
         }
-        // Detectar si aplica la promo incentivo_producto
-        const deteccion = this.detectarPromoIncentivoBarra();
-        if (deteccion) {
-            // Hay promo aplicable: mostrar modal primero
-            this.abrirModalIncentivoProducto({
-                modo: 'barra',
-                origen: tipoFlujo === 'mixto' ? 'pago_mixto' : 'cobro_directo',
-                promo: deteccion.promo,
-                mesasLibres: deteccion.mesasLibres
-            });
-        } else {
-            // Sin promo: abrir directamente el modal de cobro
-            if (tipoFlujo === 'mixto') await this.prepararPagoDividido();
-            else await this.abrirModalCobro();
-        }
+        if (tipoFlujo === 'mixto') await this.prepararPagoDividido();
+        else await this.abrirModalCobro();
     },
-    abrirModalIncentivoProducto: function (config) {
-        this.flujoIncentivoPendiente = config;
-        const montoAumento = parseFloat(config.promo.valor_descuento) || 0;
-
-        const lblMonto = document.getElementById("lblMontoAumentoIncentivo");
-        if (lblMonto) lblMonto.innerText = montoAumento.toFixed(2);
-
-        // Resetear radio buttons y apariencia de toggles
-        const rdoSi = document.getElementById("optIncentivoSi");
-        const rdoNo = document.getElementById("optIncentivoNo");
-        if (rdoSi) rdoSi.checked = false;
-        if (rdoNo) rdoNo.checked = false;
-        const lblSi = document.getElementById("lblBtnIncentivoSi");
-        const lblNo = document.getElementById("lblBtnIncentivoNo");
-        if (lblSi) lblSi.classList.remove('activo');
-        if (lblNo) lblNo.classList.remove('activo');
-
-        const btnAceptar = document.getElementById("btnAceptarIncentivoProd");
-        if (btnAceptar) btnAceptar.disabled = true;
-
-        const contSelect = document.getElementById("contenedorSelectMesaIncentivo");
-        const contMesaAct = document.getElementById("contenedorMesaActualIncentivo");
-        // Ocultar ambos por defecto
-        if (contSelect) contSelect.style.display = "none";
-        if (contMesaAct) contMesaAct.style.display = "none";
-
-        if (config.modo === 'barra') {
-            const select = document.getElementById("selectMesaIncentivo");
-            const aviso = document.getElementById("lblAvisoMesasLibres");
-            if (select) {
-                select.innerHTML = '<option value="">-- Seleccionar mesa libre --</option>';
-                if (config.mesasLibres && config.mesasLibres.length > 0) {
-                    config.mesasLibres.forEach(m => {
-                        select.innerHTML += `<option value="${m.id_mesa}">${m.nombre}</option>`;
-                    });
-                    if (aviso) aviso.style.display = "none";
-                } else {
-                    if (aviso) aviso.style.display = "block";
-                }
-            }
-        } else if (config.modo === 'mesa') {
-            const lblAct = document.getElementById("lblMesaActualIncentivo");
-            if (lblAct) lblAct.innerText = mesaSeleccionadaActual;
+    // El cajero eligió en el buscador una promoción "N productos + 1 hora gratis de mesa".
+    // En una mesa ocupada se aplica a esa mesa; en barra se elige la mesa libre que se habilitará al cobrar.
+    elegirIncentivo: async function (promo, cantidad) {
+        if (cantidad !== 1) {
+            window.mostrarToast("La hora gratis se aplica una vez por mesa: se agrega 1 promoción.", "info");
         }
-
-        this.abrirModal('modal_apply_incentivoproducto');
-    },
-    onToggleIncentivo: function (valor) {
-        if (!this.flujoIncentivoPendiente) return;
-        const config = this.flujoIncentivoPendiente;
-        const contSelect = document.getElementById("contenedorSelectMesaIncentivo");
-        const contMesaAct = document.getElementById("contenedorMesaActualIncentivo");
-        const btnAceptar = document.getElementById("btnAceptarIncentivoProd");
-
-        // Actualizar apariencia de toggles
-        const lblSi = document.getElementById("lblBtnIncentivoSi");
-        const lblNo = document.getElementById("lblBtnIncentivoNo");
-        if (lblSi) lblSi.classList.toggle('activo', valor === 'si');
-        if (lblNo) lblNo.classList.toggle('activo', valor === 'no');
-
-        if (valor === 'no') {
-            // Solo ocultar extras y deshabilitar Aceptar; NO cerrar modal ni abrir cobro aquí
-            if (contSelect) contSelect.style.display = "none";
-            if (contMesaAct) contMesaAct.style.display = "none";
-            if (btnAceptar) btnAceptar.disabled = false; // habilitar para confirmar el "No"
-        } else if (valor === 'si') {
-            if (config.modo === 'barra') {
-                if (contSelect) contSelect.style.display = "block";
-                if (contMesaAct) contMesaAct.style.display = "none";
-                const select = document.getElementById("selectMesaIncentivo");
-                if (btnAceptar) {
-                    btnAceptar.disabled = !(select && select.value !== "");
-                }
-            } else if (config.modo === 'mesa') {
-                if (contSelect) contSelect.style.display = "none";
-                if (contMesaAct) contMesaAct.style.display = "block";
-                if (btnAceptar) btnAceptar.disabled = false;
-            }
-        }
-    },
-    onSeleccionarMesaIncentivo: function () {
-        const select = document.getElementById("selectMesaIncentivo");
-        const btnAceptar = document.getElementById("btnAceptarIncentivoProd");
-        if (btnAceptar) {
-            btnAceptar.disabled = !(select && select.value !== "");
-        }
-    },
-    confirmarIncentivoProducto: async function () {
-        if (!this.flujoIncentivoPendiente) return;
-        const config = this.flujoIncentivoPendiente;
-        const montoAumento = parseFloat(config.promo.valor_descuento) || 0;
-
-        // Si eligió "No" (btnAceptar habilitado en estado no)
-        const rdoNo = document.getElementById("optIncentivoNo");
-        if (rdoNo && rdoNo.checked) {
-            // Confirmar el "No": cerrar modal y abrir cobro normal
-            this.cerrarModal('modal_apply_incentivoproducto');
-            this.flujoIncentivoPendiente = null;
-            if (config.modo === 'barra') {
-                if (config.origen === 'pago_mixto') await this.prepararPagoDividido();
-                else await this.abrirModalCobro();
-            } else if (config.modo === 'mesa') {
-                await this.ejecutarAgregarProductoMesaDirecto(config.id_mesa, config.producto, config.cantidad, config.precioUnitario, false);
-            }
-            this.flujoIncentivoPendiente = null;
+        const conStock = promo.tipo_producto !== 'preparado';
+        if (conStock && promo.stock_producto < promo.cantidad_producto) {
+            alert(`Stock insuficiente. Solo quedan ${promo.stock_producto} unidades.`);
             return;
         }
 
-        if (config.modo === 'barra') {
-            const select = document.getElementById("selectMesaIncentivo");
-            const idMesaSeleccionada = select ? select.value : "";
-            if (!idMesaSeleccionada) {
-                window.mostrarToast("Por favor, seleccione una mesa libre.", "warning");
+        if (modoActual === "mesa") {
+            const mesaCard = this.tarjetaSeleccionada();
+            if (!mesaCard) return;
+            if (parseInt(mesaCard.getAttribute("data-id-tipo-mesa")) !== parseInt(promo.id_tipo_mesa)) {
+                window.mostrarToast(`Esta promoción es para mesas de tipo ${promo.tipo_mesa}.`, "warning");
                 return;
             }
-
-            // La hora gratis no es un producto: el backend agrega su monto como cargo al cotizar.
-            this.mesaIncentivoAsignada = idMesaSeleccionada;
-
-            this.cerrarModal('modal_apply_incentivoproducto');
-            this.flujoIncentivoPendiente = null;
-
-            // Abrir el modal de cobro con el monto + aumento aplicado
-            if (config.origen === 'pago_mixto') {
-                await this.prepararPagoDividido();
-            } else {
-                await this.abrirModalCobro();
+            const yaTieneGratis = mesaCard.getAttribute("data-primera-hora-gratis") === "1"
+                || !!(this.liquidacionMesa && this.liquidacionMesa.hora_gratis);
+            if (yaTieneGratis) {
+                window.mostrarToast("Esta mesa ya tiene la hora gratis.", "warning");
+                return;
             }
+            await this.agregarAMesa(mesaCard.getAttribute("data-id"), {
+                productos: [{ id_producto: promo.id_producto, cantidad: promo.cantidad_producto }],
+                aplicar_hora_gratis: 1,
+                id_promo_hora: promo.id_promocion
+            }, "¡Promoción aplicada! 1 hora gratis en la mesa y el monto adicional quedó como cargo.");
+            return;
+        }
 
-        } else if (config.modo === 'mesa') {
-            this.cerrarModal('modal_apply_incentivoproducto');
-            await this.ejecutarAgregarProductoMesaDirecto(config.id_mesa, config.producto, config.cantidad, config.precioUnitario, true, config.promo);
-            this.flujoIncentivoPendiente = null;
+        if (this.mesaIncentivoAsignada) {
+            window.mostrarToast("Este carrito ya tiene una hora gratis. Cobre esta venta antes de agregar otra.", "warning");
+            return;
         }
+        const mesasLibres = Array.from(document.querySelectorAll(`.mesa-card.disponible[data-id-tipo-mesa="${promo.id_tipo_mesa}"]`))
+            .map(el => ({ id_mesa: el.getAttribute('data-id'), nombre: el.getAttribute('data-nombre') }));
+        this.abrirModalIncentivoProducto(promo, mesasLibres);
     },
-    cerrarModalIncentivo: function (forzarNo = false) {
-        this.cerrarModal('modal_apply_incentivoproducto');
-        if (forzarNo && this.flujoIncentivoPendiente) {
-            this.onToggleIncentivo('no');
+    abrirModalIncentivoProducto: function (promo, mesasLibres) {
+        this.flujoIncentivoPendiente = promo;
+        document.getElementById("lblNombrePromoIncentivo").innerText = promo.nombre_producto;
+        document.getElementById("lblDetallePromoIncentivo").innerText =
+            `${promo.cantidad_producto} ${promo.producto} + ${Number(promo.monto_adicional).toFixed(2)} Bs = 1 hora gratis en ${promo.tipo_mesa}`;
+        const select = document.getElementById("selectMesaIncentivo");
+        const aviso = document.getElementById("lblAvisoMesasLibres");
+        select.innerHTML = '<option value="">-- Seleccionar mesa libre --</option>'
+            + mesasLibres.map(m => `<option value="${m.id_mesa}">${m.nombre}</option>`).join('');
+        aviso.style.display = mesasLibres.length ? "none" : "block";
+        document.getElementById("btnAceptarIncentivoProd").disabled = true;
+        this.abrirModal('modal_apply_incentivoproducto');
+    },
+    onSeleccionarMesaIncentivo: function () {
+        const select = document.getElementById("selectMesaIncentivo");
+        document.getElementById("btnAceptarIncentivoProd").disabled = !(select && select.value !== "");
+    },
+    // Barra: agrega al carrito los productos de la promoción y reserva la mesa elegida para la hora gratis.
+    confirmarIncentivoProducto: async function () {
+        const promo = this.flujoIncentivoPendiente;
+        if (!promo) return;
+        const select = document.getElementById("selectMesaIncentivo");
+        if (!select || !select.value) {
+            window.mostrarToast("Por favor, seleccione una mesa libre.", "warning");
+            return;
+        }
+        const existente = this.itemsCarrito.find(i => i.tipo === 'producto' && parseInt(i.id_producto) === parseInt(promo.id_producto));
+        if (existente) {
+            existente.cantidad += promo.cantidad_producto;
         } else {
-            this.flujoIncentivoPendiente = null;
+            const base = this.productosLocal.find(p => !p.es_combo && !p.es_2x1 && !p.es_incentivo && parseInt(p.id_producto) === parseInt(promo.id_producto));
+            this.itemsCarrito.push({
+                tipo: 'producto',
+                id_producto: promo.id_producto,
+                nombre: promo.producto,
+                precio: base ? Number(base.precio) : 0,
+                cantidad: promo.cantidad_producto,
+                total: base ? Number(base.precio) * promo.cantidad_producto : 0
+            });
         }
+        this.mesaIncentivoAsignada = select.value;
+        this.promoHoraBarra = { id_promocion: promo.id_promocion, nombre: promo.nombre_producto };
+        this.cerrarModalIncentivo();
+        this.limpiarFormularioVenta();
+        await this.cotizarCarrito();
     },
-    // El precio lo fija el backend con las promos vigentes; no se envía desde la pantalla.
-    ejecutarAgregarProductoMesaDirecto: async function (idMesa, producto, cantidad, precioUnitario, aplicarPromo, promo) {
-        const pedido = { productos: [{ id_producto: producto.id_producto, cantidad: cantidad }] };
-        if (aplicarPromo && promo) pedido.aplicar_hora_gratis = 1;
-        await this.agregarAMesa(idMesa, pedido, aplicarPromo
-            ? "¡Promoción aplicada! 1 hora gratis en mesa y el monto adicional quedó como cargo."
-            : "Producto agregado a la mesa.");
+    cerrarModalIncentivo: function () {
+        this.cerrarModal('modal_apply_incentivoproducto');
+        this.flujoIncentivoPendiente = null;
     },
     // Agrega productos, combos o la hora gratis a una mesa. El precio lo fija el backend.
     agregarAMesa: async function (idMesa, pedido, mensajeExito) {
@@ -1835,7 +1730,7 @@ window.gestorUI = {
             nombreMesa: cobro.nombre || "",
             total: liq.total,
             metodo_pago: pagos || "sin pago",
-            productos: liq.productos.map(p => ({ cantidad: p.cantidad, nombre: p.nombre, precio_unitario: p.precio })),
+            productos: liq.productos.map(p => ({ cantidad: p.cantidad, nombre: p.grupo ? `${p.nombre} (${p.grupo})` : p.nombre, precio_unitario: p.precio })),
             tiempoMesa: liq.tiempo,
             descuentos: liq.descuentos,
             redondeo: liq.redondeo,

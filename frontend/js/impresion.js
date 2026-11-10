@@ -63,7 +63,7 @@ const gestorImpresion = {
     imprimirTicketVenta: function (datos) {
         // datos = { tipo: "Barra" | "Mesa", nombreMesa: "", total: 0, metodo_pago: "", productos: [], tiempoMesa: 0 }
         
-        const fecha = new Date().toLocaleString();
+        const fecha = fechaHoraDMA(new Date());
         let productosHtml = '';
         
         if (datos.productos && datos.productos.length > 0) {

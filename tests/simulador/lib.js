@@ -179,7 +179,7 @@ class Sim {
   async setProducto(id, qty) {
     return this.page.evaluate(
       ({ id, qty }) => {
-        const p = gestorUI.productosLocal.find((x) => +x.id_producto === +id);
+        const p = gestorUI.productosLocal.find((x) => +x.id_producto === +id && !x.es_combo && !x.es_2x1 && !x.es_incentivo);
         if (!p) return null;
         document.querySelector('.formulario-venta input[type="text"]').value = p.display_nombre;
         document.querySelector('.formulario-venta input[type="number"]').value = qty;
@@ -188,42 +188,67 @@ class Sim {
       { id, qty },
     );
   }
-  async incentivo(resp, mesaId) {
+  // Elige en el buscador la promoción de hora gratis vigente ("Promo: ..."), como lo haría el cajero.
+  // En barra además elige la mesa libre que se habilitará al cobrar.
+  async elegirPromoHora(mesaId) {
     return this.page.evaluate(
-      async ({ resp, mesaId }) => {
-        const visible = !document.getElementById('modal_apply_incentivoproducto').classList.contains('hidden');
-        if (!visible) return false;
-        const radio = document.getElementById(resp === 'si' ? 'optIncentivoSi' : 'optIncentivoNo');
-        radio.checked = true;
-        gestorUI.onToggleIncentivo(resp);
-        if (resp === 'si' && mesaId) {
+      async ({ mesaId }) => {
+        const p = gestorUI.productosLocal.find((x) => x.es_incentivo);
+        if (!p) return false;
+        document.querySelector('.formulario-venta input[type="text"]').value = p.display_nombre;
+        document.querySelector('.formulario-venta input[type="number"]').value = 1;
+        await gestorUI.agregarProductoAlCarrito();
+        if (mesaId) {
           const select = document.getElementById('selectMesaIncentivo');
           select.value = String(mesaId);
           gestorUI.onSeleccionarMesaIncentivo();
+          await gestorUI.confirmarIncentivoProducto();
         }
-        await gestorUI.confirmarIncentivoProducto();
         return true;
       },
-      { resp, mesaId },
+      { mesaId },
     );
   }
-  // Agregar a una mesa con el flujo real
-  async consumo(n, id, qty, { incentivo = 'no' } = {}) {
+  // Elige en el buscador la promo "Producto 2x1" del producto (cada vez suma un par), como el cajero.
+  async elegirPar(id, pares) {
+    const elegir = () => this.page.evaluate(
+      async ({ id, pares }) => {
+        const p = gestorUI.productosLocal.find((x) => x.es_2x1 && +x.id_producto === +id);
+        if (!p) return false;
+        document.querySelector('.formulario-venta input[type="text"]').value = p.display_nombre;
+        document.querySelector('.formulario-venta input[type="number"]').value = pares;
+        await gestorUI.agregarProductoAlCarrito();
+        return true;
+      },
+      { id, pares },
+    );
+    if (await elegir()) return true;
+    // La pantalla todavía no trae la promo (se abrió antes de su horario): se actualiza el buscador.
+    await this.page.evaluate(() => gestorUI.cargarDatalistProductos());
+    return elegir();
+  }
+  // Agregar a una mesa con el flujo real. Con {par: true}, qty son unidades elegidas como pares 2x1.
+  async consumo(n, id, qty, { incentivo = 'no', par = false } = {}) {
     await this.sel(n);
     const precioUI = await this.setProducto(id, qty);
-    await this.page.evaluate(() => gestorUI.agregarProductoAlCarrito());
-    await this.page.waitForTimeout(30);
-    const hubo = await this.incentivo(incentivo);
+    let hubo = false;
+    if (incentivo === 'si') {
+      hubo = await this.elegirPromoHora(null);
+    } else if (par) {
+      if (!(await this.elegirPar(id, qty / 2))) throw new Error(`No aparece la promo 2x1 del producto ${id}`);
+    } else {
+      await this.page.evaluate(() => gestorUI.agregarProductoAlCarrito());
+    }
     await this.page.waitForTimeout(60);
     const s = this.ses[n];
     const precio = +precioUI;
-    s.prods.push({ id: +id, qty, precio, ef: this.precioEf(id, this.now), t: this.now });
+    s.prods.push({ id: +id, qty, precio, ef: this.precioEf(id, this.now), t: this.now, par });
     if (hubo && incentivo === 'si') {
       s.gratis = true;
       const promo = PROMOS.find((p) => p.t === 'incentivo_producto' && promoActiva(p, this.now));
       s.prods.push({ id: CARGO_HORA_GRATIS, qty: 1, precio: promo.v, ef: promo.v, t: this.now });
     }
-    this.say(`${n}: consumo prod ${id} x${qty} @${precio}${hubo ? ` (modal incentivo: ${incentivo})` : ''}`);
+    this.say(`${n}: consumo prod ${id} x${qty} @${precio}${hubo ? ` (promo hora gratis)` : ''}`);
   }
   // Quita la hora gratis de una mesa (el cargo): la mesa vuelve a tarifa normal.
   async quitarHoraGratis(n) {
@@ -406,23 +431,29 @@ class Sim {
   }
   async ventaBarra(lineas, { metodo = 'efectivo', mixto = false, caso = '', incentivo = null, mesaIncentivo = null } = {}) {
     const items = [];
-    for (const [id, qty] of lineas) {
-      await this.setProducto(id, qty);
+    const promo = incentivo === 'si' ? PROMOS.find((p) => p.t === 'incentivo_producto' && promoActiva(p, this.now)) : null;
+    // Cada línea: [id, unidades] o [id, unidades, 'par'] para pares de una promo "Producto 2x1".
+    for (const [id, qty, modo] of lineas) {
+      const par = modo === 'par';
+      items.push({ id, qty, ef: this.precioEf(id, this.now), t: this.now, par });
+      if (par) {
+        if (!(await this.elegirPar(id, qty / 2))) throw new Error(`No aparece la promo 2x1 del producto ${id}`);
+        continue;
+      }
+      // Las unidades que trae la promo las agrega la propia promo
+      const resto = promo && +id === promo.item ? qty - promo.c : qty;
+      if (resto <= 0) continue;
+      await this.setProducto(id, resto);
       await this.page.evaluate(() => gestorUI.agregarProductoAlCarrito());
-      items.push({ id, qty, ef: this.precioEf(id, this.now), t: this.now });
+    }
+    if (promo) {
+      const idMesa = mesaIncentivo ? await this.mesaAttr(mesaIncentivo, 'data-id') : null;
+      await this.elegirPromoHora(idMesa);
+      await this.page.waitForTimeout(50);
+      items.push({ id: CARGO_HORA_GRATIS, qty: 1, ef: promo.v, t: this.now });
     }
     await this.page.evaluate((m) => gestorUI.iniciarFlujoCobro(m), mixto ? 'mixto' : 'efectivo_qr');
     await this.page.waitForTimeout(40);
-    const hayModal = await this.page.evaluate(() => !document.getElementById('modal_apply_incentivoproducto').classList.contains('hidden'));
-    if (hayModal) {
-      const idMesa = mesaIncentivo ? await this.mesaAttr(mesaIncentivo, 'data-id') : null;
-      await this.incentivo(incentivo || 'no', idMesa);
-      await this.page.waitForTimeout(50);
-      if (incentivo === 'si') {
-        const promo = PROMOS.find((p) => p.t === 'incentivo_producto' && promoActiva(p, this.now));
-        items.push({ id: CARGO_HORA_GRATIS, qty: 1, ef: promo.v, t: this.now });
-      }
-    }
     const oraculo = liquidar({ prods: items }, CTX);
     const antes = this.nVentas();
     let pantalla;
