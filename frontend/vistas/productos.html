@@ -1,7 +1,7 @@
 <style>
-    .input-group .opcion-producto { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--beige-borde, var(--separator)); border-radius: var(--r-md); margin-bottom: 8px; cursor: pointer; font-weight: normal; font-size: 0.88rem; line-height: 1.4; }
-    .input-group .opcion-producto input { width: 18px; height: 18px; padding: 0; margin-top: 2px; flex-shrink: 0; accent-color: var(--dorado, #c9a45c); }
-    .input-group .opcion-producto:has(input:checked) { border-color: var(--dorado, #c9a45c); background: #fdfaf3; }
+    .input-group .opcion-producto { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 8px; padding: 12px 14px; border-radius: var(--r-md); background: var(--fill-4); box-shadow: inset 0 0 0 1px transparent; cursor: pointer; font-weight: normal; font-size: var(--fs-footnote); color: var(--label); line-height: 1.4; transition: background 0.15s, box-shadow 0.15s; }
+    .input-group .opcion-producto input { width: 20px; height: 20px; min-height: 0; padding: 0; margin: 0; flex-shrink: 0; accent-color: var(--tint); }
+    .input-group .opcion-producto:has(input:checked) { background: var(--blue-bg); box-shadow: inset 0 0 0 1px var(--blue-line); }
 </style>
 
 <div class="view-header">

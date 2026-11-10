@@ -318,7 +318,7 @@
 }
 
 /* ---------- Paleta oscura: nivel elevado (hojas, modales, paneles al frente) ---------- */
-:root[data-tema="oscuro"] :is(.modal-content, .hoja, .modal-overlay > div, .ec-modal, .gi-modal, .sh-caja, .dash-detalle-inner, .login-card) {
+:root[data-tema="oscuro"] :is(.modal-content, .hoja, .modal-overlay > div, .ec-modal, .gi-modal, .gp-modal, .sh-caja, .dash-detalle-inner, .login-card) {
     --bg-grouped: #1c1c1e;
     --bg-grouped-2: #1c1c1e;
     --bg-elevated: #1c1c1e;

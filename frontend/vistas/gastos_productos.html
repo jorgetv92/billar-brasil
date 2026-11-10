@@ -1,55 +1,4 @@
 <!-- vistas/gastos_productos.html — la usan los dos portales: atención ve el turno, el administrador ve todo -->
-<style>
-    .gp-page { padding: 20px; max-width: 1000px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
-    .gp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 10px; }
-    .gp-header h2 { font-size: 1.3rem; color: #1e293b; display: flex; align-items: center; gap: 8px; margin: 0; }
-    .gp-header h2 i { color: #0d9488; font-size: 1.5rem; }
-    .gp-sub { color: #64748b; font-size: 0.85rem; margin: 0 0 18px; }
-    .gp-btn-nuevo { display: inline-flex; align-items: center; gap: 6px; background: #0d9488; color: white; border: none; border-radius: 7px; padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.18s; }
-    .gp-btn-nuevo:hover { background: #0f766e; }
-    .gp-tabla-wrapper { background: white; border-radius: 10px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); overflow-x: auto; border: 1px solid #e2e8f0; }
-    .gp-tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-    .gp-tabla thead tr { background: linear-gradient(to right, #f8fafc, #f1f5f9); }
-    .gp-tabla th { padding: 12px 16px; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
-    .gp-tabla td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
-    .gp-tabla tbody tr:hover { background: #f8fafc; }
-    .gp-tabla .td-cant { font-weight: 700; color: #0f766e; }
-    .gp-tabla .td-acciones { text-align: center; white-space: nowrap; }
-    .gp-empty { text-align: center; padding: 50px 20px; color: #94a3b8; }
-    .gp-empty i { font-size: 3rem; display: block; margin-bottom: 10px; }
-    .gp-btn-icon { background: none; border: none; cursor: pointer; padding: 5px; border-radius: 5px; transition: background 0.15s; display: inline-flex; align-items: center; justify-content: center; }
-    .gp-btn-icon.edit { color: #3b82f6; } .gp-btn-icon.edit:hover { background: #eff6ff; }
-    .gp-btn-icon.del { color: #ef4444; } .gp-btn-icon.del:hover { background: #fef2f2; }
-    .gp-cerrado { color: #94a3b8; display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; }
-    .gp-badge { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
-    /* Modal */
-    .gp-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; justify-content: center; align-items: center; }
-    .gp-modal-overlay.active { display: flex; }
-    .gp-modal { background: white; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 440px; max-width: 95vw; overflow: hidden; }
-    .gp-modal-header { padding: 16px 20px; display: flex; align-items: center; gap: 10px; color: white; }
-    .gp-modal-header.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
-    .gp-modal-header.red { background: linear-gradient(135deg, #ef4444, #dc2626); }
-    .gp-modal-header i { font-size: 1.4rem; }
-    .gp-modal-header span { font-size: 1rem; font-weight: 700; }
-    .gp-modal-body { padding: 20px; }
-    .gp-form-group { margin-bottom: 16px; }
-    .gp-form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #475569; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .gp-form-group select,
-    .gp-form-group input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; color: #1e293b; transition: border-color 0.15s; outline: none; background: white; }
-    .gp-form-group select:focus,
-    .gp-form-group input:focus { border-color: #0d9488; }
-    .gp-stock-info { font-size: 0.78rem; color: #64748b; margin-top: 5px; padding: 4px 8px; background: #f8fafc; border-radius: 4px; }
-    .gp-aviso { font-size: 0.8rem; color: #0f766e; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; }
-    .gp-modal-footer { padding: 14px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
-    .gp-btn-cancel { background: #e2e8f0; border: none; border-radius: 6px; padding: 9px 18px; font-weight: 600; color: #475569; cursor: pointer; }
-    .gp-btn-save { background: #0d9488; border: none; border-radius: 6px; padding: 9px 20px; font-weight: 700; color: white; cursor: pointer; transition: background 0.15s; }
-    .gp-btn-save:hover { background: #0f766e; }
-    .gp-btn-delete { background: #ef4444; border: none; border-radius: 6px; padding: 9px 20px; font-weight: 700; color: white; cursor: pointer; }
-    .gp-confirm-text { color: #64748b; font-size: 0.9rem; margin: 0; }
-    .gp-confirm-name { background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px 12px; border-radius: 4px; color: #991b1b; font-weight: 600; margin-top: 10px; font-size: 0.9rem; }
-    .gp-warn { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; font-size: 0.82rem; margin-top: 8px; display: none; }
-</style>
-
 <div class="gp-page">
     <div class="gp-header">
         <h2><i class="material-icons">liquor</i> Gasto de Productos</h2>
@@ -191,7 +140,7 @@
                 return;
             }
             tbody.innerHTML = gastos.map(g => `<tr>
-                <td style="color:#64748b;font-size:0.82rem;white-space:nowrap;">${fmtFecha(g.fecha_hora)}</td>
+                <td style="color:var(--label-2);font-size:0.82rem;white-space:nowrap;">${fmtFecha(g.fecha_hora)}</td>
                 ${esAdmin ? `<td><span class="gp-badge">${g.id_jornada ? '#' + g.id_jornada : 'Sin jornada'}</span></td>` : ''}
                 <td style="font-weight:500;">${esc(g.nombre_producto)}</td>
                 <td class="td-cant">${parseInt(g.cantidad)}</td>

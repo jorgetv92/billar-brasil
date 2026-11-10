@@ -3201,7 +3201,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (d.filtros.gastos_productos) {
-            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid #0d9488;">Gasto de Productos</h3>`;
+            html += `<h3 style="background: var(--gray6); padding: 5px 10px; border-left: 4px solid var(--teal);">Gasto de Productos</h3>`;
             html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
                         <thead style="background: var(--gray5);"><tr><th>Fecha Hora</th><th>Producto</th><th>Cantidad</th><th>Registrado por</th></tr></thead><tbody>`;
             let tGp = 0;

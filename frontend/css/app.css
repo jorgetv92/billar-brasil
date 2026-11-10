@@ -4,8 +4,8 @@
    Lo carga portal_admin.html (y la ventana de impresión de reportes).
    ===================================================================== */
 
-@import url("tokens.css?v=2026111501");
-@import url("shell.css?v=2026111501");
+@import url("tokens.css?v=2026111601");
+@import url("shell.css?v=2026111601");
 
 /* Dashboard: el pie de KPIs flota al fondo del área */
 .main-content:has(> .dashboard) {
