@@ -186,6 +186,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (nombreArchivo === "ultimos_cierres.html") {
                         inicializarModuloUltimosCierres();
                     }
+                    // Vista compartida con el portal de atención: trae su propio script, que innerHTML no ejecuta.
+                    if (nombreArchivo === "gastos_productos.html") {
+                        outlet.querySelectorAll("script").forEach(viejo => {
+                            const nuevo = document.createElement("script");
+                            nuevo.textContent = viejo.textContent;
+                            viejo.replaceWith(nuevo);
+                        });
+                    }
                 } catch (error) {
                     console.error(error);
                     outlet.innerHTML = `<div class="empty-state"><i class="material-icons">error</i><p>Error al cargar la sección.</p></div>`;
@@ -1173,6 +1181,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("btnNuevoProducto").addEventListener("click", () => {
                     configurarModalProducto("Registrar Nuevo Producto", false);
                 });
+                document.getElementById("no_vendible_producto").addEventListener("change", sincronizarPropiedadesProducto);
+                document.getElementById("receta_producto").addEventListener("change", sincronizarPropiedadesProducto);
 
                 // Delegación de eventos (Editar / Eliminar)
                 document.getElementById("router-outlet").addEventListener("click", (e) => {
@@ -1191,11 +1201,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     e.preventDefault();
 
                     const idProducto = document.getElementById("productoId").value;
+                    const noVendible = document.getElementById("no_vendible_producto").checked;
                     const datos = {
                         nombre_producto: document.getElementById("nombre_producto").value,
-                        precio_venta: document.getElementById("precio_venta").value,
+                        precio_venta: noVendible ? 0 : document.getElementById("precio_venta").value,
                         tipo: document.getElementById("tipo_producto").value,
-                        activo: document.getElementById("activo_producto").value === "1"
+                        activo: document.getElementById("activo_producto").value === "1",
+                        no_vendible: noVendible,
+                        receta: document.getElementById("receta_producto").checked
                     };
 
                     let metodoHTTP = idProducto ? "PUT" : "POST";
@@ -1256,6 +1269,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     // UX: Lógica de colores para el Stock
                     const esPreparado = p.tipo === "preparado";
                     const retirado = String(p.activo) === "0";
+                    const noVendible = String(p.no_vendible) === "1";
+                    const receta = String(p.receta) === "1";
                     let stockUI = `<b>${p.stock_actual}</b>`;
                     if (esPreparado) {
                         stockUI = `<span style="color:#64748b;">Sin stock</span>`;
@@ -1269,9 +1284,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <tr style="${retirado ? 'opacity:0.55;' : ''}">
                 <td>${bolaBillar(p.id_producto)}</td>
                 <td style="font-weight: 500;">${p.nombre_producto}</td>
-                <td style="color: var(--primary); font-weight: bold;">${parseFloat(p.precio_venta).toFixed(2)} Bs.</td>
+                <td style="color: var(--primary); font-weight: bold;">${noVendible ? '<span style="color:#64748b; font-weight:normal;">No vendible</span>' : parseFloat(p.precio_venta).toFixed(2) + ' Bs.'}</td>
                 <td>${stockUI}</td>
-                <td style="font-size:0.85rem;">${esPreparado ? 'Preparado' : 'Con stock'}${retirado ? ' · <b>Retirado</b>' : ''}</td>
+                <td style="font-size:0.85rem;">${esPreparado ? 'Preparado' : 'Con stock'}${noVendible ? ' · No vendible' : ''}${receta ? ' · Receta' : ''}${retirado ? ' · <b>Retirado</b>' : ''}</td>
                 <td>
                     <button class="icon-btn text-primary btn-editar-producto" data-id="${p.id_producto}"><i class="material-icons">edit</i></button>
                     <button class="icon-btn text-danger btn-eliminar-producto" data-id="${p.id_producto}"><i class="material-icons">delete</i></button>
@@ -1296,9 +1311,26 @@ document.addEventListener("DOMContentLoaded", () => {
                         document.getElementById("precio_venta").value = parseFloat(producto.precio_venta).toFixed(2);
                         document.getElementById("tipo_producto").value = producto.tipo || "inventario";
                         document.getElementById("activo_producto").value = String(producto.activo) === "0" ? "0" : "1";
+                        document.getElementById("no_vendible_producto").checked = String(producto.no_vendible) === "1";
+                        document.getElementById("receta_producto").checked = String(producto.receta) === "1";
                     }
                 }
+                sincronizarPropiedadesProducto();
                 document.getElementById("modalProducto").classList.add("show");
+            }
+
+            // "No vendible" no lleva precio; "no vendible" y "receta" necesitan stock, así que fijan el tipo "Con stock".
+            function sincronizarPropiedadesProducto() {
+                const noVendible = document.getElementById("no_vendible_producto").checked;
+                const receta = document.getElementById("receta_producto").checked;
+                const precio = document.getElementById("precio_venta");
+                const tipo = document.getElementById("tipo_producto");
+                precio.disabled = noVendible;
+                precio.required = !noVendible;
+                if (noVendible) precio.value = "";
+                precio.placeholder = noVendible ? "No se vende suelto" : "Ej: 18.00";
+                if (noVendible || receta) tipo.value = "inventario";
+                tipo.disabled = noVendible || receta;
             }
 
             function abrirModalEliminarProducto(id) {
@@ -1551,12 +1583,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
                 const resumen = () => {
                     const filas = Array.from(document.querySelectorAll(".fila-item-combo"));
-                    const lista = filas.reduce((t, f) => {
-                        const p = productos.find(x => String(x.id_producto) === f.querySelector(".item-combo-producto").value);
+                    const elegidos = filas.map(f => productos.find(x => String(x.id_producto) === f.querySelector(".item-combo-producto").value));
+                    const lista = filas.reduce((t, f, k) => {
+                        const p = elegidos[k];
                         return t + (p ? parseFloat(p.precio_venta) * (parseInt(f.querySelector(".item-combo-cantidad").value) || 0) : 0);
                     }, 0);
+                    const conNoVendibles = elegidos.some(p => p && String(p.no_vendible) === "1");
                     document.getElementById("resumenCombo").innerText = filas.length
-                        ? `Por separado costarían ${dinero(lista)} Bs.` : "";
+                        ? `Por separado costarían ${dinero(lista)} Bs.${conNoVendibles ? " (sin contar los productos no vendibles)" : ""}` : "";
                 };
                 const agregarFila = (idProducto = "", cantidad = 1) => {
                     const fila = document.createElement("div");
@@ -1565,7 +1599,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     fila.innerHTML = `
                         <div class="input-group">
                             <label>Producto</label>
-                            <select class="item-combo-producto">${productos.map(p => `<option value="${p.id_producto}">${escaparHTML(p.nombre_producto)} (${dinero(p.precio_venta)} Bs${p.tipo === "preparado" ? ", preparado" : ""})</option>`).join("")}</select>
+                            <select class="item-combo-producto">${productos.map(p => `<option value="${p.id_producto}">${escaparHTML(p.nombre_producto)} (${String(p.no_vendible) === "1" ? "no vendible" : dinero(p.precio_venta) + " Bs"}${p.tipo === "preparado" ? ", preparado" : ""})</option>`).join("")}</select>
                         </div>
                         <div class="input-group" style="display:flex; gap:6px; align-items:end;">
                             <div style="flex:1;"><label>Cantidad</label><input type="number" class="item-combo-cantidad" min="1" step="1" value="${cantidad}"></div>
@@ -1953,8 +1987,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     const selectIncProd = document.getElementById("id_item_condicion_inc_prod");
                     selectProd.innerHTML = select2x1.innerHTML = selectCruzProd.innerHTML = selectIncProd.innerHTML = "";
 
-                    // Solo productos que se venden: los retirados no entran en promociones nuevas.
-                    productosAsistente = pData.data.filter(p => String(p.activo) !== "0");
+                    // Solo productos que se venden: ni los retirados ni los "no vendibles" (solo salen en combos).
+                    productosAsistente = pData.data.filter(p => String(p.activo) !== "0" && String(p.no_vendible) !== "1");
                     productosAsistente.forEach(p => {
                         let opt = `<option value="${p.id_producto}">${p.nombre_producto} (${p.precio_venta} Bs)</option>`;
                         selectProd.innerHTML += opt;
@@ -2820,6 +2854,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkProductos" checked> Venta de productos</label>
                         <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkEgresos"> Egresos</label>
                         <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkInsumos"> Gasto de insumos</label>
+                        <label style="display:block; margin-bottom: 5px;"><input type="checkbox" id="chkGastosProductos"> Gasto de productos</label>
                     </div>
                 `;
                 inicializarCombosFecha();
@@ -3000,19 +3035,20 @@ document.addEventListener("DOMContentLoaded", () => {
             const chkProductos = document.getElementById('chkProductos').checked;
             const chkEgresos = document.getElementById('chkEgresos').checked;
             const chkInsumos = document.getElementById('chkInsumos').checked;
+            const chkGastosProductos = document.getElementById('chkGastosProductos').checked;
 
             if (!idJornada) {
                 mostrarToast("Debe seleccionar una jornada válida", "warning");
                 return;
             }
-            if (!chkApertura && !chkMesas && !chkProductos && !chkEgresos && !chkInsumos) {
+            if (!chkApertura && !chkMesas && !chkProductos && !chkEgresos && !chkInsumos && !chkGastosProductos) {
                 mostrarToast("Debe seleccionar al menos un filtro", "warning");
                 return;
             }
 
             const bodyContenido = abrirVisor('Reporte de Jornada');
             try {
-                const queryParams = `tipo=jornada&id_jornada=${idJornada}&apertura=${chkApertura}&mesas=${chkMesas}&productos=${chkProductos}&egresos=${chkEgresos}&insumos=${chkInsumos}`;
+                const queryParams = `tipo=jornada&id_jornada=${idJornada}&apertura=${chkApertura}&mesas=${chkMesas}&productos=${chkProductos}&egresos=${chkEgresos}&insumos=${chkInsumos}&gastos_productos=${chkGastosProductos}`;
                 const response = await fetch(`../backend/api/reportes.php?${queryParams}`);
                 const r = await response.json();
                 if (r.status === 'success') {
@@ -3167,6 +3203,19 @@ document.addEventListener("DOMContentLoaded", () => {
             let tIns = 0;
             d.insumos.forEach(f => { tIns += parseFloat(f.cantidad); html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${f.insumo}</td><td class="text-center">${f.cantidad}</td></tr>`; });
             html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Suma total cantidades: ${tIns.toFixed(2)}</div>`;
+        }
+
+        if (d.filtros.gastos_productos) {
+            html += `<h3 style="background: #f1f5f9; padding: 5px 10px; border-left: 4px solid #0d9488;">Gasto de Productos</h3>`;
+            html += `<table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 5px;">
+                        <thead style="background: #e2e8f0;"><tr><th>Fecha Hora</th><th>Producto</th><th>Cantidad</th><th>Registrado por</th></tr></thead><tbody>`;
+            let tGp = 0;
+            (d.gastos_productos || []).forEach(f => {
+                tGp += parseInt(f.cantidad) || 0;
+                html += `<tr><td>${fechaHoraDMA(f.fecha)}</td><td>${escaparHTML(f.producto)}</td><td class="text-center">${parseInt(f.cantidad)}</td><td>${escaparHTML(f.usuario)}</td></tr>`;
+            });
+            if (!(d.gastos_productos || []).length) html += `<tr><td colspan="4" class="text-center">Sin gastos de productos en esta jornada</td></tr>`;
+            html += `</tbody></table><div class="text-right" style="margin-bottom: 20px; font-weight:bold;">Total unidades: ${tGp}</div>`;
         }
 
         html += `</div>`;

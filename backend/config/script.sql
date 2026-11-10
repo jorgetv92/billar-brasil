@@ -64,7 +64,9 @@ CREATE TABLE productos (
     precio_venta DECIMAL(10,2) NOT NULL,
     stock_actual INT NOT NULL DEFAULT 0,
     tipo ENUM('inventario', 'preparado') NOT NULL DEFAULT 'inventario', -- preparado: se arma en la barra, sin stock
-    activo TINYINT(1) NOT NULL DEFAULT 1 -- 0: retirado, se conserva por las ventas antiguas
+    activo TINYINT(1) NOT NULL DEFAULT 1, -- 0: retirado, se conserva por las ventas antiguas
+    no_vendible TINYINT(1) NOT NULL DEFAULT 0, -- 1: tiene stock y se carga, pero no se vende suelto (solo dentro de combos)
+    receta TINYINT(1) NOT NULL DEFAULT 0 -- 1: se gasta al preparar en barra (botella de ron); se registra en gastos_productos
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE insumos (
@@ -153,6 +155,18 @@ CREATE TABLE gastos_insumos (
     fecha_hora DATETIME NOT NULL,
     CONSTRAINT fk_gasto_jornada FOREIGN KEY (id_jornada) REFERENCES jornadas(id_jornada),
     CONSTRAINT fk_gasto_insumo FOREIGN KEY (id_insumo) REFERENCES insumos(id_insumo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Productos con receta que se gastan al preparar en barra (botellas para los vasos). Descuentan stock.
+CREATE TABLE gastos_productos (
+    id_gasto_producto INT AUTO_INCREMENT PRIMARY KEY,
+    id_jornada INT NULL, -- Jornada abierta cuando se registró (NULL: el admin lo registró entre jornadas)
+    id_producto INT NOT NULL,
+    cantidad INT NOT NULL,
+    id_usuario INT NOT NULL, -- Quién lo registró (sin clave foránea: el usuario se puede borrar)
+    fecha_hora DATETIME NOT NULL,
+    CONSTRAINT fk_gasto_prod_jornada FOREIGN KEY (id_jornada) REFERENCES jornadas(id_jornada),
+    CONSTRAINT fk_gasto_prod_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =======================================================================

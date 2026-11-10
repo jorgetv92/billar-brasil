@@ -161,6 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Stock inicial</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Cargas</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1;">Vendido</th>
+                                                    <th style="padding:10px; border:1px solid #cbd5e1;" title="Productos con receta gastados al preparar">Gasto</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Precio unitario</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; text-align:right;">Sub total</th>
                                                     <th style="padding:10px; border:1px solid #cbd5e1; background:#f8fafc;">Stock final</th>
@@ -177,6 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                             <td style="padding:10px; border:1px solid #cbd5e1;">${p.stock_inicial}</td>
                                             <td style="padding:10px; border:1px solid #cbd5e1;">${f.cargas}</td>
                                             <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; color:var(--success, #10b981);">${textoVendido(f)}</td>
+                                            <td style="padding:10px; border:1px solid #cbd5e1;">${f.gastado || '—'}</td>
                                             <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">${f.precio.toFixed(2)} Bs</td>
                                             <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:bold;">${f.importe.toFixed(2)} Bs</td>
                                             <td style="padding:10px; border:1px solid #cbd5e1; font-weight:bold; background:#f8fafc;">${textoStockFinal(p, f)}</td>
@@ -604,6 +606,8 @@ function filaInventario(p) {
         precio: vendido > 0 ? importe / vendido : parseFloat(p.precio_unitario),
         cargas: parseInt(p.cargas) || 0,
         enMesas: parseInt(p.en_mesas) || 0,
+        // Productos con receta gastados al preparar (botellas para los vasos)
+        gastado: parseInt(p.gastado) || 0,
         ajuste: parseInt(p.ajuste) || 0
     };
 }
@@ -612,10 +616,10 @@ function textoVendido(f) {
     return f.enMesas ? `${f.vendido} <small style="color:#64748b;">(+${f.enMesas} en mesas abiertas)</small>` : `${f.vendido}`;
 }
 
-// Stock final; si no cuadra con inicial + cargas - vendido, se marca la diferencia (por ejemplo, un ajuste manual).
+// Stock final; si no cuadra con inicial + cargas - vendido - gastado, se marca la diferencia (por ejemplo, un ajuste manual).
 function textoStockFinal(p, f) {
     if (!f.ajuste) return `${p.stock_final}`;
-    return `${p.stock_final} <span style="color:#dc2626;" title="Diferencia que no explican las ventas ni las cargas">(dif. ${f.ajuste > 0 ? '+' : ''}${f.ajuste})</span>`;
+    return `${p.stock_final} <span style="color:#dc2626;" title="Diferencia que no explican las ventas, las cargas ni los gastos">(dif. ${f.ajuste > 0 ? '+' : ''}${f.ajuste})</span>`;
 }
 
 function abrirReporteFinal(precierre, kpiBase) {
@@ -645,6 +649,7 @@ function abrirReporteFinal(precierre, kpiBase) {
                 <td style="padding: 4px 8px; text-align: center;">${p.stock_inicial}</td>
                 <td style="padding: 4px 8px; text-align: center;">${f.cargas}</td>
                 <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${textoVendido(f)}</td>
+                <td style="padding: 4px 8px; text-align: center;">${f.gastado || '—'}</td>
                 <td style="padding: 4px 8px; text-align: right;">${f.precio.toFixed(2)}</td>
                 <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${f.importe.toFixed(2)}</td>
                 <td style="padding: 4px 8px; text-align: center; font-weight: 600; background: #f8fafc;">${textoStockFinal(p, f)}</td>
@@ -662,6 +667,7 @@ function abrirReporteFinal(precierre, kpiBase) {
                 <td style="padding: 4px 8px; text-align: center;">—</td>
                 <td style="padding: 4px 8px; text-align: center;">—</td>
                 <td style="padding: 4px 8px; text-align: center; font-weight: 600; color: #059669;">${p.vendido}</td>
+                <td style="padding: 4px 8px; text-align: center;">—</td>
                 <td style="padding: 4px 8px; text-align: right;">${(p.vendido ? importe / p.vendido : 0).toFixed(2)}</td>
                 <td style="padding: 4px 8px; text-align: right; font-weight: 600;">${importe.toFixed(2)}</td>
                 <td style="padding: 4px 8px; text-align: center; background: #f8fafc;">—</td>
@@ -745,6 +751,7 @@ function abrirReporteFinal(precierre, kpiBase) {
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Stock Inicial</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Cargas</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Vendido</th>
+                                <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Gasto</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: right;">Precio Unit.</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: right;">Subtotal</th>
                                 <th style="padding: 6px 8px; font-weight: 600; text-align: center;">Stock Final</th>

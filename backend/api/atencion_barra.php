@@ -449,7 +449,8 @@ if ($method === 'GET') {
                 }
             }
 
-            $stmt = $pdo->query("SELECT id_producto, nombre_producto, stock_actual, precio_venta, tipo FROM productos WHERE activo = 1");
+            // Los "no vendibles" no se ofrecen sueltos: solo salen dentro de los combos.
+            $stmt = $pdo->query("SELECT id_producto, nombre_producto, stock_actual, precio_venta, tipo FROM productos WHERE activo = 1 AND no_vendible = 0");
             $productos = [];
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $idProd = intval($row['id_producto']);

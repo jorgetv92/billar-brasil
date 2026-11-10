@@ -1,3 +1,9 @@
+<style>
+    .input-group .opcion-producto { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--beige-borde, #e2e8f0); border-radius: 7px; margin-bottom: 8px; cursor: pointer; font-weight: normal; font-size: 0.88rem; line-height: 1.4; }
+    .input-group .opcion-producto input { width: 18px; height: 18px; padding: 0; margin-top: 2px; flex-shrink: 0; accent-color: var(--dorado, #c9a45c); }
+    .input-group .opcion-producto:has(input:checked) { border-color: var(--dorado, #c9a45c); background: #fdfaf3; }
+</style>
+
 <div class="view-header">
     <div>
         <h2>Gestión de Inventario (Productos)</h2>
@@ -67,6 +73,17 @@
                             <option value="1">Activo (se vende)</option>
                             <option value="0">Retirado (no aparece para vender)</option>
                         </select>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Propiedades</label>
+                        <label class="opcion-producto">
+                            <input type="checkbox" id="no_vendible_producto">
+                            <span><b>No vendible</b>: tiene stock y se carga como mercadería, pero no aparece para vender en Atención. Solo sale dentro de un combo, que descuenta su stock. No lleva precio de venta.</span>
+                        </label>
+                        <label class="opcion-producto">
+                            <input type="checkbox" id="receta_producto">
+                            <span><b>Receta</b>: se gasta al preparar en barra (por ejemplo, la botella de ron de los vasos). Su gasto se registra en "Gasto de producto".</span>
+                        </label>
                     </div>
                 </div>
             </form>

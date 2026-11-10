@@ -27,10 +27,22 @@ function activoProducto($data) {
     return (isset($data->activo) && !$data->activo) ? 0 : 1;
 }
 
+// Propiedades del producto, ya coherentes entre sí:
+// - no_vendible: tiene stock y se carga, pero no se vende suelto (solo dentro de combos). No lleva precio.
+// - receta: se gasta al preparar en barra (botella de ron para los vasos) y su gasto se registra aparte.
+// Ambas necesitan stock, así que el producto queda como 'inventario'.
+function propiedadesProducto($data) {
+    $noVendible = !empty($data->no_vendible) ? 1 : 0;
+    $receta = !empty($data->receta) ? 1 : 0;
+    $tipo = ($noVendible || $receta) ? 'inventario' : tipoProducto($data);
+    $precio = $noVendible ? 0 : (is_numeric($data->precio_venta ?? null) ? round(floatval($data->precio_venta), 2) : -1);
+    return [$tipo, $noVendible, $receta, $precio];
+}
+
 switch ($method) {
     case 'GET':
         try {
-            $query = "SELECT id_producto, nombre_producto, precio_venta, stock_actual, tipo, activo FROM productos ORDER BY nombre_producto ASC";
+            $query = "SELECT id_producto, nombre_producto, precio_venta, stock_actual, tipo, activo, no_vendible, receta FROM productos ORDER BY nombre_producto ASC";
             $stmt = $db->prepare($query);
             $stmt->execute();
             $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -45,18 +57,25 @@ switch ($method) {
 
     case 'POST':
         $data = json_decode(file_get_contents("php://input"));
-        if (!empty($data->nombre_producto) && isset($data->precio_venta)) {
+        if (!empty($data->nombre_producto) && (isset($data->precio_venta) || !empty($data->no_vendible))) {
+            list($tipo, $noVendible, $receta, $precio) = propiedadesProducto($data);
+            if ($precio < 0) {
+                http_response_code(400);
+                echo json_encode(["status" => "error", "message" => "Ingrese un precio de venta válido."]);
+                break;
+            }
             try {
                 // stock_actual no se envía, la BD lo pone en 0 por el DEFAULT
-                $query = "INSERT INTO productos (nombre_producto, precio_venta, tipo, activo) VALUES (:nombre, :precio, :tipo, :activo)";
+                $query = "INSERT INTO productos (nombre_producto, precio_venta, tipo, activo, no_vendible, receta) VALUES (:nombre, :precio, :tipo, :activo, :no_vendible, :receta)";
                 $stmt = $db->prepare($query);
-                $tipo = tipoProducto($data);
                 $activo = activoProducto($data);
                 $stmt->bindParam(':tipo', $tipo);
                 $stmt->bindParam(':activo', $activo);
+                $stmt->bindParam(':no_vendible', $noVendible);
+                $stmt->bindParam(':receta', $receta);
                 $stmt->bindParam(':nombre', $data->nombre_producto);
-                $stmt->bindParam(':precio', $data->precio_venta);
-                
+                $stmt->bindParam(':precio', $precio);
+
                 if ($stmt->execute()) {
                     http_response_code(201);
                     echo json_encode(["status" => "success", "message" => "Producto registrado exitosamente."]);
@@ -73,17 +92,24 @@ switch ($method) {
 
     case 'PUT':
         $data = json_decode(file_get_contents("php://input"));
-        if (!empty($data->id_producto) && !empty($data->nombre_producto) && isset($data->precio_venta)) {
+        if (!empty($data->id_producto) && !empty($data->nombre_producto) && (isset($data->precio_venta) || !empty($data->no_vendible))) {
+            list($tipo, $noVendible, $receta, $precio) = propiedadesProducto($data);
+            if ($precio < 0) {
+                http_response_code(400);
+                echo json_encode(["status" => "error", "message" => "Ingrese un precio de venta válido."]);
+                break;
+            }
             try {
-                // Solo se permite actualizar nombre y precio. El stock se ignora aquí.
-                $query = "UPDATE productos SET nombre_producto = :nombre, precio_venta = :precio, tipo = :tipo, activo = :activo WHERE id_producto = :id";
+                // El stock no se edita aquí: solo con cargas, ventas y gastos.
+                $query = "UPDATE productos SET nombre_producto = :nombre, precio_venta = :precio, tipo = :tipo, activo = :activo, no_vendible = :no_vendible, receta = :receta WHERE id_producto = :id";
                 $stmt = $db->prepare($query);
-                $tipo = tipoProducto($data);
                 $activo = activoProducto($data);
                 $stmt->bindParam(':tipo', $tipo);
                 $stmt->bindParam(':activo', $activo);
+                $stmt->bindParam(':no_vendible', $noVendible);
+                $stmt->bindParam(':receta', $receta);
                 $stmt->bindParam(':nombre', $data->nombre_producto);
-                $stmt->bindParam(':precio', $data->precio_venta);
+                $stmt->bindParam(':precio', $precio);
                 $stmt->bindParam(':id', $data->id_producto);
                 
                 if ($stmt->execute()) {

@@ -338,13 +338,13 @@ class Liquidacion {
     // (2 unidades por el precio de 1).
     public static function pares2x1Vigentes($pdo, array $promos, $ts) {
         $res = [];
-        $stmt = $pdo->prepare("SELECT nombre_producto, precio_venta, stock_actual, tipo, activo FROM productos WHERE id_producto = ?");
+        $stmt = $pdo->prepare("SELECT nombre_producto, precio_venta, stock_actual, tipo, activo, no_vendible FROM productos WHERE id_producto = ?");
         foreach ($promos as $promo) {
             if ($promo['tipo_promo'] !== 'combo_2x1' || !self::promoActivaEn($promo, $ts)) continue;
             $idProducto = intval($promo['id_item_condicion']);
             $stmt->execute([$idProducto]);
             $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$fila || !intval($fila['activo'])) continue;
+            if (!$fila || !intval($fila['activo']) || intval($fila['no_vendible'])) continue;
             $res[] = [
                 'id_promocion' => intval($promo['id_promocion']),
                 'nombre' => $promo['nombre_promo'],
@@ -362,7 +362,7 @@ class Liquidacion {
     // en un tipo de mesa), para que el cajero los elija. "precio" es lo que paga el cliente en total.
     public static function incentivosVigentes($pdo, array $promos, $ts) {
         $res = [];
-        $stmt = $pdo->prepare("SELECT p.nombre_producto, p.precio_venta, p.stock_actual, p.tipo, p.activo, tm.nombre_tipo
+        $stmt = $pdo->prepare("SELECT p.nombre_producto, p.precio_venta, p.stock_actual, p.tipo, p.activo, p.no_vendible, tm.nombre_tipo
                                FROM productos p, tipos_mesa tm WHERE p.id_producto = ? AND tm.id_tipo_mesa = ?");
         foreach ($promos as $promo) {
             if ($promo['tipo_promo'] !== 'incentivo_producto' || !self::promoActivaEn($promo, $ts)) continue;
@@ -370,7 +370,7 @@ class Liquidacion {
             $cantidad = intval(ceil(floatval($promo['cantidad_condicion'])));
             $stmt->execute([$idProducto, intval($promo['id_item_secundario'])]);
             $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$fila || !intval($fila['activo']) || $cantidad <= 0) continue;
+            if (!$fila || !intval($fila['activo']) || intval($fila['no_vendible']) || $cantidad <= 0) continue;
             $monto = self::centavos($promo['valor_descuento']);
             $res[] = [
                 'id_promocion' => intval($promo['id_promocion']),
@@ -650,18 +650,22 @@ class Liquidacion {
         return $cantidades;
     }
 
-    // Catálogo de los productos pedidos. Un producto retirado (inactivo) ya no se vende.
+    // Catálogo de los productos pedidos. Un producto retirado (inactivo) ya no se vende, y uno "no vendible"
+    // solo sale dentro de un combo.
     public static function catalogo($pdo, array $ids) {
         $catalogo = [];
         if ($ids) {
             $marcas = implode(',', array_fill(0, count($ids), '?'));
-            $stmt = $pdo->prepare("SELECT id_producto, nombre_producto, precio_venta, tipo, activo FROM productos WHERE id_producto IN ($marcas)");
+            $stmt = $pdo->prepare("SELECT id_producto, nombre_producto, precio_venta, tipo, activo, no_vendible FROM productos WHERE id_producto IN ($marcas)");
             $stmt->execute(array_values($ids));
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) $catalogo[intval($fila['id_producto'])] = $fila;
         }
         foreach ($ids as $id) {
             if (!isset($catalogo[$id]) || !intval($catalogo[$id]['activo'])) {
                 throw new ErrorOperacion('Uno de los productos ya no se vende. Actualice la pantalla.', 'producto_invalido');
+            }
+            if (intval($catalogo[$id]['no_vendible'])) {
+                throw new ErrorOperacion($catalogo[$id]['nombre_producto'] . ' no se vende suelto: solo dentro de un combo.', 'producto_invalido');
             }
         }
         return $catalogo;

@@ -135,11 +135,12 @@ class ResumenJornada {
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    // Inventario del turno por producto: inicial, cargas, vendido (cobrado y aún en mesas abiertas) y final.
+    // Inventario del turno por producto: inicial, cargas, vendido (cobrado y aún en mesas abiertas), gastado y final.
     // Solo productos con stock: los preparados no se cuentan, y los retirados solo si se movieron en el turno.
-    // "ajuste" es lo que no explican las ventas ni las cargas (por ejemplo, un cambio manual de stock).
-    // Necesita la foto de apertura, que se borra al cerrar la jornada. Las cargas del turno son las que
-    // quedaron registradas con esta jornada (ver Cargas::crear), no las que caen en su horario.
+    // "gastado" son los productos con receta que se usaron para preparar (botellas para los vasos).
+    // "ajuste" es lo que no explican las ventas, las cargas ni los gastos (por ejemplo, un cambio manual de stock).
+    // Necesita la foto de apertura, que se borra al cerrar la jornada. Las cargas y los gastos del turno son los que
+    // quedaron registrados con esta jornada (ver Cargas::crear), no los que caen en su horario.
     public static function inventario($pdo, $idJornada) {
         $stmt = $pdo->prepare("
             SELECT p.id_producto, p.nombre_producto,
@@ -148,6 +149,7 @@ class ResumenJornada {
                    COALESCE(v.cantidad, 0) AS vendido,
                    COALESCE(v.importe, 0) AS importe_vendido,
                    COALESCE(m.cantidad, 0) AS en_mesas,
+                   COALESCE(g.cantidad, 0) AS gastado,
                    p.precio_venta AS precio_unitario,
                    p.stock_actual AS stock_final
             FROM jornada_inventario_apertura jia
@@ -173,17 +175,24 @@ class ResumenJornada {
                 WHERE cg.tipo_carga = 'producto' AND cg.estado = 'activo' AND cg.id_jornada = ?
                 GROUP BY dc.id_producto
             ) c ON c.id_producto = p.id_producto
+            LEFT JOIN (
+                SELECT id_producto, SUM(cantidad) AS cantidad
+                FROM gastos_productos
+                WHERE id_jornada = ?
+                GROUP BY id_producto
+            ) g ON g.id_producto = p.id_producto
             WHERE jia.id_jornada = ? AND p.tipo = 'inventario'
-              AND (p.activo = 1 OR COALESCE(v.cantidad, 0) > 0 OR COALESCE(c.cantidad, 0) > 0 OR COALESCE(m.cantidad, 0) > 0)
+              AND (p.activo = 1 OR COALESCE(v.cantidad, 0) > 0 OR COALESCE(c.cantidad, 0) > 0 OR COALESCE(m.cantidad, 0) > 0 OR COALESCE(g.cantidad, 0) > 0)
             ORDER BY p.nombre_producto
         ");
-        $stmt->execute([$idJornada, $idJornada, $idJornada, $idJornada]);
+        $stmt->execute([$idJornada, $idJornada, $idJornada, $idJornada, $idJornada]);
 
         return array_map(function ($fila) {
             $inicial = intval($fila['stock_inicial']);
             $cargas = intval($fila['cargas']);
             $vendido = intval($fila['vendido']);
             $enMesas = intval($fila['en_mesas']);
+            $gastado = intval($fila['gastado']);
             $final = intval($fila['stock_final']);
             return [
                 'id_producto' => intval($fila['id_producto']),
@@ -192,11 +201,12 @@ class ResumenJornada {
                 'cargas' => $cargas,
                 'vendido' => $vendido,
                 'en_mesas' => $enMesas,
+                'gastado' => $gastado,
                 // Importe a los precios con que se vendió (promos de precio incluidas, sin 2x1)
                 'importe_vendido' => round(floatval($fila['importe_vendido']), 2),
                 'precio_unitario' => floatval($fila['precio_unitario']),
                 'stock_final' => $final,
-                'ajuste' => $final - ($inicial + $cargas - $vendido - $enMesas),
+                'ajuste' => $final - ($inicial + $cargas - $vendido - $enMesas - $gastado),
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }

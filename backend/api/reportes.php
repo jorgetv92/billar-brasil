@@ -130,7 +130,8 @@ try {
                 "mesas" => filter_var($_GET['mesas'], FILTER_VALIDATE_BOOLEAN),
                 "productos" => filter_var($_GET['productos'], FILTER_VALIDATE_BOOLEAN),
                 "egresos" => filter_var($_GET['egresos'], FILTER_VALIDATE_BOOLEAN),
-                "insumos" => filter_var($_GET['insumos'], FILTER_VALIDATE_BOOLEAN)
+                "insumos" => filter_var($_GET['insumos'], FILTER_VALIDATE_BOOLEAN),
+                "gastos_productos" => filter_var($_GET['gastos_productos'] ?? false, FILTER_VALIDATE_BOOLEAN)
             ]];
 
             // ENCABEZADO BASE
@@ -313,6 +314,18 @@ try {
                                         WHERE g.id_jornada = ?");
                 $stmtI->execute([$id]);
                 $data["insumos"] = $stmtI->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            // SECCIÓN: GASTO DE PRODUCTOS (con receta, gastados al preparar en barra)
+            if ($data["filtros"]["gastos_productos"]) {
+                $stmtGp = $pdo->prepare("SELECT g.fecha_hora AS fecha, p.nombre_producto AS producto, g.cantidad,
+                                                COALESCE(CONCAT(u.nombres, ' ', u.apellidos), CONCAT('Usuario #', g.id_usuario)) AS usuario
+                                         FROM gastos_productos g
+                                         JOIN productos p ON p.id_producto = g.id_producto
+                                         LEFT JOIN usuarios u ON u.id_usuario = g.id_usuario
+                                         WHERE g.id_jornada = ? ORDER BY g.fecha_hora");
+                $stmtGp->execute([$id]);
+                $data["gastos_productos"] = $stmtGp->fetchAll(PDO::FETCH_ASSOC);
             }
 
             echo json_encode(["status" => "success", "data" => $data]);
