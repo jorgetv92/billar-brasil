@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>BillarSoft</title>
+  <defs>
+    <radialGradient id="bola" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#5aa9ff"/>
+      <stop offset="0.45" stop-color="#1e6ef4"/>
+      <stop offset="1" stop-color="#0b3b8c"/>
+    </radialGradient>
+    <radialGradient id="brillo" cx="34%" cy="24%" r="34%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="url(#bola)"/>
+  <circle cx="64" cy="64" r="60" fill="url(#brillo)"/>
+  <circle cx="64" cy="64" r="28" fill="#ffffff"/>
+  <text x="64" y="65" text-anchor="middle" dominant-baseline="central" font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-weight="700" font-size="36" fill="#0b3b8c">B</text>
+</svg>
