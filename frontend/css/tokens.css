@@ -100,6 +100,8 @@
     --green-fill: #008932;
     --teal-fill: #008198;
     --indigo-fill: #564ade;
+    --orange-fill: #c55300;
+    --red-fill: #d70015;
 
     /* Fondos teñidos (badges, avisos, selección) */
     --blue-bg: rgba(0, 136, 255, 0.12);
@@ -245,6 +247,8 @@
     --green-fill: #248a3d;
     --teal-fill: #0b8a99;
     --indigo-fill: #5e5ce6;
+    --orange-fill: #c93400;
+    --red-fill: #d70015;
 
     --blue-bg: rgba(0, 145, 255, 0.2);
     --green-bg: rgba(48, 209, 88, 0.18);
@@ -318,7 +322,7 @@
 }
 
 /* ---------- Paleta oscura: nivel elevado (hojas, modales, paneles al frente) ---------- */
-:root[data-tema="oscuro"] :is(.modal-content, .hoja, .modal-overlay > div, .ec-modal, .gi-modal, .gp-modal, .sh-caja, .dash-detalle-inner, .login-card) {
+:root[data-tema="oscuro"] :is(.modal-content, .hoja, .modal-overlay > div, .ec-modal, .gi-modal, .gp-modal, .sh-caja, .dash-detalle-inner, .login-card, .rec-alerta-caja) {
     --bg-grouped: #1c1c1e;
     --bg-grouped-2: #1c1c1e;
     --bg-elevated: #1c1c1e;

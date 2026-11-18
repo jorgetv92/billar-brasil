@@ -4,7 +4,7 @@
    Lo carga portal_atencion.html. La vista de venta suma atencion_barra.css.
    ===================================================================== */
 
-@import url("tokens.css?v=2026111601");
+@import url("tokens.css?v=2026111801");
 @import url("shell.css?v=2026111601");
 
 /* Cerrar sesión queda al pie del menú */
@@ -792,4 +792,251 @@
         flex: 1;
         min-width: 0;
     }
+}
+
+
+/* =====================================================================
+   RECORDATORIOS: alerta que aparece a la hora configurada
+   (js/recordatorios_atencion.js). Va por encima de todo, no se cierra con
+   un clic afuera y llama la atención con color, movimiento y sonido.
+   ===================================================================== */
+
+.rec-alerta {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background:
+        radial-gradient(circle at center, color-mix(in srgb, var(--orange) 34%, transparent) 0%, transparent 70%),
+        var(--overlay);
+    -webkit-backdrop-filter: blur(6px) saturate(140%);
+    backdrop-filter: blur(6px) saturate(140%);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease);
+}
+
+.rec-alerta[hidden] { display: none; }
+.rec-alerta.visible { opacity: 1; }
+
+.rec-alerta-caja {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 540px;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    background: var(--bg-elevated);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    box-shadow: 0 0 0 3px var(--orange), var(--shadow-modal);
+    transform: translateY(24px) scale(0.94);
+    transition: transform 0.5s var(--spring);
+    animation: recPulsoBorde 1.6s ease-in-out infinite;
+}
+
+.rec-alerta.visible .rec-alerta-caja { transform: none; }
+.rec-alerta.sacudir .rec-alerta-caja { animation: recSacudir 0.55s var(--ease-out) 0.35s 2, recPulsoBorde 1.6s ease-in-out 1.5s infinite; }
+
+.rec-alerta-banda {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 16px 18px 20px;
+    background: linear-gradient(125deg, var(--orange-fill) 0%, var(--red-fill) 100%);
+    color: var(--on-ink);
+}
+
+.rec-alerta-campana {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--on-ink) 22%, transparent);
+    animation: recAnillo 1.6s ease-out infinite;
+}
+
+.rec-alerta-campana .material-icons {
+    font-size: 32px;
+    font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 40;
+    transform-origin: 50% 12%;
+    animation: recCampana 1.6s ease-in-out infinite;
+}
+
+.rec-alerta-etiqueta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.rec-alerta-kicker {
+    font-size: var(--fs-footnote);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.rec-alerta-hora {
+    font-size: var(--fs-subhead);
+    font-weight: 500;
+    color: color-mix(in srgb, var(--on-ink) 88%, transparent);
+    font-variant-numeric: tabular-nums;
+}
+
+.rec-alerta-x {
+    flex-shrink: 0;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--on-ink) 22%, transparent);
+    color: var(--on-ink);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.rec-alerta-x .material-icons {
+    font-size: 18px;
+    font-variation-settings: "FILL" 0, "wght" 600, "GRAD" 0, "opsz" 20;
+}
+
+.rec-alerta-x:hover { background: color-mix(in srgb, var(--on-ink) 34%, transparent); }
+
+.rec-alerta-cuerpo {
+    padding: 22px 24px 6px;
+    overflow-y: auto;
+}
+
+.rec-alerta-contador {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 2px 10px;
+    border-radius: var(--r-pill);
+    background: var(--orange-bg);
+    color: var(--orange-text);
+    font-size: var(--fs-caption);
+    font-weight: 600;
+}
+
+.rec-alerta-contador[hidden] { display: none; }
+
+.rec-alerta-cuerpo h2 {
+    font-family: var(--font-display);
+    font-size: var(--fs-title1);
+    font-weight: 700;
+    line-height: 1.18;
+    letter-spacing: -0.015em;
+    color: var(--label);
+    word-break: break-word;
+}
+
+.rec-alerta-cuerpo p {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: var(--r-md);
+    background: var(--orange-bg);
+    box-shadow: inset 4px 0 0 var(--orange);
+    color: var(--label);
+    font-size: var(--fs-body);
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.rec-alerta-cuerpo p[hidden] { display: none; }
+
+.rec-alerta-botones {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 10px;
+    padding: 20px 24px 24px;
+}
+
+.rec-alerta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 18px;
+    border: none;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-headline);
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.12s var(--ease), filter 0.15s, background 0.15s;
+}
+
+.rec-alerta-btn .material-icons { font-size: 22px; }
+.rec-alerta-btn:active { transform: scale(0.97); }
+.rec-alerta-btn:disabled { opacity: 0.4; cursor: wait; }
+.rec-alerta-btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus-ring); }
+
+.rec-alerta-btn.aceptar {
+    background: var(--fill-3);
+    color: var(--label);
+}
+
+.rec-alerta-btn.aceptar:hover { background: var(--fill-2); }
+
+.rec-alerta-btn.realizado {
+    background: var(--green-fill);
+    color: var(--on-ink);
+}
+
+.rec-alerta-btn.realizado:hover { filter: brightness(1.08); }
+
+@keyframes recPulsoBorde {
+    0%, 100% { box-shadow: 0 0 0 3px var(--orange), var(--shadow-modal); }
+    50%      { box-shadow: 0 0 0 9px color-mix(in srgb, var(--orange) 40%, transparent), var(--shadow-modal); }
+}
+
+@keyframes recSacudir {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-9px) rotate(-0.8deg); }
+    40% { transform: translateX(9px) rotate(0.8deg); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+}
+
+@keyframes recCampana {
+    0%, 50%, 100% { transform: rotate(0); }
+    10% { transform: rotate(18deg); }
+    20% { transform: rotate(-16deg); }
+    30% { transform: rotate(12deg); }
+    40% { transform: rotate(-8deg); }
+}
+
+@keyframes recAnillo {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--on-ink) 55%, transparent); }
+    100% { box-shadow: 0 0 0 16px transparent; }
+}
+
+/* En el celular sube desde abajo, como una hoja */
+@media (max-width: 520px) {
+    .rec-alerta { align-items: flex-end; padding: 10px 10px max(10px, env(safe-area-inset-bottom)); }
+    .rec-alerta-cuerpo { padding: 18px 18px 4px; }
+    .rec-alerta-cuerpo h2 { font-size: var(--fs-title2); }
+    .rec-alerta-botones { grid-template-columns: 1fr; padding: 16px 18px 18px; }
+    .rec-alerta-btn.realizado { order: -1; }
+    .rec-alerta-campana { width: 48px; height: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rec-alerta-caja,
+    .rec-alerta.sacudir .rec-alerta-caja,
+    .rec-alerta-campana,
+    .rec-alerta-campana .material-icons { animation: none; }
 }
