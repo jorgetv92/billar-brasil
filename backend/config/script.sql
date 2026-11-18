@@ -294,6 +294,50 @@ CREATE TABLE cargos_venta (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =======================================================================
+-- MÓDULO: RECORDATORIOS PARA EL PERSONAL DE ATENCIÓN
+-- =======================================================================
+
+-- Lo que configura el dueño: qué recordar, qué días y a qué horas.
+CREATE TABLE recordatorios (
+    id_recordatorio INT AUTO_INCREMENT PRIMARY KEY,
+    titulo VARCHAR(120) NOT NULL,
+    descripcion TEXT NULL,
+    repeticion ENUM('una_vez', 'diario', 'dias_semana', 'fin_semana', 'rango') NOT NULL, -- dias_semana = lunes a viernes; fin_semana = sábado y domingo
+    fecha_inicio DATE NOT NULL, -- una_vez: el día del aviso; en las demás, desde cuándo rige
+    fecha_fin DATE NULL, -- solo rango: último día (incluido)
+    horas VARCHAR(255) NOT NULL, -- Horas del día separadas por coma, ordenadas. Ej: "08:00,14:30,20:00"
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    generado_hasta DATETIME NOT NULL, -- Hasta dónde ya se crearon sus avisos (los siguientes se crean después de esta hora)
+    id_usuario_creo INT NOT NULL,
+    creado_en DATETIME NOT NULL,
+    CONSTRAINT fk_recordatorio_usuario FOREIGN KEY (id_usuario_creo) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cada aparición de un recordatorio en una fecha y hora, con lo que pasó con ella.
+CREATE TABLE recordatorio_avisos (
+    id_aviso INT AUTO_INCREMENT PRIMARY KEY,
+    id_recordatorio INT NOT NULL,
+    programado_para DATETIME NOT NULL,
+    -- pendiente: aún no llega su hora · no_mostrado: nadie lo vio (ver motivo) · mostrado: se cerró con la X
+    -- aceptado: el personal indicó que lo vio · confirmado: el personal indicó que realizó lo indicado
+    estado ENUM('pendiente', 'no_mostrado', 'mostrado', 'aceptado', 'confirmado') NOT NULL DEFAULT 'pendiente',
+    motivo_no_mostrado ENUM('sin_turno', 'portal_cerrado') NULL,
+    id_jornada INT NULL, -- Turno en que se mostró (o que estaba abierto cuando no se mostró)
+    mostrado_en DATETIME NULL,
+    respondido_en DATETIME NULL, -- NULL mientras el modal sigue abierto sin respuesta
+    id_usuario_respuesta INT NULL,
+    verificacion ENUM('realizado', 'no_realizado') NULL, -- Revisión del dueño para los mostrados y aceptados
+    verificado_en DATETIME NULL,
+    id_usuario_verifico INT NULL,
+    UNIQUE KEY uq_aviso_recordatorio_hora (id_recordatorio, programado_para),
+    KEY idx_aviso_estado (estado, programado_para),
+    CONSTRAINT fk_aviso_recordatorio FOREIGN KEY (id_recordatorio) REFERENCES recordatorios(id_recordatorio) ON DELETE CASCADE,
+    CONSTRAINT fk_aviso_jornada FOREIGN KEY (id_jornada) REFERENCES jornadas(id_jornada),
+    CONSTRAINT fk_aviso_usuario_resp FOREIGN KEY (id_usuario_respuesta) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_aviso_usuario_verif FOREIGN KEY (id_usuario_verifico) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =======================================================================
 -- PRIMER USUARIO ADMINISTRADOR
 -- =======================================================================
 INSERT INTO usuarios (nombres, apellidos, usuario, password, rol) VALUES

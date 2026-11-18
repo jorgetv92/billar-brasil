@@ -171,6 +171,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (nombreArchivo === "cargos.html") {
                         inicializarModuloCargos();
                     }
+                    if (nombreArchivo === "recordatorios.html") {
+                        inicializarModuloRecordatorios();
+                    }
                     if (nombreArchivo === "usuarios.html") {
                         inicializarModuloUsuarios();
                     }
@@ -1772,6 +1775,351 @@ document.addEventListener("DOMContentLoaded", () => {
                         mostrarToast("Error de comunicación", "error");
                     }
                 });
+                consultar();
+            }
+
+            // -------------------------------------------------------------------
+            // RECORDATORIOS: avisos para el personal de atención (lógica en models/Recordatorios.php)
+            // -------------------------------------------------------------------
+            function inicializarModuloRecordatorios() {
+                const API = "../backend/api/recordatorios.php";
+                const ESTADOS = { pendiente: "Pendiente", no_mostrado: "No mostrado", mostrado: "Mostrado", aceptado: "Aceptado", confirmado: "Confirmado" };
+                const REPETICION = { una_vez: "Una sola vez", diario: "Diariamente", dias_semana: "Lunes a viernes", fin_semana: "Fin de semana", rango: "Rango de fechas" };
+                const MOTIVOS = {
+                    sin_turno: "No había turno abierto.",
+                    portal_cerrado: "Había turno abierto, pero el portal de atención no estaba abierto en ningún dispositivo."
+                };
+                const dos = (n) => String(n).padStart(2, "0");
+                const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`; };
+                const soloHora = (valor) => String(valor || "").substring(11, 16);
+                const chip = (estado) => `<span class="rec-estado est-${estado}">${ESTADOS[estado] || estado}</span>`;
+                const tbody = document.getElementById("tablaRecordatoriosBody");
+                const tbodyAvisos = document.getElementById("tablaAvisosBody");
+                const inputHora = document.getElementById("recHoraNueva");
+                let recordatorios = [];
+                let horas = [];
+
+                activarInputsHora24();
+
+                // "2030", "20:30" o "8" -> "20:30" / "08:00"; null si no es una hora válida
+                function normalizarHora(texto) {
+                    const d = String(texto || "").replace(/\D/g, "");
+                    if (!d || d.length > 4) return null;
+                    let h, m;
+                    if (d.length <= 2) { h = d; m = "00"; }
+                    else if (d.length === 3) { h = "0" + d[0]; m = d.substring(1); }
+                    else { h = d.substring(0, 2); m = d.substring(2); }
+                    if (+h > 23 || +m > 59) return null;
+                    return dos(+h) + ":" + dos(+m);
+                }
+
+                function textoCuando(r) {
+                    const desde = fechaDMA(r.fecha_inicio);
+                    if (r.repeticion === "una_vez") return `El ${desde}`;
+                    if (r.repeticion === "rango") return `Todos los días del ${desde} al ${fechaDMA(r.fecha_fin)}`;
+                    const base = { diario: "Todos los días", dias_semana: "De lunes a viernes", fin_semana: "Sábados y domingos" }[r.repeticion];
+                    return r.fecha_inicio > hoyISO() ? `${base}, desde el ${desde}` : base;
+                }
+
+                const chipsHoras = (lista) => lista.map(h => `<span class="rec-hora-chip">${h}</span>`).join("");
+
+                // ---------- Pestañas ----------
+                function mostrarPestana(nombre) {
+                    document.querySelectorAll(".rec-pestana").forEach(b => b.classList.toggle("activa", b.dataset.pestana === nombre));
+                    document.getElementById("recPanelLista").hidden = nombre !== "lista";
+                    document.getElementById("recPanelSeguimiento").hidden = nombre !== "seguimiento";
+                    if (nombre === "seguimiento") consultarAvisos();
+                }
+                document.querySelectorAll(".rec-pestana").forEach(b => b.addEventListener("click", () => mostrarPestana(b.dataset.pestana)));
+
+                // ---------- Lista de recordatorios ----------
+                async function consultar() {
+                    try {
+                        const result = await (await fetch(`${API}?vista=lista`)).json();
+                        if (result.status !== "success") throw new Error(result.message);
+                        recordatorios = result.data;
+                        document.querySelectorAll(".rec-tolerancia").forEach(s => s.textContent = result.tolerancia_minutos);
+                    } catch (e) {
+                        mostrarToast("No se pudieron cargar los recordatorios", "error");
+                        return;
+                    }
+                    const porVerificar = recordatorios.reduce((t, r) => t + parseInt(r.por_verificar || 0), 0);
+                    const contador = document.getElementById("recContadorVerificar");
+                    contador.hidden = porVerificar === 0;
+                    contador.textContent = porVerificar;
+                    contador.title = `${porVerificar} por verificar`;
+
+                    const filtro = document.getElementById("recFiltroRecordatorio");
+                    const elegido = filtro.value;
+                    filtro.innerHTML = `<option value="">Todos</option>` + recordatorios.map(r => `<option value="${r.id_recordatorio}">${escaparHTML(r.titulo)}</option>`).join("");
+                    filtro.value = elegido;
+
+                    if (!recordatorios.length) {
+                        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="material-icons">notifications_none</i><p>Aún no hay recordatorios. Cree el primero con «Nuevo Recordatorio».</p></div></td></tr>`;
+                        return;
+                    }
+                    tbody.innerHTML = recordatorios.map(r => {
+                        const pausado = String(r.activo) === "0";
+                        const u = r.ultimo_aviso;
+                        const proximo = r.proximo
+                            ? `${chip("pendiente")}<div class="rec-sub">${fechaHoraDMA(r.proximo)}</div>`
+                            : `<span class="rec-sub">${pausado ? "Pausado" : "Sin más avisos"}</span>`;
+                        const ultimo = u
+                            ? `${chip(u.estado)}<div class="rec-sub">${fechaHoraDMA(u.programado_para)}</div>`
+                            : `<span class="rec-sub">Aún no hubo avisos</span>`;
+                        const verificar = parseInt(r.por_verificar) > 0
+                            ? `<button class="rec-link-verificar btn-ver-avisos" data-id="${r.id_recordatorio}" data-estado="por_verificar"><i class="material-icons">priority_high</i>${r.por_verificar} por verificar</button>`
+                            : "";
+                        return `<tr class="${pausado ? "rec-fila-pausada" : ""}">
+                            <td class="rec-celda-titulo">
+                                <strong>${escaparHTML(r.titulo)}</strong>${pausado ? ' <span class="rec-tag-pausado">Pausado</span>' : ""}
+                                ${r.descripcion ? `<div class="rec-desc">${escaparHTML(r.descripcion)}</div>` : ""}
+                            </td>
+                            <td><strong class="rec-repeticion-txt">${REPETICION[r.repeticion]}</strong><div class="rec-sub">${textoCuando(r)}</div></td>
+                            <td><div class="rec-horas">${chipsHoras(r.horas.split(","))}</div></td>
+                            <td>${proximo}</td>
+                            <td>${ultimo}${verificar}</td>
+                            <td class="celda-acciones">
+                                <button class="icon-btn btn-ver-avisos" data-id="${r.id_recordatorio}" title="Ver seguimiento"><i class="material-icons">fact_check</i></button>
+                                <button class="icon-btn text-primary btn-editar-recordatorio" data-id="${r.id_recordatorio}" title="Editar"><i class="material-icons">edit</i></button>
+                                <button class="icon-btn text-danger btn-eliminar-recordatorio" data-id="${r.id_recordatorio}" title="Eliminar"><i class="material-icons">delete</i></button>
+                            </td>
+                        </tr>`;
+                    }).join("");
+                }
+
+                tbody.addEventListener("click", async (e) => {
+                    const ver = e.target.closest(".btn-ver-avisos");
+                    if (ver) {
+                        document.getElementById("recFiltroRecordatorio").value = ver.dataset.id;
+                        document.getElementById("recFiltroEstado").value = ver.dataset.estado || "";
+                        document.getElementById("recFiltroDesde").value = "";
+                        mostrarPestana("seguimiento");
+                        return;
+                    }
+                    const editar = e.target.closest(".btn-editar-recordatorio");
+                    if (editar) abrir(recordatorios.find(r => String(r.id_recordatorio) === editar.dataset.id));
+                    const borrar = e.target.closest(".btn-eliminar-recordatorio");
+                    if (borrar) {
+                        const r = recordatorios.find(x => String(x.id_recordatorio) === borrar.dataset.id);
+                        if (!confirm(`¿Eliminar el recordatorio "${r.titulo}"?\n\nTambién se borra su historial de avisos. Si solo quiere que deje de aparecer, edítelo y póngalo en "Pausado".`)) return;
+                        try {
+                            const result = await (await fetch(`${API}?id=${r.id_recordatorio}`, { method: "DELETE" })).json();
+                            mostrarToast(result.message, result.status === "success" ? "success" : "error");
+                        } catch (err) {
+                            mostrarToast("Error de comunicación", "error");
+                        }
+                        consultar();
+                    }
+                });
+
+                // ---------- Seguimiento (avisos) ----------
+                function detalleAviso(a) {
+                    const quien = a.usuario_respuesta ? escaparHTML(a.usuario_respuesta) : "El personal";
+                    const hora = a.respondido_en ? ` a las ${soloHora(a.respondido_en)}` : "";
+                    switch (a.estado) {
+                        case "pendiente": return `Aparecerá el ${fechaHoraDMA(a.programado_para)}.`;
+                        case "no_mostrado": return MOTIVOS[a.motivo_no_mostrado] || "No se mostró.";
+                        case "mostrado": return a.respondido_en
+                            ? `Se mostró a las ${soloHora(a.mostrado_en)}. ${quien} lo cerró con la X${hora}.`
+                            : `<span class="rec-en-pantalla"><i class="material-icons">visibility</i>En pantalla desde las ${soloHora(a.mostrado_en)}, todavía sin respuesta.</span>`;
+                        case "aceptado": return `${quien} indicó que lo vio${hora}.`;
+                        case "confirmado": return `${quien} indicó que realizó lo indicado${hora}.`;
+                    }
+                    return "";
+                }
+
+                function celdaVerificacion(a) {
+                    if (a.estado === "confirmado") return `<span class="rec-sub">Confirmado por el personal</span>`;
+                    if ((a.estado !== "mostrado" && a.estado !== "aceptado") || !a.respondido_en) return `<span class="rec-sub">—</span>`;
+                    if (!a.verificacion) {
+                        return `<div class="rec-verificar">
+                            <button class="rec-btn-verif si btn-verificar" data-id="${a.id_aviso}" data-v="realizado"><i class="material-icons">check</i>Sí</button>
+                            <button class="rec-btn-verif no btn-verificar" data-id="${a.id_aviso}" data-v="no_realizado"><i class="material-icons">close</i>No</button>
+                        </div>`;
+                    }
+                    const ok = a.verificacion === "realizado";
+                    return `<span class="rec-verificado ${ok ? "si" : "no"}"><i class="material-icons">${ok ? "task_alt" : "highlight_off"}</i>${ok ? "Se realizó" : "No se realizó"}</span>
+                        <div class="rec-sub">${a.usuario_verifico ? escaparHTML(a.usuario_verifico) + " · " : ""}${fechaHoraDMA(a.verificado_en)}
+                        <button class="rec-link btn-verificar" data-id="${a.id_aviso}" data-v="">Cambiar</button></div>`;
+                }
+
+                async function consultarAvisos() {
+                    const desde = isoDesdeDMA(document.getElementById("recFiltroDesde").value);
+                    const hasta = isoDesdeDMA(document.getElementById("recFiltroHasta").value);
+                    if (desde === null || hasta === null) {
+                        mostrarToast("Revise las fechas del filtro (dd/mm/aaaa)", "warning");
+                        return;
+                    }
+                    const params = new URLSearchParams({
+                        vista: "avisos",
+                        id_recordatorio: document.getElementById("recFiltroRecordatorio").value,
+                        estado: document.getElementById("recFiltroEstado").value,
+                        desde, hasta
+                    });
+                    tbodyAvisos.innerHTML = `<tr><td colspan="5" class="text-center">Cargando...</td></tr>`;
+                    try {
+                        const result = await (await fetch(`${API}?${params}`)).json();
+                        if (result.status !== "success") throw new Error(result.message);
+                        tbodyAvisos.innerHTML = result.data.length ? result.data.map(a => `
+                            <tr class="rec-aviso est-fila-${a.estado}">
+                                <td><strong>${fechaDMA(a.programado_para)}</strong><div class="rec-hora-grande">${soloHora(a.programado_para)}</div></td>
+                                <td class="rec-celda-titulo"><strong>${escaparHTML(a.titulo)}</strong></td>
+                                <td>${chip(a.estado)}</td>
+                                <td class="rec-detalle">${detalleAviso(a)}</td>
+                                <td>${celdaVerificacion(a)}</td>
+                            </tr>`).join("")
+                            : `<tr><td colspan="5"><div class="empty-state"><i class="material-icons">event_available</i><p>No hay avisos con estos filtros.</p></div></td></tr>`;
+                    } catch (e) {
+                        tbodyAvisos.innerHTML = `<tr><td colspan="5" class="text-center">No se pudo cargar el seguimiento.</td></tr>`;
+                    }
+                }
+
+                document.getElementById("recBtnFiltrar").addEventListener("click", consultarAvisos);
+                ["recFiltroRecordatorio", "recFiltroEstado"].forEach(id => document.getElementById(id).addEventListener("change", consultarAvisos));
+
+                tbodyAvisos.addEventListener("click", async (e) => {
+                    const btn = e.target.closest(".btn-verificar");
+                    if (!btn) return;
+                    btn.disabled = true;
+                    try {
+                        const result = await (await fetch(API, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ accion: "verificar", id_aviso: btn.dataset.id, verificacion: btn.dataset.v || null })
+                        })).json();
+                        mostrarToast(result.message, result.status === "success" ? "success" : "error");
+                    } catch (err) {
+                        mostrarToast("Error de comunicación", "error");
+                    }
+                    consultarAvisos();
+                    consultar();
+                });
+
+                // ---------- Formulario ----------
+                const repeticionElegida = () => document.querySelector('input[name="recRepeticion"]:checked').value;
+
+                function pintarHoras() {
+                    document.getElementById("recHoras").innerHTML = horas.length
+                        ? horas.map(h => `<span class="rec-hora-chip editable">${h}<button type="button" data-hora="${h}" title="Quitar"><i class="material-icons">close</i></button></span>`).join("")
+                        : `<span class="rec-sub">Todavía no agregó horas.</span>`;
+                    actualizarResumen();
+                }
+
+                function agregarHora() {
+                    const h = normalizarHora(inputHora.value);
+                    if (!inputHora.value.trim()) return;
+                    if (!h) { mostrarToast("Hora no válida. Use el formato 24 horas, por ejemplo 20:30", "warning"); return; }
+                    if (!horas.includes(h)) horas.push(h);
+                    horas.sort();
+                    inputHora.value = "";
+                    pintarHoras();
+                }
+
+                function actualizarFormularioRepeticion() {
+                    const rep = repeticionElegida();
+                    document.getElementById("recFechaInicioLabel").textContent = rep === "una_vez" ? "Fecha" : rep === "rango" ? "Desde" : "Rige desde";
+                    document.getElementById("recGrupoFechaFin").hidden = rep !== "rango";
+                    document.getElementById("recFechaFin").required = rep === "rango";
+                    actualizarResumen();
+                }
+
+                function actualizarResumen() {
+                    const r = {
+                        repeticion: repeticionElegida(),
+                        fecha_inicio: isoDesdeDMA(document.getElementById("recFechaInicio").value) || "",
+                        fecha_fin: isoDesdeDMA(document.getElementById("recFechaFin").value) || ""
+                    };
+                    const resumen = document.getElementById("recResumen");
+                    if (!r.fecha_inicio || !horas.length || (r.repeticion === "rango" && !r.fecha_fin)) {
+                        resumen.innerHTML = "";
+                        return;
+                    }
+                    const listaHoras = horas.length === 1 ? `a las ${horas[0]}` : `a las ${horas.slice(0, -1).join(", ")} y ${horas[horas.length - 1]}`;
+                    resumen.innerHTML = `<i class="material-icons">info</i><span>Aparecerá ${textoCuando(r).toLowerCase()}, ${listaHoras}.</span>`;
+                }
+
+                document.getElementById("recBtnAgregarHora").addEventListener("click", agregarHora);
+                inputHora.addEventListener("change", agregarHora); // al elegir en el selector táctil o salir del campo
+                inputHora.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); agregarHora(); } });
+                document.getElementById("recHoras").addEventListener("click", (e) => {
+                    const quitar = e.target.closest("button[data-hora]");
+                    if (!quitar) return;
+                    horas = horas.filter(h => h !== quitar.dataset.hora);
+                    pintarHoras();
+                });
+                document.getElementById("recRepeticion").addEventListener("change", actualizarFormularioRepeticion);
+                ["recFechaInicio", "recFechaFin"].forEach(id => {
+                    document.getElementById(id).addEventListener("input", actualizarResumen);
+                    document.getElementById(id).addEventListener("change", actualizarResumen);
+                });
+
+                function abrir(r) {
+                    document.getElementById("formRecordatorio").reset();
+                    document.getElementById("modalRecordatorioTitulo").innerText = r ? "Editar Recordatorio" : "Nuevo Recordatorio";
+                    document.getElementById("recId").value = r ? r.id_recordatorio : "";
+                    document.getElementById("recTitulo").value = r ? r.titulo : "";
+                    document.getElementById("recDescripcion").value = r && r.descripcion ? r.descripcion : "";
+                    document.querySelector(`input[name="recRepeticion"][value="${r ? r.repeticion : "una_vez"}"]`).checked = true;
+                    document.getElementById("recFechaInicio").value = fechaDMA(r ? r.fecha_inicio : hoyISO());
+                    document.getElementById("recFechaFin").value = r && r.fecha_fin ? fechaDMA(r.fecha_fin) : "";
+                    document.getElementById("recActivo").value = r && String(r.activo) === "0" ? "0" : "1";
+                    horas = r ? r.horas.split(",") : [];
+                    inputHora.value = "";
+                    pintarHoras();
+                    actualizarFormularioRepeticion();
+                    document.getElementById("modalRecordatorio").classList.add("show");
+                    setTimeout(() => document.getElementById("recTitulo").focus(), 50);
+                }
+
+                document.getElementById("btnNuevoRecordatorio").addEventListener("click", () => abrir(null));
+
+                document.getElementById("formRecordatorio").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    agregarHora(); // si dejó una hora escrita sin pulsar "Agregar"
+                    const id = document.getElementById("recId").value;
+                    const rep = repeticionElegida();
+                    const fechaInicio = isoDesdeDMA(document.getElementById("recFechaInicio").value);
+                    const fechaFin = rep === "rango" ? isoDesdeDMA(document.getElementById("recFechaFin").value) : null;
+                    if (!fechaInicio) { mostrarToast("Indique una fecha válida (dd/mm/aaaa)", "warning"); return; }
+                    if (rep === "rango" && !fechaFin) { mostrarToast("Indique la fecha final del rango (dd/mm/aaaa)", "warning"); return; }
+                    if (!horas.length) { mostrarToast("Agregue al menos una hora", "warning"); inputHora.focus(); return; }
+                    const datos = {
+                        titulo: document.getElementById("recTitulo").value,
+                        descripcion: document.getElementById("recDescripcion").value,
+                        repeticion: rep,
+                        fecha_inicio: fechaInicio,
+                        fecha_fin: fechaFin,
+                        horas,
+                        activo: document.getElementById("recActivo").value === "1"
+                    };
+                    if (id) datos.id_recordatorio = id;
+                    const btn = document.querySelector('button[form="formRecordatorio"]');
+                    const html = setBtnLoading(btn, true);
+                    try {
+                        const response = await fetch(API, {
+                            method: id ? "PUT" : "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(datos)
+                        });
+                        const result = await response.json();
+                        if (response.ok && result.status === "success") {
+                            document.getElementById("modalRecordatorio").classList.remove("show");
+                            mostrarToast(result.message, "success");
+                            consultar();
+                        } else {
+                            mostrarToast(result.message || "Error al guardar", "error");
+                        }
+                    } catch (err) {
+                        mostrarToast("Error de comunicación", "error");
+                    } finally {
+                        setBtnLoading(btn, false, html);
+                    }
+                });
+
+                // Seguimiento: por defecto la última semana y lo que viene
+                const haceUnaSemana = new Date(); haceUnaSemana.setDate(haceUnaSemana.getDate() - 7);
+                document.getElementById("recFiltroDesde").value = fechaDMA(haceUnaSemana);
                 consultar();
             }
 

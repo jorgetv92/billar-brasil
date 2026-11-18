@@ -1,0 +1,163 @@
+<div class="view-header">
+    <div>
+        <h2>Recordatorios</h2>
+        <p class="view-subtitle">Avisos que le aparecen al personal en el portal de atención en la fecha y hora indicadas, mientras haya un turno abierto.</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn-primary" id="btnNuevoRecordatorio">
+            <i class="material-icons">add_alert</i> Nuevo Recordatorio
+        </button>
+    </div>
+</div>
+
+<div class="rec-pestanas" role="tablist">
+    <button class="rec-pestana activa" data-pestana="lista" role="tab">
+        <i class="material-icons">notifications</i> Recordatorios
+    </button>
+    <button class="rec-pestana" data-pestana="seguimiento" role="tab">
+        <i class="material-icons">fact_check</i> Seguimiento
+        <span class="rec-contador" id="recContadorVerificar" hidden></span>
+    </button>
+</div>
+
+<div class="rec-leyenda" aria-label="Estados de los avisos">
+    <span class="rec-estado est-pendiente">Pendiente</span><span class="rec-leyenda-txt">aún no llega su hora</span>
+    <span class="rec-estado est-no_mostrado">No mostrado</span><span class="rec-leyenda-txt">nadie lo vio</span>
+    <span class="rec-estado est-mostrado">Mostrado</span><span class="rec-leyenda-txt">lo cerraron con la X</span>
+    <span class="rec-estado est-aceptado">Aceptado</span><span class="rec-leyenda-txt">lo vieron</span>
+    <span class="rec-estado est-confirmado">Confirmado</span><span class="rec-leyenda-txt">dicen que lo realizaron</span>
+</div>
+
+<!-- Pestaña 1: lo configurado -->
+<section id="recPanelLista">
+    <div class="card table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Recordatorio</th>
+                    <th>Cuándo</th>
+                    <th>Horas</th>
+                    <th>Próximo aviso</th>
+                    <th>Último aviso</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaRecordatoriosBody">
+                <tr><td colspan="6" class="text-center">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Pestaña 2: cada aviso con su estado -->
+<section id="recPanelSeguimiento" hidden>
+    <div class="card rec-filtros">
+        <div class="input-group">
+            <label for="recFiltroRecordatorio">Recordatorio</label>
+            <select id="recFiltroRecordatorio"><option value="">Todos</option></select>
+        </div>
+        <div class="input-group">
+            <label for="recFiltroEstado">Estado</label>
+            <select id="recFiltroEstado">
+                <option value="">Todos</option>
+                <option value="por_verificar">Por verificar (dueño)</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="no_mostrado">No mostrado</option>
+                <option value="mostrado">Mostrado</option>
+                <option value="aceptado">Aceptado</option>
+                <option value="confirmado">Confirmado</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="recFiltroDesde">Desde</label>
+            <input type="text" id="recFiltroDesde" data-fecha-dma placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="input-group">
+            <label for="recFiltroHasta">Hasta</label>
+            <input type="text" id="recFiltroHasta" data-fecha-dma placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" autocomplete="off">
+        </div>
+        <button class="btn-secondary" id="recBtnFiltrar"><i class="material-icons">search</i> Filtrar</button>
+    </div>
+    <div class="card table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fecha y hora</th>
+                    <th>Recordatorio</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                    <th>¿Se realizó? (dueño)</th>
+                </tr>
+            </thead>
+            <tbody id="tablaAvisosBody">
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div id="modalRecordatorio" class="modal">
+    <div class="modal-content rec-modal">
+        <div class="modal-header">
+            <h3 id="modalRecordatorioTitulo">Nuevo Recordatorio</h3>
+            <button class="icon-btn btn-cerrar-modal"><i class="material-icons">close</i></button>
+        </div>
+        <div class="modal-body">
+            <form id="formRecordatorio" autocomplete="off">
+                <input type="hidden" id="recId">
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="recTitulo">Título</label>
+                        <input type="text" id="recTitulo" required maxlength="120" placeholder="Ej: Revisar el stock de hielo">
+                    </div>
+                    <div class="input-group full-width">
+                        <label for="recDescripcion">Descripción</label>
+                        <textarea id="recDescripcion" rows="3" placeholder="Qué debe hacer el personal, con el detalle necesario"></textarea>
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label>¿Cuándo aparece?</label>
+                        <div class="rec-repeticion" id="recRepeticion">
+                            <label><input type="radio" name="recRepeticion" value="una_vez" checked><span><i class="material-icons">event</i>Una sola vez</span></label>
+                            <label><input type="radio" name="recRepeticion" value="diario"><span><i class="material-icons">today</i>Diariamente</span></label>
+                            <label><input type="radio" name="recRepeticion" value="dias_semana"><span><i class="material-icons">work</i>Lunes a viernes</span></label>
+                            <label><input type="radio" name="recRepeticion" value="fin_semana"><span><i class="material-icons">weekend</i>Fin de semana</span></label>
+                            <label><input type="radio" name="recRepeticion" value="rango"><span><i class="material-icons">date_range</i>Rango de fechas</span></label>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="recFechaInicio" id="recFechaInicioLabel">Fecha</label>
+                        <input type="text" id="recFechaInicio" data-fecha-dma placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" required>
+                    </div>
+                    <div class="input-group" id="recGrupoFechaFin" hidden>
+                        <label for="recFechaFin">Hasta (incluido)</label>
+                        <input type="text" id="recFechaFin" data-fecha-dma placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric">
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label for="recHoraNueva">Horas del día</label>
+                        <div class="rec-horas-agregar">
+                            <input type="text" id="recHoraNueva" class="input-hora24" inputmode="numeric" maxlength="5" placeholder="HH:MM (24h)" title="Formato 24 horas HH:MM. Ej: 20:30">
+                            <button type="button" class="btn-secondary" id="recBtnAgregarHora"><i class="material-icons">add</i> Agregar hora</button>
+                        </div>
+                        <div class="rec-horas" id="recHoras"></div>
+                        <p class="rec-ayuda">El aviso aparece a cada una de estas horas. Si a esa hora no hay turno abierto o nadie tiene abierto el portal de atención en los <span class="rec-tolerancia">15</span> minutos siguientes, queda como «No mostrado».</p>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="recActivo">Estado</label>
+                        <select id="recActivo">
+                            <option value="1">Activo</option>
+                            <option value="0">Pausado</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="rec-resumen" id="recResumen"></p>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary btn-cerrar-modal">Cancelar</button>
+            <button type="submit" form="formRecordatorio" class="btn-primary">Guardar</button>
+        </div>
+    </div>
+</div>

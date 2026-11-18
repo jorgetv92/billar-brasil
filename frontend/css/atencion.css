@@ -376,3 +376,243 @@ body {
     pointer-events: none;
     opacity: 0.75;
 }
+
+/* ==========================================================================
+   RECORDATORIOS: modal que aparece a la hora configurada (js/recordatorios_atencion.js)
+   Va por encima de todo y no se cierra con un clic afuera.
+   ========================================================================== */
+:root {
+    --rec-alerta-ambar: #f59e0b;
+    --rec-alerta-naranja: #ea580c;
+    --rec-alerta-rojo: #dc2626;
+    --rec-alerta-verde: #059669;
+    --rec-alerta-verde-osc: #047857;
+}
+
+.rec-alerta {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background:
+        radial-gradient(circle at center, rgba(234, 88, 12, 0.35) 0%, rgba(15, 23, 42, 0.88) 65%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.rec-alerta[hidden] { display: none; }
+.rec-alerta.visible { opacity: 1; }
+
+.rec-alerta-caja {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 0 0 4px var(--rec-alerta-ambar), 0 30px 80px rgba(0, 0, 0, 0.55);
+    animation: recPulsoBorde 1.6s ease-in-out infinite;
+    transform: scale(0.85);
+    transition: transform 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.rec-alerta.visible .rec-alerta-caja { transform: scale(1); }
+.rec-alerta.sacudir .rec-alerta-caja { animation: recSacudir 0.6s ease 0.3s 2, recPulsoBorde 1.6s ease-in-out 1.5s infinite; }
+
+.rec-alerta-banda {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 18px 18px 22px;
+    background: linear-gradient(120deg, var(--rec-alerta-ambar) 0%, var(--rec-alerta-naranja) 55%, var(--rec-alerta-rojo) 100%);
+    color: #fff;
+}
+
+.rec-alerta-campana {
+    flex-shrink: 0;
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.22);
+    animation: recAnillo 1.6s ease-out infinite;
+}
+
+.rec-alerta-campana .material-icons {
+    font-size: 2.3rem;
+    transform-origin: 50% 10%;
+    animation: recCampana 1.6s ease-in-out infinite;
+}
+
+.rec-alerta-etiqueta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.rec-alerta-kicker {
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.rec-alerta-hora {
+    font-size: 1.05rem;
+    font-weight: 600;
+    opacity: 0.95;
+}
+
+.rec-alerta-x {
+    flex-shrink: 0;
+    align-self: flex-start;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rec-alerta-x:hover { background: rgba(255, 255, 255, 0.35); }
+
+.rec-alerta-cuerpo {
+    padding: 24px 26px 8px;
+    overflow-y: auto;
+}
+
+.rec-alerta-contador {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: var(--rec-alerta-naranja);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.rec-alerta-contador[hidden] { display: none; }
+
+.rec-alerta-cuerpo h2 {
+    font-size: 1.9rem;
+    line-height: 1.2;
+    color: #0f172a;
+    font-weight: 800;
+    word-break: break-word;
+}
+
+.rec-alerta-cuerpo p {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-left: 5px solid var(--rec-alerta-ambar);
+    border-radius: 0 10px 10px 0;
+    background: #fffbeb;
+    color: #334155;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.rec-alerta-cuerpo p[hidden] { display: none; }
+
+.rec-alerta-botones {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 12px;
+    padding: 20px 26px 26px;
+}
+
+.rec-alerta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 58px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s, filter 0.15s, background 0.15s;
+}
+
+.rec-alerta-btn:active { transform: scale(0.97); }
+.rec-alerta-btn:disabled { opacity: 0.6; cursor: wait; }
+.rec-alerta-btn:focus-visible { outline: 3px solid #1e293b; outline-offset: 2px; }
+
+.rec-alerta-btn.aceptar {
+    background: #fff;
+    color: #1e293b;
+    border: 2px solid #cbd5e1;
+}
+
+.rec-alerta-btn.aceptar:hover { background: #f1f5f9; }
+
+.rec-alerta-btn.realizado {
+    border: none;
+    color: #fff;
+    background: linear-gradient(180deg, var(--rec-alerta-verde) 0%, var(--rec-alerta-verde-osc) 100%);
+    box-shadow: 0 6px 16px -4px rgba(5, 150, 105, 0.6);
+}
+
+.rec-alerta-btn.realizado:hover { filter: brightness(1.08); }
+
+@keyframes recPulsoBorde {
+    0%, 100% { box-shadow: 0 0 0 4px var(--rec-alerta-ambar), 0 30px 80px rgba(0, 0, 0, 0.55); }
+    50%      { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0.45), 0 30px 80px rgba(0, 0, 0, 0.55); }
+}
+
+@keyframes recSacudir {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px) rotate(-1deg); }
+    40% { transform: translateX(10px) rotate(1deg); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+}
+
+@keyframes recCampana {
+    0%, 50%, 100% { transform: rotate(0); }
+    10% { transform: rotate(18deg); }
+    20% { transform: rotate(-16deg); }
+    30% { transform: rotate(12deg); }
+    40% { transform: rotate(-8deg); }
+}
+
+@keyframes recAnillo {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6); }
+    100% { box-shadow: 0 0 0 18px rgba(255, 255, 255, 0); }
+}
+
+@media (max-width: 520px) {
+    .rec-alerta { padding: 10px; align-items: flex-end; }
+    .rec-alerta-caja { border-radius: 18px; }
+    .rec-alerta-cuerpo h2 { font-size: 1.5rem; }
+    .rec-alerta-cuerpo { padding: 20px 18px 4px; }
+    .rec-alerta-botones { grid-template-columns: 1fr; padding: 16px 18px 20px; }
+    .rec-alerta-btn.realizado { order: -1; }
+    .rec-alerta-campana { width: 52px; height: 52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rec-alerta-caja,
+    .rec-alerta.sacudir .rec-alerta-caja,
+    .rec-alerta-campana,
+    .rec-alerta-campana .material-icons { animation: none; }
+}
